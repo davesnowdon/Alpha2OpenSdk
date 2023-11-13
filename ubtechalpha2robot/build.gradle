@@ -34,5 +34,6 @@ dependencies {
     implementation 'de.greenrobot:greendao:2.1.0'
     implementation 'org.apache.httpcomponents:httpclient:4.5.2'
     implementation 'com.nostra13.universalimageloader:universal-image-loader:1.9.5'
+    implementation 'org.glassfish.jersey.core:jersey-client:2.24.1'
     testImplementation 'junit:junit:4.12'
 }
