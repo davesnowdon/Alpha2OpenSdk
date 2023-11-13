@@ -1,82 +1,116 @@
+//
+// MessagePack for Java
+//
+// Copyright (C) 2009 - 2013 FURUHASHI Sadayuki
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//
 package org.msgpack.type;
 
-import java.io.IOException;
-import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.BigDecimal;
+import java.io.IOException;
 import org.msgpack.packer.Packer;
 
+@SuppressWarnings("serial")
 class DoubleValueImpl extends FloatValue {
-   private double value;
+    private double value;
 
-   DoubleValueImpl(double value) {
-      this.value = value;
-   }
+    DoubleValueImpl(double value) {
+        this.value = value;
+    }
 
-   public float getFloat() {
-      return (float)this.value;
-   }
+    @Override
+    public float getFloat() {
+        return (float) value;
+    }
 
-   public double getDouble() {
-      return this.value;
-   }
+    @Override
+    public double getDouble() {
+        return value;
+    }
 
-   public byte byteValue() {
-      return (byte)((int)this.value);
-   }
+    @Override
+    public byte byteValue() {
+        return (byte) value;
+    }
 
-   public short shortValue() {
-      return (short)((int)this.value);
-   }
+    @Override
+    public short shortValue() {
+        return (short) value;
+    }
 
-   public int intValue() {
-      return (int)this.value;
-   }
+    @Override
+    public int intValue() {
+        return (int) value;
+    }
 
-   public long longValue() {
-      return (long)this.value;
-   }
+    @Override
+    public long longValue() {
+        return (long) value;
+    }
 
-   public BigInteger bigIntegerValue() {
-      return (new BigDecimal(this.value)).toBigInteger();
-   }
+    @Override
+    public BigInteger bigIntegerValue() {
+        return new BigDecimal(value).toBigInteger();
+    }
 
-   public float floatValue() {
-      return (float)this.value;
-   }
+    @Override
+    public float floatValue() {
+        return (float) value;
+    }
 
-   public double doubleValue() {
-      return this.value;
-   }
+    @Override
+    public double doubleValue() {
+        return value;
+    }
 
-   public void writeTo(Packer pk) throws IOException {
-      pk.write(this.value);
-   }
+    @Override
+    public void writeTo(Packer pk) throws IOException {
+        pk.write(value);
+    }
 
-   public boolean equals(Object o) {
-      if (o == this) {
-         return true;
-      } else if (!(o instanceof Value)) {
-         return false;
-      } else {
-         Value v = (Value)o;
-         if (!v.isFloatValue()) {
+    @Override
+    public boolean equals(Object o) {
+        if (o == this) {
+            return true;
+        }
+        if (!(o instanceof Value)) {
             return false;
-         } else {
-            return this.value == v.asFloatValue().getDouble();
-         }
-      }
-   }
+        }
+        Value v = (Value) o;
+        if (!v.isFloatValue()) {
+            return false;
+        }
 
-   public int hashCode() {
-      long v = Double.doubleToLongBits(this.value);
-      return (int)(v ^ v >>> 32);
-   }
+        return value == v.asFloatValue().getDouble();
+    }
 
-   public String toString() {
-      return Double.toString(this.value);
-   }
+    // TODO compareTo
 
-   public StringBuilder toString(StringBuilder sb) {
-      return sb.append(Double.toString(this.value));
-   }
+    @Override
+    public int hashCode() {
+        long v = Double.doubleToLongBits(value);
+        return (int) (v ^ (v >>> 32));
+    }
+
+    @Override
+    public String toString() {
+        return Double.toString(value);
+    }
+
+    @Override
+    public StringBuilder toString(StringBuilder sb) {
+        return sb.append(Double.toString(value));
+    }
 }

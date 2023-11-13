@@ -1,3 +1,20 @@
+//
+// MessagePack for Java
+//
+// Copyright (C) 2009 - 2013 FURUHASHI Sadayuki
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//
 package org.msgpack.template.builder;
 
 import java.lang.annotation.Annotation;
@@ -8,6 +25,7 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
+
 import org.msgpack.annotation.Beans;
 import org.msgpack.annotation.Ignore;
 import org.msgpack.annotation.Index;
@@ -22,207 +40,254 @@ import org.msgpack.template.FieldList;
 import org.msgpack.template.FieldOption;
 import org.msgpack.template.Template;
 import org.msgpack.template.TemplateRegistry;
+import org.msgpack.template.builder.TemplateBuildException;
 
 public abstract class AbstractTemplateBuilder implements TemplateBuilder {
-   protected TemplateRegistry registry;
 
-   protected AbstractTemplateBuilder(TemplateRegistry registry) {
-      this.registry = registry;
-   }
+    protected TemplateRegistry registry;
 
-   public <T> Template<T> buildTemplate(Type targetType) throws TemplateBuildException {
-      Class<T> targetClass = (Class)targetType;
-      this.checkClassValidation(targetClass);
-      FieldOption fieldOption = this.getFieldOption(targetClass);
-      FieldEntry[] entries = this.toFieldEntries(targetClass, fieldOption);
-      return this.buildTemplate(targetClass, entries);
-   }
+    protected AbstractTemplateBuilder(TemplateRegistry registry) {
+        this.registry = registry;
+    }
 
-   public <T> Template<T> buildTemplate(Class<T> targetClass, FieldList fieldList) throws TemplateBuildException {
-      this.checkClassValidation(targetClass);
-      FieldEntry[] entries = this.toFieldEntries(targetClass, fieldList);
-      return this.buildTemplate(targetClass, entries);
-   }
+    @Override
+    public <T> Template<T> buildTemplate(final Type targetType)
+            throws TemplateBuildException {
+        @SuppressWarnings("unchecked")
+        Class<T> targetClass = (Class<T>) targetType;
+        checkClassValidation(targetClass);
+        FieldOption fieldOption = getFieldOption(targetClass);
+        FieldEntry[] entries = toFieldEntries(targetClass, fieldOption);
+        return buildTemplate(targetClass, entries);
+    }
 
-   protected abstract <T> Template<T> buildTemplate(Class<T> var1, FieldEntry[] var2);
+    @Override
+    public <T> Template<T> buildTemplate(final Class<T> targetClass, final FieldList fieldList)
+            throws TemplateBuildException {
+        checkClassValidation(targetClass);
+        FieldEntry[] entries = toFieldEntries(targetClass, fieldList);
+        return buildTemplate(targetClass, entries);
+    }
 
-   protected void checkClassValidation(Class<?> targetClass) {
-      if (Modifier.isAbstract(targetClass.getModifiers())) {
-         throw new TemplateBuildException("Cannot build template for abstract class: " + targetClass.getName());
-      } else if (targetClass.isInterface()) {
-         throw new TemplateBuildException("Cannot build template for interface: " + targetClass.getName());
-      } else if (targetClass.isArray()) {
-         throw new TemplateBuildException("Cannot build template for array class: " + targetClass.getName());
-      } else if (targetClass.isPrimitive()) {
-         throw new TemplateBuildException("Cannot build template of primitive type: " + targetClass.getName());
-      }
-   }
+    protected abstract <T> Template<T> buildTemplate(Class<T> targetClass, FieldEntry[] entries);
 
-   protected FieldOption getFieldOption(Class<?> targetClass) {
-      Message m = (Message)targetClass.getAnnotation(Message.class);
-      if (m == null) {
-         return FieldOption.DEFAULT;
-      } else {
-         MessagePackMessage mpm = (MessagePackMessage)targetClass.getAnnotation(MessagePackMessage.class);
-         return mpm == null ? FieldOption.DEFAULT : m.value();
-      }
-   }
+    protected void checkClassValidation(final Class<?> targetClass) {
+        if (Modifier.isAbstract(targetClass.getModifiers())) {
+            throw new TemplateBuildException(
+                    "Cannot build template for abstract class: " + targetClass.getName());
+        }
+        if (targetClass.isInterface()) {
+            throw new TemplateBuildException(
+                    "Cannot build template for interface: " + targetClass.getName());
+        }
+        if (targetClass.isArray()) {
+            throw new TemplateBuildException(
+                    "Cannot build template for array class: " + targetClass.getName());
+        }
+        if (targetClass.isPrimitive()) {
+            throw new TemplateBuildException(
+                    "Cannot build template of primitive type: " + targetClass.getName());
+        }
+    }
 
-   private FieldEntry[] toFieldEntries(Class<?> targetClass, FieldList flist) {
-      List<FieldList.Entry> src = flist.getList();
-      FieldEntry[] entries = new FieldEntry[src.size()];
+    protected FieldOption getFieldOption(Class<?> targetClass) {
+        Message m = targetClass.getAnnotation(Message.class);
+        if (m == null) {
+            return FieldOption.DEFAULT;
+        }
+        MessagePackMessage mpm = targetClass
+                .getAnnotation(MessagePackMessage.class);
+        if (mpm == null) {
+            return FieldOption.DEFAULT;
+        }
+        // TODO #MN
+        return m.value();
+    }
 
-      for(int i = 0; i < src.size(); ++i) {
-         FieldList.Entry s = (FieldList.Entry)src.get(i);
-         if (s.isAvailable()) {
-            try {
-               entries[i] = new DefaultFieldEntry(targetClass.getDeclaredField(s.getName()), s.getOption());
-            } catch (SecurityException var8) {
-               throw new TemplateBuildException(var8);
-            } catch (NoSuchFieldException var9) {
-               throw new TemplateBuildException(var9);
+    private FieldEntry[] toFieldEntries(final Class<?> targetClass, final FieldList flist) {
+        List<FieldList.Entry> src = flist.getList();
+        FieldEntry[] entries = new FieldEntry[src.size()];
+        for (int i = 0; i < src.size(); i++) {
+            FieldList.Entry s = src.get(i);
+            if (s.isAvailable()) {
+                try {
+                    entries[i] = new DefaultFieldEntry(targetClass.getDeclaredField(s.getName()), s.getOption());
+                } catch (SecurityException e) {
+                    throw new TemplateBuildException(e);
+                } catch (NoSuchFieldException e) {
+                    throw new TemplateBuildException(e);
+                }
+            } else {
+                entries[i] = new DefaultFieldEntry();
             }
-         } else {
-            entries[i] = new DefaultFieldEntry();
-         }
-      }
+        }
+        return entries;
+    }
 
-      return entries;
-   }
+    protected FieldEntry[] toFieldEntries(final Class<?> targetClass, final FieldOption from) {
+        Field[] fields = getFields(targetClass);
 
-   protected FieldEntry[] toFieldEntries(Class<?> targetClass, FieldOption from) {
-      Field[] fields = this.getFields(targetClass);
-      List<FieldEntry> indexed = new ArrayList();
-      int maxIndex = -1;
-      Field[] arr$ = fields;
-      int i = fields.length;
+        /*
+         * index:
+         * 
+         * @Index(0)
+         * int field_a; // 0
+         * int field_b; // 1
+         * @Index(3)
+         * int field_c; // 3
+         * int field_d; // 4
+         * @Index(2)
+         * int field_e; // 2
+         * int field_f; // 5
+         */
+        List<FieldEntry> indexed = new ArrayList<FieldEntry>();
+        int maxIndex = -1;
+        for (Field f : fields) {
+            FieldOption opt = getFieldOption(f, from);
+            if (opt == FieldOption.IGNORE) {
+                // skip
+                continue;
+            }
 
-      for(int i$ = 0; i$ < i; ++i$) {
-         Field f = arr$[i$];
-         FieldOption opt = this.getFieldOption(f, from);
-         if (opt != FieldOption.IGNORE) {
-            int index = this.getFieldIndex(f, maxIndex);
+            int index = getFieldIndex(f, maxIndex);
             if (indexed.size() > index && indexed.get(index) != null) {
-               throw new TemplateBuildException("duplicated index: " + index);
+                throw new TemplateBuildException("duplicated index: " + index);
             }
-
             if (index < 0) {
-               throw new TemplateBuildException("invalid index: " + index);
+                throw new TemplateBuildException("invalid index: " + index);
             }
 
-            while(indexed.size() <= index) {
-               indexed.add((Object)null);
+            while (indexed.size() <= index) {
+                indexed.add(null);
             }
-
             indexed.set(index, new DefaultFieldEntry(f, opt));
+
             if (maxIndex < index) {
-               maxIndex = index;
+                maxIndex = index;
             }
-         }
-      }
+        }
 
-      FieldEntry[] entries = new FieldEntry[maxIndex + 1];
+        FieldEntry[] entries = new FieldEntry[maxIndex + 1];
+        for (int i = 0; i < indexed.size(); i++) {
+            FieldEntry e = indexed.get(i);
+            if (e == null) {
+                entries[i] = new DefaultFieldEntry();
+            } else {
+                entries[i] = e;
+            }
+        }
+        return entries;
+    }
 
-      for(i = 0; i < indexed.size(); ++i) {
-         FieldEntry e = (FieldEntry)indexed.get(i);
-         if (e == null) {
-            entries[i] = new DefaultFieldEntry();
-         } else {
-            entries[i] = e;
-         }
-      }
+    private Field[] getFields(Class<?> targetClass) {
+        // order: [fields of super class, ..., fields of this class]
+        List<Field[]> succ = new ArrayList<Field[]>();
+        int total = 0;
+        for (Class<?> c = targetClass; c != Object.class; c = c.getSuperclass()) {
+            Field[] fields = c.getDeclaredFields();
+            total += fields.length;
+            succ.add(fields);
+        }
+        Field[] result = new Field[total];
+        int off = 0;
+        for (int i = succ.size() - 1; i >= 0; i--) {
+            Field[] fields = succ.get(i);
+            System.arraycopy(fields, 0, result, off, fields.length);
+            off += fields.length;
+        }
+        return result;
+    }
 
-      return entries;
-   }
-
-   private Field[] getFields(Class<?> targetClass) {
-      List<Field[]> succ = new ArrayList();
-      int total = 0;
-
-      for(Class c = targetClass; c != Object.class; c = c.getSuperclass()) {
-         Field[] fields = c.getDeclaredFields();
-         total += fields.length;
-         succ.add(fields);
-      }
-
-      Field[] result = new Field[total];
-      int off = 0;
-
-      for(int i = succ.size() - 1; i >= 0; --i) {
-         Field[] fields = (Field[])succ.get(i);
-         System.arraycopy(fields, 0, result, off, fields.length);
-         off += fields.length;
-      }
-
-      return result;
-   }
-
-   private FieldOption getFieldOption(Field field, FieldOption from) {
-      int mod = field.getModifiers();
-      if (!Modifier.isStatic(mod) && !Modifier.isFinal(mod) && !Modifier.isTransient(mod)) {
-         if (isAnnotated((AccessibleObject)field, Ignore.class)) {
+    private FieldOption getFieldOption(Field field, FieldOption from) {
+        int mod = field.getModifiers();
+        // default mode:
+        // transient, static, final : Ignore
+        // primitive type : NotNullable
+        // reference type : Ignore
+        if (Modifier.isStatic(mod) || Modifier.isFinal(mod)
+                || Modifier.isTransient(mod)) {
             return FieldOption.IGNORE;
-         } else if (isAnnotated((AccessibleObject)field, Optional.class)) {
+        }
+
+        if (isAnnotated(field, Ignore.class)) {
+            return FieldOption.IGNORE;
+        } else if (isAnnotated(field, Optional.class)) {
             return FieldOption.OPTIONAL;
-         } else if (isAnnotated((AccessibleObject)field, NotNullable.class)) {
+        } else if (isAnnotated(field, NotNullable.class)) {
             return FieldOption.NOTNULLABLE;
-         } else if (from != FieldOption.DEFAULT) {
+        }
+
+        if (from != FieldOption.DEFAULT) {
             return from;
-         } else {
-            return field.getType().isPrimitive() ? FieldOption.NOTNULLABLE : FieldOption.OPTIONAL;
-         }
-      } else {
-         return FieldOption.IGNORE;
-      }
-   }
+        }
 
-   private int getFieldIndex(Field field, int maxIndex) {
-      Index a = (Index)field.getAnnotation(Index.class);
-      return a == null ? maxIndex + 1 : a.value();
-   }
+        if (field.getType().isPrimitive()) {
+            return FieldOption.NOTNULLABLE;
+        } else {
+            return FieldOption.OPTIONAL;
+        }
+    }
 
-   public void writeTemplate(Type targetType, String directoryName) {
-      throw new UnsupportedOperationException(targetType.toString());
-   }
+    private int getFieldIndex(final Field field, int maxIndex) {
+        Index a = field.getAnnotation(Index.class);
+        if (a == null) {
+            return maxIndex + 1;
+        } else {
+            return a.value();
+        }
+    }
 
-   public <T> Template<T> loadTemplate(Type targetType) {
-      return null;
-   }
+    @Override
+    public void writeTemplate(Type targetType, String directoryName) {
+        throw new UnsupportedOperationException(targetType.toString());
+    }
 
-   public static boolean isAnnotated(Class<?> targetClass, Class<? extends Annotation> with) {
-      return targetClass.getAnnotation(with) != null;
-   }
+    @Override
+    public <T> Template<T> loadTemplate(Type targetType) {
+        return null;
+    }
 
-   public static boolean isAnnotated(AccessibleObject accessibleObject, Class<? extends Annotation> with) {
-      return accessibleObject.getAnnotation(with) != null;
-   }
+    public static boolean isAnnotated(Class<?> targetClass,
+            Class<? extends Annotation> with) {
+        return targetClass.getAnnotation(with) != null;
+    }
 
-   public static boolean matchAtClassTemplateBuilder(Class<?> targetClass, boolean hasAnnotation) {
-      if (hasAnnotation) {
-         return isAnnotated(targetClass, Message.class) || isAnnotated(targetClass, MessagePackMessage.class);
-      } else {
-         return !targetClass.isEnum() && !targetClass.isInterface();
-      }
-   }
+    public static boolean isAnnotated(AccessibleObject accessibleObject, Class<? extends Annotation> with) {
+        return accessibleObject.getAnnotation(with) != null;
+    }
 
-   public static boolean matchAtBeansClassTemplateBuilder(Type targetType, boolean hasAnnotation) {
-      Class<?> targetClass = (Class)targetType;
-      if (hasAnnotation) {
-         return isAnnotated((Class)targetType, Beans.class) || isAnnotated((Class)targetType, MessagePackBeans.class);
-      } else {
-         return !targetClass.isEnum() || !targetClass.isInterface();
-      }
-   }
+    public static boolean matchAtClassTemplateBuilder(Class<?> targetClass, boolean hasAnnotation) {
+        if (hasAnnotation) {
+            return AbstractTemplateBuilder.isAnnotated(targetClass, Message.class)
+                    || AbstractTemplateBuilder.isAnnotated(targetClass, MessagePackMessage.class);
+        } else {
+            return !targetClass.isEnum() && !targetClass.isInterface();
+        }
+    }
 
-   public static boolean matchAtArrayTemplateBuilder(Class<?> targetClass, boolean hasAnnotation) {
-      return targetClass instanceof GenericArrayType ? true : targetClass.isArray();
-   }
+    public static boolean matchAtBeansClassTemplateBuilder(Type targetType, boolean hasAnnotation) {
+        Class<?> targetClass = (Class<?>) targetType;
+        if (hasAnnotation) {
+            return AbstractTemplateBuilder.isAnnotated((Class<?>) targetType, Beans.class)
+                    || AbstractTemplateBuilder.isAnnotated((Class<?>) targetType, MessagePackBeans.class);
+        } else {
+            return !targetClass.isEnum() || !targetClass.isInterface();
+        }
+    }
 
-   public static boolean matchAtOrdinalEnumTemplateBuilder(Class<?> targetClass, boolean hasAnnotation) {
-      if (!hasAnnotation) {
-         return targetClass.isEnum();
-      } else {
-         return isAnnotated(targetClass, OrdinalEnum.class) || isAnnotated(targetClass, MessagePackOrdinalEnum.class);
-      }
-   }
+    public static boolean matchAtArrayTemplateBuilder(Class<?> targetClass, boolean hasAnnotation) {
+        if (((Type) targetClass) instanceof GenericArrayType) {
+            return true;
+        }
+        return targetClass.isArray();
+    }
+
+    public static boolean matchAtOrdinalEnumTemplateBuilder(Class<?> targetClass, boolean hasAnnotation) {
+        if (hasAnnotation) {
+            return AbstractTemplateBuilder.isAnnotated(targetClass, OrdinalEnum.class)
+                    || AbstractTemplateBuilder.isAnnotated(targetClass, MessagePackOrdinalEnum.class);
+        } else {
+            return targetClass.isEnum();
+        }
+    }
 }

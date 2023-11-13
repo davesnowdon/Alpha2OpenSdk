@@ -1,75 +1,99 @@
+//
+// MessagePack for Java
+//
+// Copyright (C) 2009 - 2013 FURUHASHI Sadayuki
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//
 package org.msgpack.unpacker;
 
-import java.io.Closeable;
 import java.io.IOException;
-import java.math.BigInteger;
+import java.io.Closeable;
 import java.nio.ByteBuffer;
+import java.math.BigInteger;
+import java.lang.Iterable;
+
 import org.msgpack.template.Template;
 import org.msgpack.type.Value;
 import org.msgpack.type.ValueType;
 
+/**
+ * Standard deserializer.
+ * 
+ * @version 0.6.0
+ */
 public interface Unpacker extends Iterable<Value>, Closeable {
-   <T> T read(Class<T> var1) throws IOException;
+    public <T> T read(Class<T> klass) throws IOException;
 
-   <T> T read(T var1) throws IOException;
+    public <T> T read(T to) throws IOException;
 
-   <T> T read(Template<T> var1) throws IOException;
+    public <T> T read(Template<T> tmpl) throws IOException;
 
-   <T> T read(T var1, Template<T> var2) throws IOException;
+    public <T> T read(T to, Template<T> tmpl) throws IOException;
 
-   void skip() throws IOException;
+    public void skip() throws IOException;
 
-   int readArrayBegin() throws IOException;
+    public int readArrayBegin() throws IOException;
 
-   void readArrayEnd(boolean var1) throws IOException;
+    public void readArrayEnd(boolean check) throws IOException;
 
-   void readArrayEnd() throws IOException;
+    public void readArrayEnd() throws IOException;
 
-   int readMapBegin() throws IOException;
+    public int readMapBegin() throws IOException;
 
-   void readMapEnd(boolean var1) throws IOException;
+    public void readMapEnd(boolean check) throws IOException;
 
-   void readMapEnd() throws IOException;
+    public void readMapEnd() throws IOException;
 
-   void readNil() throws IOException;
+    public void readNil() throws IOException;
 
-   boolean trySkipNil() throws IOException;
+    public boolean trySkipNil() throws IOException;
 
-   boolean readBoolean() throws IOException;
+    public boolean readBoolean() throws IOException;
 
-   byte readByte() throws IOException;
+    public byte readByte() throws IOException;
 
-   short readShort() throws IOException;
+    public short readShort() throws IOException;
 
-   int readInt() throws IOException;
+    public int readInt() throws IOException;
 
-   long readLong() throws IOException;
+    public long readLong() throws IOException;
 
-   BigInteger readBigInteger() throws IOException;
+    public BigInteger readBigInteger() throws IOException;
 
-   float readFloat() throws IOException;
+    public float readFloat() throws IOException;
 
-   double readDouble() throws IOException;
+    public double readDouble() throws IOException;
 
-   byte[] readByteArray() throws IOException;
+    public byte[] readByteArray() throws IOException;
 
-   ByteBuffer readByteBuffer() throws IOException;
+    public ByteBuffer readByteBuffer() throws IOException;
 
-   String readString() throws IOException;
+    public String readString() throws IOException;
 
-   Value readValue() throws IOException;
+    public Value readValue() throws IOException;
 
-   ValueType getNextType() throws IOException;
+    public ValueType getNextType() throws IOException;
 
-   UnpackerIterator iterator();
+    public UnpackerIterator iterator();
 
-   int getReadByteCount();
+    public int getReadByteCount();
 
-   void resetReadByteCount();
+    public void resetReadByteCount();
 
-   void setRawSizeLimit(int var1);
+    public void setRawSizeLimit(int size);
 
-   void setArraySizeLimit(int var1);
+    public void setArraySizeLimit(int size);
 
-   void setMapSizeLimit(int var1);
+    public void setMapSizeLimit(int size);
 }

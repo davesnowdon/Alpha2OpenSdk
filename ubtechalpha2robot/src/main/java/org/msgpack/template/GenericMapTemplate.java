@@ -1,35 +1,57 @@
+//
+// MessagePack for Java
+//
+// Copyright (C) 2009 - 2013 FURUHASHI Sadayuki
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//
 package org.msgpack.template;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 
 public class GenericMapTemplate implements GenericTemplate {
-   Constructor<? extends Template> constructor;
+    @SuppressWarnings("rawtypes")
+    Constructor<? extends Template> constructor;
 
-   public GenericMapTemplate(TemplateRegistry registry, Class<? extends Template> tmpl) {
-      try {
-         this.constructor = tmpl.getConstructor(Template.class, Template.class);
-         this.constructor.newInstance(new AnyTemplate(registry), new AnyTemplate(registry));
-      } catch (NoSuchMethodException var4) {
-         throw new IllegalArgumentException(var4);
-      } catch (InvocationTargetException var5) {
-         throw new IllegalArgumentException(var5);
-      } catch (IllegalAccessException var6) {
-         throw new IllegalArgumentException(var6);
-      } catch (InstantiationException var7) {
-         throw new IllegalArgumentException(var7);
-      }
-   }
+    @SuppressWarnings("rawtypes")
+    public GenericMapTemplate(TemplateRegistry registry, Class<? extends Template> tmpl) {
+        try {
+            constructor = tmpl.getConstructor(new Class<?>[] { Template.class, Template.class });
+            constructor.newInstance(new Object[] { new AnyTemplate(registry), new AnyTemplate(registry) });
+            // AnyTemplate.getInstance(registry),
+            // AnyTemplate.getInstance(registry)});
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException(e);
+        } catch (InvocationTargetException e) {
+            throw new IllegalArgumentException(e);
+        } catch (IllegalAccessException e) {
+            throw new IllegalArgumentException(e);
+        } catch (InstantiationException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
 
-   public Template build(Template[] params) {
-      try {
-         return (Template)this.constructor.newInstance((Object[])params);
-      } catch (InvocationTargetException var3) {
-         throw new IllegalArgumentException(var3);
-      } catch (IllegalAccessException var4) {
-         throw new IllegalArgumentException(var4);
-      } catch (InstantiationException var5) {
-         throw new IllegalArgumentException(var5);
-      }
-   }
+    @SuppressWarnings("rawtypes")
+    public Template build(Template[] params) {
+        try {
+            return constructor.newInstance((Object[]) params);
+        } catch (InvocationTargetException e) {
+            throw new IllegalArgumentException(e);
+        } catch (IllegalAccessException e) {
+            throw new IllegalArgumentException(e);
+        } catch (InstantiationException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
 }

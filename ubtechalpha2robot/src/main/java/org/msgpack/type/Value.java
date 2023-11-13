@@ -1,40 +1,58 @@
+//
+// MessagePack for Java
+//
+// Copyright (C) 2009 - 2013 FURUHASHI Sadayuki
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//
 package org.msgpack.type;
 
 import java.io.IOException;
 import org.msgpack.packer.Packer;
+import org.msgpack.type.ValueType;
 
 public interface Value {
-   ValueType getType();
+    public ValueType getType();
 
-   boolean isNilValue();
+    public boolean isNilValue();
 
-   boolean isBooleanValue();
+    public boolean isBooleanValue();
 
-   boolean isIntegerValue();
+    public boolean isIntegerValue();
 
-   boolean isFloatValue();
+    public boolean isFloatValue();
 
-   boolean isArrayValue();
+    public boolean isArrayValue();
 
-   boolean isMapValue();
+    public boolean isMapValue();
 
-   boolean isRawValue();
+    public boolean isRawValue();
 
-   NilValue asNilValue();
+    public NilValue asNilValue();
 
-   BooleanValue asBooleanValue();
+    public BooleanValue asBooleanValue();
 
-   IntegerValue asIntegerValue();
+    public IntegerValue asIntegerValue();
 
-   FloatValue asFloatValue();
+    public FloatValue asFloatValue();
 
-   ArrayValue asArrayValue();
+    public ArrayValue asArrayValue();
 
-   MapValue asMapValue();
+    public MapValue asMapValue();
 
-   RawValue asRawValue();
+    public RawValue asRawValue();
 
-   void writeTo(Packer var1) throws IOException;
+    public void writeTo(Packer pk) throws IOException;
 
-   StringBuilder toString(StringBuilder var1);
+    public StringBuilder toString(StringBuilder sb);
 }

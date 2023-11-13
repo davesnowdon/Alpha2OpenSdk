@@ -1,141 +1,189 @@
+//
+// MessagePack for Java
+//
+// Copyright (C) 2009 - 2013 FURUHASHI Sadayuki
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//
 package org.msgpack.template.builder;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+
+import org.msgpack.*;
+import org.msgpack.template.*;
+
 import javassist.CannotCompileException;
 import javassist.CtClass;
 import javassist.CtConstructor;
 import javassist.CtNewConstructor;
 import javassist.NotFoundException;
-import org.msgpack.MessageTypeException;
-import org.msgpack.template.Template;
 
+@SuppressWarnings("rawtypes")
 public class BeansBuildContext extends BuildContext<BeansFieldEntry> {
-   protected BeansFieldEntry[] entries;
-   protected Class<?> origClass;
-   protected String origName;
-   protected Template<?>[] templates;
+    protected BeansFieldEntry[] entries;
 
-   public BeansBuildContext(JavassistTemplateBuilder director) {
-      super(director);
-   }
+    protected Class<?> origClass;
 
-   public Template buildTemplate(Class<?> targetClass, BeansFieldEntry[] entries, Template[] templates) {
-      this.entries = entries;
-      this.templates = templates;
-      this.origClass = targetClass;
-      this.origName = this.origClass.getName();
-      return this.build(this.origName);
-   }
+    protected String origName;
 
-   protected void setSuperClass() throws CannotCompileException, NotFoundException {
-      this.tmplCtClass.setSuperclass(this.director.getCtClass(JavassistTemplateBuilder.JavassistTemplate.class.getName()));
-   }
+    protected Template<?>[] templates;
 
-   protected void buildConstructor() throws CannotCompileException, NotFoundException {
-      CtConstructor newCtCons = CtNewConstructor.make(new CtClass[]{this.director.getCtClass(Class.class.getName()), this.director.getCtClass(Template.class.getName() + "[]")}, new CtClass[0], this.tmplCtClass);
-      this.tmplCtClass.addConstructor(newCtCons);
-   }
+    public BeansBuildContext(JavassistTemplateBuilder director) {
+        super(director);
+    }
 
-   protected Template buildInstance(Class<?> c) throws NoSuchMethodException, InstantiationException, IllegalAccessException, InvocationTargetException {
-      Constructor<?> cons = c.getConstructor(Class.class, Template[].class);
-      Object tmpl = cons.newInstance(this.origClass, this.templates);
-      return (Template)tmpl;
-   }
+    public Template buildTemplate(Class<?> targetClass,
+            BeansFieldEntry[] entries, Template[] templates) {
+        this.entries = entries;
+        this.templates = templates;
+        this.origClass = targetClass;
+        this.origName = origClass.getName();
+        return build(origName);
+    }
 
-   protected void buildMethodInit() {
-   }
+    protected void setSuperClass() throws CannotCompileException, NotFoundException {
+        tmplCtClass.setSuperclass(director.getCtClass(
+                JavassistTemplateBuilder.JavassistTemplate.class.getName()));
+    }
 
-   protected String buildWriteMethodBody() {
-      this.resetStringBuilder();
-      this.buildString("{");
-      this.buildString("if($2 == null) {");
-      this.buildString("  if($3) {");
-      this.buildString("    throw new %s(\"Attempted to write null\");", new Object[]{MessageTypeException.class.getName()});
-      this.buildString("  }");
-      this.buildString("  $1.writeNil();");
-      this.buildString("  return;");
-      this.buildString("}");
-      this.buildString("%s _$$_t = (%s)$2;", new Object[]{this.origName, this.origName});
-      this.buildString("$1.writeArrayBegin(%d);", new Object[]{this.entries.length});
+    protected void buildConstructor() throws CannotCompileException,
+            NotFoundException {
+        // Constructor(Class targetClass, Template[] templates)
+        CtConstructor newCtCons = CtNewConstructor.make(
+                new CtClass[] {
+                        director.getCtClass(Class.class.getName()),
+                        director.getCtClass(Template.class.getName() + "[]")
+                }, new CtClass[0], tmplCtClass);
+        tmplCtClass.addConstructor(newCtCons);
+    }
 
-      for(int i = 0; i < this.entries.length; ++i) {
-         BeansFieldEntry e = this.entries[i];
-         if (!e.isAvailable()) {
-            this.buildString("$1.writeNil();");
-         } else {
+    protected Template buildInstance(Class<?> c) throws NoSuchMethodException,
+            InstantiationException, IllegalAccessException, InvocationTargetException {
+        Constructor<?> cons = c.getConstructor(new Class[] { Class.class, Template[].class });
+        Object tmpl = cons.newInstance(new Object[] { origClass, templates });
+        return (Template) tmpl;
+    }
+
+    protected void buildMethodInit() {
+    }
+
+    @Override
+    protected String buildWriteMethodBody() {
+        resetStringBuilder();
+        buildString("{");
+
+        buildString("if($2 == null) {");
+        buildString("  if($3) {");
+        buildString("    throw new %s(\"Attempted to write null\");", MessageTypeException.class.getName());
+        buildString("  }");
+        buildString("  $1.writeNil();");
+        buildString("  return;");
+        buildString("}");
+
+        buildString("%s _$$_t = (%s)$2;", origName, origName);
+        buildString("$1.writeArrayBegin(%d);", entries.length);
+
+        for (int i = 0; i < entries.length; i++) {
+            BeansFieldEntry e = entries[i];
+            if (!e.isAvailable()) {
+                buildString("$1.writeNil();");
+                continue;
+            }
             Class<?> type = e.getType();
             if (type.isPrimitive()) {
-               this.buildString("$1.%s(_$$_t.%s());", new Object[]{this.primitiveWriteName(type), e.getGetterName()});
+                buildString("$1.%s(_$$_t.%s());", primitiveWriteName(type), e.getGetterName());
             } else {
-               this.buildString("if(_$$_t.%s() == null) {", new Object[]{e.getGetterName()});
-               if (e.isNotNullable()) {
-                  this.buildString("throw new %s();", new Object[]{MessageTypeException.class.getName()});
-               } else {
-                  this.buildString("$1.writeNil();");
-               }
-
-               this.buildString("} else {");
-               this.buildString("  this.templates[%d].write($1, _$$_t.%s());", new Object[]{i, e.getGetterName()});
-               this.buildString("}");
+                buildString("if(_$$_t.%s() == null) {", e.getGetterName());
+                if (e.isNotNullable()) {
+                    buildString("throw new %s();", MessageTypeException.class.getName());
+                } else {
+                    buildString("$1.writeNil();");
+                }
+                buildString("} else {");
+                buildString("  this.templates[%d].write($1, _$$_t.%s());", i, e.getGetterName());
+                buildString("}");
             }
-         }
-      }
+        }
 
-      this.buildString("$1.writeArrayEnd();");
-      this.buildString("}");
-      return this.getBuiltString();
-   }
+        buildString("$1.writeArrayEnd();");
+        buildString("}");
+        return getBuiltString();
+    }
 
-   protected String buildReadMethodBody() {
-      this.resetStringBuilder();
-      this.buildString("{ ");
-      this.buildString("if(!$3 && $1.trySkipNil()) {");
-      this.buildString("  return null;");
-      this.buildString("}");
-      this.buildString("%s _$$_t;", new Object[]{this.origName});
-      this.buildString("if($2 == null) {");
-      this.buildString("  _$$_t = new %s();", new Object[]{this.origName});
-      this.buildString("} else {");
-      this.buildString("  _$$_t = (%s)$2;", new Object[]{this.origName});
-      this.buildString("}");
-      this.buildString("$1.readArrayBegin();");
+    @Override
+    protected String buildReadMethodBody() {
+        resetStringBuilder();
+        buildString("{ ");
 
-      for(int i = 0; i < this.entries.length; ++i) {
-         BeansFieldEntry e = this.entries[i];
-         if (!e.isAvailable()) {
-            this.buildString("$1.skip();");
-         } else {
+        buildString("if(!$3 && $1.trySkipNil()) {");
+        buildString("  return null;");
+        buildString("}");
+
+        buildString("%s _$$_t;", origName);
+        buildString("if($2 == null) {");
+        buildString("  _$$_t = new %s();", origName);
+        buildString("} else {");
+        buildString("  _$$_t = (%s)$2;", origName);
+        buildString("}");
+
+        buildString("$1.readArrayBegin();");
+
+        for (int i = 0; i < entries.length; i++) {
+            BeansFieldEntry e = entries[i];
+
+            if (!e.isAvailable()) {
+                buildString("$1.skip();"); // TODO #MN
+                continue;
+            }
+
             if (e.isOptional()) {
-               this.buildString("if($1.trySkipNil()) {");
-               this.buildString("_$$_t.%s(null);", new Object[]{e.getSetterName()});
-               this.buildString("} else {");
+                buildString("if($1.trySkipNil()) {");
+                buildString("_$$_t.%s(null);", e.getSetterName());
+                buildString("} else {");
             }
 
             Class<?> type = e.getType();
             if (type.isPrimitive()) {
-               this.buildString("_$$_t.%s( $1.%s() );", new Object[]{e.getSetterName(), this.primitiveReadName(type)});
+                buildString("_$$_t.%s( $1.%s() );", e.getSetterName(), primitiveReadName(type));
             } else {
-               this.buildString("_$$_t.%s( (%s)this.templates[%d].read($1, _$$_t.%s()) );", new Object[]{e.getSetterName(), e.getJavaTypeName(), i, e.getGetterName()});
+                buildString(
+                        "_$$_t.%s( (%s)this.templates[%d].read($1, _$$_t.%s()) );",
+                        e.getSetterName(), e.getJavaTypeName(), i, e.getGetterName());
             }
 
             if (e.isOptional()) {
-               this.buildString("}");
+                buildString("}");
             }
-         }
-      }
+        }
 
-      this.buildString("$1.readArrayEnd();");
-      this.buildString("return _$$_t;");
-      this.buildString("}");
-      return this.getBuiltString();
-   }
+        buildString("$1.readArrayEnd();");
+        buildString("return _$$_t;");
 
-   public void writeTemplate(Class<?> targetClass, BeansFieldEntry[] entries, Template[] templates, String directoryName) {
-      throw new UnsupportedOperationException(targetClass.getName());
-   }
+        buildString("}");
 
-   public Template loadTemplate(Class<?> targetClass, BeansFieldEntry[] entries, Template[] templates) {
-      return null;
-   }
+        return getBuiltString();
+    }
+
+    @Override
+    public void writeTemplate(Class<?> targetClass, BeansFieldEntry[] entries,
+            Template[] templates, String directoryName) {
+        throw new UnsupportedOperationException(targetClass.getName());
+    }
+
+    @Override
+    public Template loadTemplate(Class<?> targetClass,
+            BeansFieldEntry[] entries, Template[] templates) {
+        return null;
+    }
 }

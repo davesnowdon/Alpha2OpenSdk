@@ -1,29 +1,52 @@
+//
+// MessagePack for Java
+//
+// Copyright (C) 2009 - 2013 FURUHASHI Sadayuki
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//
 package org.msgpack.unpacker;
 
 import java.nio.ByteBuffer;
 
+/**
+ * This class is buffer-specific deserializer.
+ * 
+ * @version 0.6.0
+ * @see {@link org.msgpack.packer.Unpacker}
+ */
 public interface BufferUnpacker extends Unpacker {
-   BufferUnpacker wrap(byte[] var1);
+    public BufferUnpacker wrap(byte[] b);
 
-   BufferUnpacker wrap(byte[] var1, int var2, int var3);
+    public BufferUnpacker wrap(byte[] b, int off, int len);
 
-   BufferUnpacker wrap(ByteBuffer var1);
+    public BufferUnpacker wrap(ByteBuffer buf);
 
-   BufferUnpacker feed(byte[] var1);
+    public BufferUnpacker feed(byte[] b);
 
-   BufferUnpacker feed(byte[] var1, boolean var2);
+    public BufferUnpacker feed(byte[] b, boolean reference);
 
-   BufferUnpacker feed(byte[] var1, int var2, int var3);
+    public BufferUnpacker feed(byte[] b, int off, int len);
 
-   BufferUnpacker feed(byte[] var1, int var2, int var3, boolean var4);
+    public BufferUnpacker feed(byte[] b, int off, int len, boolean reference);
 
-   BufferUnpacker feed(ByteBuffer var1);
+    public BufferUnpacker feed(ByteBuffer b);
 
-   BufferUnpacker feed(ByteBuffer var1, boolean var2);
+    public BufferUnpacker feed(ByteBuffer buf, boolean reference);
 
-   int getBufferSize();
+    public int getBufferSize();
 
-   void copyReferencedBuffer();
+    public void copyReferencedBuffer();
 
-   void clear();
+    public void clear();
 }

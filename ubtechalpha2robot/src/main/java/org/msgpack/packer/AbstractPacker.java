@@ -1,231 +1,259 @@
+//
+// MessagePack for Java
+//
+// Copyright (C) 2009 - 2013 FURUHASHI Sadayuki
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//
 package org.msgpack.packer;
 
-import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.io.IOException;
+import org.msgpack.type.Value;
 import org.msgpack.MessagePack;
 import org.msgpack.template.Template;
-import org.msgpack.type.Value;
 
 public abstract class AbstractPacker implements Packer {
-   protected MessagePack msgpack;
+    protected MessagePack msgpack;
 
-   protected AbstractPacker(MessagePack msgpack) {
-      this.msgpack = msgpack;
-   }
+    protected AbstractPacker(MessagePack msgpack) {
+        this.msgpack = msgpack;
+    }
 
-   public Packer write(boolean o) throws IOException {
-      this.writeBoolean(o);
-      return this;
-   }
+    @Override
+    public Packer write(boolean o) throws IOException {
+        writeBoolean(o);
+        return this;
+    }
 
-   public Packer write(byte o) throws IOException {
-      this.writeByte(o);
-      return this;
-   }
+    @Override
+    public Packer write(byte o) throws IOException {
+        writeByte(o);
+        return this;
+    }
 
-   public Packer write(short o) throws IOException {
-      this.writeShort(o);
-      return this;
-   }
+    @Override
+    public Packer write(short o) throws IOException {
+        writeShort(o);
+        return this;
+    }
 
-   public Packer write(int o) throws IOException {
-      this.writeInt(o);
-      return this;
-   }
+    @Override
+    public Packer write(int o) throws IOException {
+        writeInt(o);
+        return this;
+    }
 
-   public Packer write(long o) throws IOException {
-      this.writeLong(o);
-      return this;
-   }
+    @Override
+    public Packer write(long o) throws IOException {
+        writeLong(o);
+        return this;
+    }
 
-   public Packer write(float o) throws IOException {
-      this.writeFloat(o);
-      return this;
-   }
+    @Override
+    public Packer write(float o) throws IOException {
+        writeFloat(o);
+        return this;
+    }
 
-   public Packer write(double o) throws IOException {
-      this.writeDouble(o);
-      return this;
-   }
+    @Override
+    public Packer write(double o) throws IOException {
+        writeDouble(o);
+        return this;
+    }
 
-   public Packer write(Boolean o) throws IOException {
-      if (o == null) {
-         this.writeNil();
-      } else {
-         this.writeBoolean(o);
-      }
+    @Override
+    public Packer write(Boolean o) throws IOException {
+        if (o == null) {
+            writeNil();
+        } else {
+            writeBoolean(o);
+        }
+        return this;
+    }
 
-      return this;
-   }
+    @Override
+    public Packer write(Byte o) throws IOException {
+        if (o == null) {
+            writeNil();
+        } else {
+            writeByte(o);
+        }
+        return this;
+    }
 
-   public Packer write(Byte o) throws IOException {
-      if (o == null) {
-         this.writeNil();
-      } else {
-         this.writeByte(o);
-      }
+    @Override
+    public Packer write(Short o) throws IOException {
+        if (o == null) {
+            writeNil();
+        } else {
+            writeShort(o);
+        }
+        return this;
+    }
 
-      return this;
-   }
+    @Override
+    public Packer write(Integer o) throws IOException {
+        if (o == null) {
+            writeNil();
+        } else {
+            writeInt(o);
+        }
+        return this;
+    }
 
-   public Packer write(Short o) throws IOException {
-      if (o == null) {
-         this.writeNil();
-      } else {
-         this.writeShort(o);
-      }
+    @Override
+    public Packer write(Long o) throws IOException {
+        if (o == null) {
+            writeNil();
+        } else {
+            writeLong(o);
+        }
+        return this;
+    }
 
-      return this;
-   }
+    @Override
+    public Packer write(BigInteger o) throws IOException {
+        if (o == null) {
+            writeNil();
+        } else {
+            writeBigInteger(o);
+        }
+        return this;
+    }
 
-   public Packer write(Integer o) throws IOException {
-      if (o == null) {
-         this.writeNil();
-      } else {
-         this.writeInt(o);
-      }
+    @Override
+    public Packer write(Float o) throws IOException {
+        if (o == null) {
+            writeNil();
+        } else {
+            writeFloat(o);
+        }
+        return this;
+    }
 
-      return this;
-   }
+    @Override
+    public Packer write(Double o) throws IOException {
+        if (o == null) {
+            writeNil();
+        } else {
+            writeDouble(o);
+        }
+        return this;
+    }
 
-   public Packer write(Long o) throws IOException {
-      if (o == null) {
-         this.writeNil();
-      } else {
-         this.writeLong(o);
-      }
+    @Override
+    public Packer write(byte[] o) throws IOException {
+        if (o == null) {
+            writeNil();
+        } else {
+            writeByteArray(o);
+        }
+        return this;
+    }
 
-      return this;
-   }
+    @Override
+    public Packer write(byte[] o, int off, int len) throws IOException {
+        if (o == null) {
+            writeNil();
+        } else {
+            writeByteArray(o, off, len);
+        }
+        return this;
+    }
 
-   public Packer write(BigInteger o) throws IOException {
-      if (o == null) {
-         this.writeNil();
-      } else {
-         this.writeBigInteger(o);
-      }
+    @Override
+    public Packer write(ByteBuffer o) throws IOException {
+        if (o == null) {
+            writeNil();
+        } else {
+            writeByteBuffer(o);
+        }
+        return this;
+    }
 
-      return this;
-   }
+    @Override
+    public Packer write(String o) throws IOException {
+        if (o == null) {
+            writeNil();
+        } else {
+            writeString(o);
+        }
+        return this;
+    }
 
-   public Packer write(Float o) throws IOException {
-      if (o == null) {
-         this.writeNil();
-      } else {
-         this.writeFloat(o);
-      }
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    @Override
+    public Packer write(Object o) throws IOException {
+        if (o == null) {
+            writeNil();
+        } else {
+            Template tmpl = msgpack.lookup(o.getClass());
+            tmpl.write(this, o);
+        }
+        return this;
+    }
 
-      return this;
-   }
+    @Override
+    public Packer write(Value v) throws IOException {
+        if (v == null) {
+            writeNil();
+        } else {
+            v.writeTo(this);
+        }
+        return this;
+    }
 
-   public Packer write(Double o) throws IOException {
-      if (o == null) {
-         this.writeNil();
-      } else {
-         this.writeDouble(o);
-      }
+    @Override
+    public Packer writeArrayEnd() throws IOException {
+        writeArrayEnd(true);
+        return this;
+    }
 
-      return this;
-   }
+    @Override
+    public Packer writeMapEnd() throws IOException {
+        writeMapEnd(true);
+        return this;
+    }
 
-   public Packer write(byte[] o) throws IOException {
-      if (o == null) {
-         this.writeNil();
-      } else {
-         this.writeByteArray(o);
-      }
+    @Override
+    public void close() throws IOException {
+    }
 
-      return this;
-   }
+    abstract protected void writeBoolean(boolean v) throws IOException;
 
-   public Packer write(byte[] o, int off, int len) throws IOException {
-      if (o == null) {
-         this.writeNil();
-      } else {
-         this.writeByteArray(o, off, len);
-      }
+    abstract protected void writeByte(byte v) throws IOException;
 
-      return this;
-   }
+    abstract protected void writeShort(short v) throws IOException;
 
-   public Packer write(ByteBuffer o) throws IOException {
-      if (o == null) {
-         this.writeNil();
-      } else {
-         this.writeByteBuffer(o);
-      }
+    abstract protected void writeInt(int v) throws IOException;
 
-      return this;
-   }
+    abstract protected void writeLong(long v) throws IOException;
 
-   public Packer write(String o) throws IOException {
-      if (o == null) {
-         this.writeNil();
-      } else {
-         this.writeString(o);
-      }
+    abstract protected void writeBigInteger(BigInteger v) throws IOException;
 
-      return this;
-   }
+    abstract protected void writeFloat(float v) throws IOException;
 
-   public Packer write(Object o) throws IOException {
-      if (o == null) {
-         this.writeNil();
-      } else {
-         Template tmpl = this.msgpack.lookup(o.getClass());
-         tmpl.write(this, o);
-      }
+    abstract protected void writeDouble(double v) throws IOException;
 
-      return this;
-   }
+    protected void writeByteArray(byte[] b) throws IOException {
+        writeByteArray(b, 0, b.length);
+    }
 
-   public Packer write(Value v) throws IOException {
-      if (v == null) {
-         this.writeNil();
-      } else {
-         v.writeTo(this);
-      }
+    abstract protected void writeByteArray(byte[] b, int off, int len) throws IOException;
 
-      return this;
-   }
+    abstract protected void writeByteBuffer(ByteBuffer bb) throws IOException;
 
-   public Packer writeArrayEnd() throws IOException {
-      this.writeArrayEnd(true);
-      return this;
-   }
-
-   public Packer writeMapEnd() throws IOException {
-      this.writeMapEnd(true);
-      return this;
-   }
-
-   public void close() throws IOException {
-   }
-
-   protected abstract void writeBoolean(boolean var1) throws IOException;
-
-   protected abstract void writeByte(byte var1) throws IOException;
-
-   protected abstract void writeShort(short var1) throws IOException;
-
-   protected abstract void writeInt(int var1) throws IOException;
-
-   protected abstract void writeLong(long var1) throws IOException;
-
-   protected abstract void writeBigInteger(BigInteger var1) throws IOException;
-
-   protected abstract void writeFloat(float var1) throws IOException;
-
-   protected abstract void writeDouble(double var1) throws IOException;
-
-   protected void writeByteArray(byte[] b) throws IOException {
-      this.writeByteArray(b, 0, b.length);
-   }
-
-   protected abstract void writeByteArray(byte[] var1, int var2, int var3) throws IOException;
-
-   protected abstract void writeByteBuffer(ByteBuffer var1) throws IOException;
-
-   protected abstract void writeString(String var1) throws IOException;
+    abstract protected void writeString(String s) throws IOException;
 }

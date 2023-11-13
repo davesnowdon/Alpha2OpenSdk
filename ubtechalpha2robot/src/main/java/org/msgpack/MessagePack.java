@@ -1,328 +1,837 @@
+//
+// MessagePack for Java
+//
+// Copyright (C) 2009 - 2013 FURUHASHI Sadayuki
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//
 package org.msgpack;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.IOException;
 import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
-import org.msgpack.packer.BufferPacker;
-import org.msgpack.packer.MessagePackBufferPacker;
-import org.msgpack.packer.MessagePackPacker;
-import org.msgpack.packer.Packer;
-import org.msgpack.packer.Unconverter;
 import org.msgpack.template.Template;
 import org.msgpack.template.TemplateRegistry;
-import org.msgpack.type.Value;
-import org.msgpack.unpacker.BufferUnpacker;
-import org.msgpack.unpacker.Converter;
-import org.msgpack.unpacker.MessagePackBufferUnpacker;
-import org.msgpack.unpacker.MessagePackUnpacker;
+import org.msgpack.packer.Packer;
+import org.msgpack.packer.BufferPacker;
+import org.msgpack.packer.MessagePackPacker;
+import org.msgpack.packer.MessagePackBufferPacker;
+import org.msgpack.packer.Unconverter;
 import org.msgpack.unpacker.Unpacker;
+import org.msgpack.unpacker.BufferUnpacker;
+import org.msgpack.unpacker.MessagePackUnpacker;
+import org.msgpack.unpacker.MessagePackBufferUnpacker;
+import org.msgpack.unpacker.Converter;
+import org.msgpack.type.Value;
 
+/**
+ * <p>
+ * This is basic class to use MessagePack for Java. It creates serializers and
+ * deserializers for objects of classes.
+ * </p>
+ * 
+ * <p>
+ * See <a
+ * href="http://wiki.msgpack.org/display/MSGPACK/QuickStart+for+Java">Quick
+ * Start for Java</a> on MessagePack wiki.
+ * </p>
+ * 
+ */
 public class MessagePack {
-   private TemplateRegistry registry;
-   private static final MessagePack globalMessagePack = new MessagePack();
+    private TemplateRegistry registry;
 
-   public MessagePack() {
-      this.registry = new TemplateRegistry((TemplateRegistry)null);
-   }
+    /**
+     * 
+     * @since 0.6.0
+     */
+    public MessagePack() {
+        registry = new TemplateRegistry(null);
+    }
 
-   public MessagePack(MessagePack msgpack) {
-      this.registry = new TemplateRegistry(msgpack.registry);
-   }
+    /**
+     * 
+     * @since 0.6.0
+     * @param msgpack
+     */
+    public MessagePack(MessagePack msgpack) {
+        registry = new TemplateRegistry(msgpack.registry);
+    }
 
-   protected MessagePack(TemplateRegistry registry) {
-      this.registry = registry;
-   }
+    protected MessagePack(TemplateRegistry registry) {
+        this.registry = registry;
+    }
 
-   public void setClassLoader(ClassLoader cl) {
-      this.registry.setClassLoader(cl);
-   }
+    /**
+     * 
+     * @since 0.6.0
+     * @param cl
+     */
+    public void setClassLoader(final ClassLoader cl) {
+        registry.setClassLoader(cl);
+    }
 
-   public Packer createPacker(OutputStream out) {
-      return new MessagePackPacker(this, out);
-   }
+    /**
+     * Returns serializer that enables serializing objects into
+     * {@link java.io.OutputStream} object.
+     * 
+     * @since 0.6.0
+     * @param out
+     *            output stream
+     * @return stream-based serializer
+     */
+    public Packer createPacker(OutputStream out) {
+        return new MessagePackPacker(this, out);
+    }
 
-   public BufferPacker createBufferPacker() {
-      return new MessagePackBufferPacker(this);
-   }
+    /**
+     * Returns serializer that enables serializing objects into buffer.
+     * 
+     * @since 0.6.0
+     * @return buffer-based serializer
+     */
+    public BufferPacker createBufferPacker() {
+        return new MessagePackBufferPacker(this);
+    }
 
-   public BufferPacker createBufferPacker(int bufferSize) {
-      return new MessagePackBufferPacker(this, bufferSize);
-   }
+    /**
+     * Returns serializer that enables serializing objects into buffer.
+     * 
+     * @since 0.6.0
+     * @param bufferSize
+     *            initial size of buffer
+     * @return buffer-based serializer
+     */
+    public BufferPacker createBufferPacker(int bufferSize) {
+        return new MessagePackBufferPacker(this, bufferSize);
+    }
 
-   public Unpacker createUnpacker(InputStream in) {
-      return new MessagePackUnpacker(this, in);
-   }
+    /**
+     * Returns deserializer that enables deserializing
+     * {@link java.io.InputStream} object.
+     * 
+     * @since 0.6.0
+     * @param in
+     *            input stream
+     * @return stream-based deserializer
+     */
+    public Unpacker createUnpacker(InputStream in) {
+        return new MessagePackUnpacker(this, in);
+    }
 
-   public BufferUnpacker createBufferUnpacker() {
-      return new MessagePackBufferUnpacker(this);
-   }
+    /**
+     * Returns empty deserializer that enables deserializing buffer.
+     * 
+     * @since 0.6.0
+     * @return buffer-based deserializer
+     */
+    public BufferUnpacker createBufferUnpacker() {
+        return new MessagePackBufferUnpacker(this);
+    }
 
-   public BufferUnpacker createBufferUnpacker(byte[] bytes) {
-      return this.createBufferUnpacker().wrap(bytes);
-   }
+    /**
+     * Returns deserializer that enables deserializing buffer.
+     * 
+     * @since 0.6.0
+     * @param bytes
+     *            input byte array
+     * @return buffer-based deserializer
+     */
+    public BufferUnpacker createBufferUnpacker(byte[] bytes) {
+        return createBufferUnpacker().wrap(bytes);
+    }
 
-   public BufferUnpacker createBufferUnpacker(byte[] bytes, int off, int len) {
-      return this.createBufferUnpacker().wrap(bytes, off, len);
-   }
+    /**
+     * Returns deserializer that enables deserializing buffer.
+     * 
+     * @since 0.6.0
+     * @param bytes
+     * @param off
+     * @param len
+     * @return buffer-based deserializer
+     */
+    public BufferUnpacker createBufferUnpacker(byte[] bytes, int off, int len) {
+        return createBufferUnpacker().wrap(bytes, off, len);
+    }
 
-   public BufferUnpacker createBufferUnpacker(ByteBuffer buffer) {
-      return this.createBufferUnpacker().wrap(buffer);
-   }
+    /**
+     * Returns deserializer that enables deserializing buffer.
+     * 
+     * @since 0.6.0
+     * @param buffer
+     *            input {@link java.nio.ByteBuffer} object
+     * @return buffer-based deserializer
+     */
+    public BufferUnpacker createBufferUnpacker(ByteBuffer buffer) {
+        return createBufferUnpacker().wrap(buffer);
+    }
 
-   public <T> byte[] write(T v) throws IOException {
-      BufferPacker pk = this.createBufferPacker();
-      if (v == null) {
-         pk.writeNil();
-      } else {
-         Template<T> tmpl = this.registry.lookup(v.getClass());
-         tmpl.write(pk, v);
-      }
+    /**
+     * Serializes specified object.
+     * 
+     * @since 0.6.0
+     * @param v
+     *            serialized object
+     * @return output byte array
+     * @throws IOException
+     */
+    public <T> byte[] write(T v) throws IOException {
+        BufferPacker pk = createBufferPacker();
+        if (v == null) {
+            pk.writeNil();
+        } else {
+            @SuppressWarnings("unchecked")
+            Template<T> tmpl = registry.lookup(v.getClass());
+            tmpl.write(pk, v);
+        }
+        return pk.toByteArray();
+    }
 
-      return pk.toByteArray();
-   }
+    /**
+     * Serializes specified object. It allows serializing object by specified
+     * template.
+     * 
+     * @since 0.6.0
+     * @param v
+     * @param template
+     * @return
+     * @throws IOException
+     */
+    public <T> byte[] write(T v, Template<T> template) throws IOException {
+        BufferPacker pk = createBufferPacker();
+        template.write(pk, v);
+        return pk.toByteArray();
+    }
 
-   public <T> byte[] write(T v, Template<T> template) throws IOException {
-      BufferPacker pk = this.createBufferPacker();
-      template.write(pk, v);
-      return pk.toByteArray();
-   }
+    /**
+     * Serializes specified object to output stream.
+     * 
+     * @since 0.6.0
+     * @param out
+     *            output stream
+     * @param v
+     *            serialized object
+     * @throws IOException
+     */
+    public <T> void write(OutputStream out, T v) throws IOException {
+        Packer pk = createPacker(out);
+        if (v == null) {
+            pk.writeNil();
+        } else {
+            @SuppressWarnings("unchecked")
+            Template<T> tmpl = registry.lookup(v.getClass());
+            tmpl.write(pk, v);
+        }
+    }
 
-   public <T> void write(OutputStream out, T v) throws IOException {
-      Packer pk = this.createPacker(out);
-      if (v == null) {
-         pk.writeNil();
-      } else {
-         Template<T> tmpl = this.registry.lookup(v.getClass());
-         tmpl.write(pk, v);
-      }
+    /**
+     * Serializes object to output stream by specified template.
+     * 
+     * @since 0.6.0
+     * @param out
+     *            output stream
+     * @param v
+     *            serialized object
+     * @param template
+     *            serializer/deserializer for the object
+     * @throws IOException
+     */
+    public <T> void write(OutputStream out, T v, Template<T> template)
+            throws IOException {
+        Packer pk = createPacker(out);
+        template.write(pk, v);
+    }
 
-   }
+    /**
+     * Serializes {@link org.msgpack.type.Value} object to byte array.
+     * 
+     * @since 0.6.0
+     * @param v
+     *            serialized {@link org.msgpack.type.Value} object
+     * @return output byte array
+     * @throws IOException
+     */
+    public byte[] write(Value v) throws IOException {
+        // FIXME ValueTemplate should do this
+        BufferPacker pk = createBufferPacker();
+        pk.write(v);
+        return pk.toByteArray();
+    }
 
-   public <T> void write(OutputStream out, T v, Template<T> template) throws IOException {
-      Packer pk = this.createPacker(out);
-      template.write(pk, v);
-   }
+    /**
+     * Deserializes specified byte array to {@link org.msgpack.type.Value}
+     * object.
+     * 
+     * @since 0.6.0
+     * @param bytes
+     *            input byte array
+     * @return
+     * @throws IOException
+     */
+    public Value read(byte[] bytes) throws IOException {
+        return read(bytes, 0, bytes.length);
+    }
 
-   public byte[] write(Value v) throws IOException {
-      BufferPacker pk = this.createBufferPacker();
-      pk.write(v);
-      return pk.toByteArray();
-   }
+    /**
+     * Deserializes byte array to {@link org.msgpack.type.Value} object.
+     * 
+     * @since 0.6.0
+     * @param bytes
+     * @param off
+     * @param len
+     * @return
+     * @throws IOException
+     */
+    public Value read(byte[] bytes, int off, int len) throws IOException {
+        return createBufferUnpacker(bytes, off, len).readValue();
+    }
 
-   public Value read(byte[] bytes) throws IOException {
-      return this.read(bytes, 0, bytes.length);
-   }
+    /**
+     * Deserializes {@link java.nio.ByteBuffer} object to
+     * {@link org.msgpack.type.Value} object.
+     * 
+     * @since 0.6.0
+     * @param buffer
+     *            input buffer
+     * @return
+     * @throws IOException
+     */
+    public Value read(ByteBuffer buffer) throws IOException {
+        return createBufferUnpacker(buffer).readValue();
+    }
 
-   public Value read(byte[] bytes, int off, int len) throws IOException {
-      return this.createBufferUnpacker(bytes, off, len).readValue();
-   }
+    /**
+     * Deserializes input stream to {@link org.msgpack.type.Value} object.
+     * 
+     * @since 0.6.0
+     * @param in
+     *            input stream
+     * @return deserialized {@link org.msgpack.type.Value} object
+     * @throws IOException
+     */
+    public Value read(InputStream in) throws IOException {
+        return createUnpacker(in).readValue();
+    }
 
-   public Value read(ByteBuffer buffer) throws IOException {
-      return this.createBufferUnpacker(buffer).readValue();
-   }
+    /**
+     * Deserializes byte array to object.
+     * 
+     * @since 0.6.0
+     * @param bytes
+     *            input byte array
+     * @param v
+     * @return
+     * @throws IOException
+     */
+    public <T> T read(byte[] bytes, T v) throws IOException {
+        @SuppressWarnings("unchecked")
+        Template<T> tmpl = registry.lookup(v.getClass());
+        return read(bytes, v, tmpl);
+    }
 
-   public Value read(InputStream in) throws IOException {
-      return this.createUnpacker(in).readValue();
-   }
+    /**
+     * Deserializes byte array to object according to template.
+     * 
+     * @since 0.6.0
+     * @param bytes
+     *            input byte array
+     * @param tmpl
+     *            template
+     * @return
+     * @throws IOException
+     */
+    public <T> T read(byte[] bytes, Template<T> tmpl) throws IOException {
+        return read(bytes, null, tmpl);
+    }
 
-   public <T> T read(byte[] bytes, T v) throws IOException {
-      Template<T> tmpl = this.registry.lookup(v.getClass());
-      return this.read(bytes, v, tmpl);
-   }
+    /**
+     * Deserializes byte array to object of specified class.
+     * 
+     * @since 0.6.0
+     * @param bytes
+     *            input byte array
+     * @param c
+     * @return
+     * @throws IOException
+     */
+    public <T> T read(byte[] bytes, Class<T> c) throws IOException {
+        @SuppressWarnings("unchecked")
+        Template<T> tmpl = registry.lookup(c);
+        return read(bytes, null, tmpl);
+    }
 
-   public <T> T read(byte[] bytes, Template<T> tmpl) throws IOException {
-      return this.read((byte[])bytes, (Object)null, tmpl);
-   }
+    /**
+     * Deserializes byte array to object according to specified template.
+     * 
+     * @since 0.6.0
+     * @param bytes
+     *            input byte array
+     * @param v
+     * @param tmpl
+     *            template
+     * @return
+     * @throws IOException
+     */
+    public <T> T read(byte[] bytes, T v, Template<T> tmpl) throws IOException {
+        BufferUnpacker u = createBufferUnpacker(bytes);
+        return (T) tmpl.read(u, v);
+    }
 
-   public <T> T read(byte[] bytes, Class<T> c) throws IOException {
-      Template<T> tmpl = this.registry.lookup(c);
-      return this.read((byte[])bytes, (Object)null, tmpl);
-   }
+    /**
+     * Deserializes byte array to object.
+     *
+     * @since 0.6.8
+     * @param bytes
+     *            input byte array
+     * @param v
+     * @return
+     * @throws IOException
+     */
+    public <T> T read(byte[] bytes, int off, int len, Class<T> c) throws IOException {
+        @SuppressWarnings("unchecked")
+        Template<T> tmpl = registry.lookup(c);
+        BufferUnpacker u = createBufferUnpacker(bytes, off, len);
+        return (T) tmpl.read(u, null);
+    }
 
-   public <T> T read(byte[] bytes, T v, Template<T> tmpl) throws IOException {
-      BufferUnpacker u = this.createBufferUnpacker(bytes);
-      return tmpl.read(u, v);
-   }
+    /**
+     * Deserializes buffer to object.
+     * 
+     * @since 0.6.0
+     * @param b
+     *            input {@link java.nio.ByteBuffer} object
+     * @param v
+     * @return
+     * @throws IOException
+     */
+    public <T> T read(ByteBuffer b, T v) throws IOException {
+        @SuppressWarnings("unchecked")
+        Template<T> tmpl = registry.lookup(v.getClass());
+        return read(b, v, tmpl);
+    }
 
-   public <T> T read(byte[] bytes, int off, int len, Class<T> c) throws IOException {
-      Template<T> tmpl = this.registry.lookup(c);
-      BufferUnpacker u = this.createBufferUnpacker(bytes, off, len);
-      return tmpl.read(u, (Object)null);
-   }
+    /**
+     * Deserializes buffer to object according to template.
+     * 
+     * @since 0.6.0
+     * @param b
+     *            input buffer object
+     * @param tmpl
+     * @return
+     * @throws IOException
+     */
+    public <T> T read(ByteBuffer b, Template<T> tmpl) throws IOException {
+        return read(b, null, tmpl);
+    }
 
-   public <T> T read(ByteBuffer b, T v) throws IOException {
-      Template<T> tmpl = this.registry.lookup(v.getClass());
-      return this.read(b, v, tmpl);
-   }
+    /**
+     * Deserializes buffer to object of specified class.
+     * 
+     * @since 0.6.0
+     * @param b
+     * @param c
+     * @return
+     * @throws IOException
+     */
+    public <T> T read(ByteBuffer b, Class<T> c) throws IOException {
+        @SuppressWarnings("unchecked")
+        Template<T> tmpl = registry.lookup(c);
+        return read(b, null, tmpl);
+    }
 
-   public <T> T read(ByteBuffer b, Template<T> tmpl) throws IOException {
-      return this.read((ByteBuffer)b, (Object)null, tmpl);
-   }
+    /**
+     * Deserializes buffer to object according to template.
+     * 
+     * @since 0.6.0
+     * @param b
+     *            input buffer object
+     * @param v
+     * @param tmpl
+     * @return
+     * @throws IOException
+     */
+    public <T> T read(ByteBuffer b, T v, Template<T> tmpl) throws IOException {
+        BufferUnpacker u = createBufferUnpacker(b);
+        return tmpl.read(u, v);
+    }
 
-   public <T> T read(ByteBuffer b, Class<T> c) throws IOException {
-      Template<T> tmpl = this.registry.lookup(c);
-      return this.read((ByteBuffer)b, (Object)null, tmpl);
-   }
+    /**
+     * Deserializes input stream to object.
+     * 
+     * @since 0.6.0
+     * @param in
+     *            input stream
+     * @param v
+     * @return
+     * @throws IOException
+     */
+    public <T> T read(InputStream in, T v) throws IOException {
+        @SuppressWarnings("unchecked")
+        Template<T> tmpl = registry.lookup(v.getClass());
+        return read(in, v, tmpl);
+    }
 
-   public <T> T read(ByteBuffer b, T v, Template<T> tmpl) throws IOException {
-      BufferUnpacker u = this.createBufferUnpacker(b);
-      return tmpl.read(u, v);
-   }
+    /**
+     * Deserializes input stream to object according to template.
+     * 
+     * @since 0.6.0
+     * @param in
+     *            input stream
+     * @param tmpl
+     * @return
+     * @throws IOException
+     */
+    public <T> T read(InputStream in, Template<T> tmpl) throws IOException {
+        return read(in, null, tmpl);
+    }
 
-   public <T> T read(InputStream in, T v) throws IOException {
-      Template<T> tmpl = this.registry.lookup(v.getClass());
-      return this.read(in, v, tmpl);
-   }
+    /**
+     * Deserializes input stream to object of specified class.
+     * 
+     * @since 0.6.0
+     * @param in
+     * @param c
+     * @return
+     * @throws IOException
+     */
+    public <T> T read(InputStream in, Class<T> c) throws IOException {
+        @SuppressWarnings("unchecked")
+        Template<T> tmpl = registry.lookup(c);
+        return read(in, null, tmpl);
+    }
 
-   public <T> T read(InputStream in, Template<T> tmpl) throws IOException {
-      return this.read((InputStream)in, (Object)null, tmpl);
-   }
+    /**
+     * Deserializes input stream to object according to template
+     * 
+     * @since 0.6.0
+     * @param in
+     *            input stream
+     * @param v
+     * @param tmpl
+     * @return
+     * @throws IOException
+     */
+    public <T> T read(InputStream in, T v, Template<T> tmpl) throws IOException {
+        Unpacker u = createUnpacker(in);
+        return tmpl.read(u, v);
+    }
 
-   public <T> T read(InputStream in, Class<T> c) throws IOException {
-      Template<T> tmpl = this.registry.lookup(c);
-      return this.read((InputStream)in, (Object)null, tmpl);
-   }
+    /**
+     * Converts specified {@link org.msgpack.type.Value} object to object.
+     * 
+     * @since 0.6.0
+     * @param v
+     * @param to
+     * @return
+     * @throws IOException
+     */
+    public <T> T convert(Value v, T to) throws IOException {
+        @SuppressWarnings("unchecked")
+        Template<T> tmpl = registry.lookup(to.getClass());
+        return tmpl.read(new Converter(this, v), to);
+    }
 
-   public <T> T read(InputStream in, T v, Template<T> tmpl) throws IOException {
-      Unpacker u = this.createUnpacker(in);
-      return tmpl.read(u, v);
-   }
+    /**
+     * Converts {@link org.msgpack.type.Value} object to object specified class.
+     * 
+     * @since 0.6.0
+     * @param v
+     * @param c
+     * @return
+     * @throws IOException
+     */
+    public <T> T convert(Value v, Class<T> c) throws IOException {
+        @SuppressWarnings("unchecked")
+        Template<T> tmpl = registry.lookup(c);
+        return tmpl.read(new Converter(this, v), null);
+    }
+        
+    /**
+     * Converts {@link org.msgpack.type.Value} object to object according to template
+     * 
+     * @since 0.6.8
+     * @param v
+     * @param tmpl
+     * @return
+     * @throws IOException
+     */
+    public <T> T convert(Value v, Template<T> tmpl) throws IOException {
+        return tmpl.read(new Converter(this, v), null);
+    }
 
-   public <T> T convert(Value v, T to) throws IOException {
-      Template<T> tmpl = this.registry.lookup(to.getClass());
-      return tmpl.read(new Converter(this, v), to);
-   }
+    /**
+     * Unconverts specified object to {@link org.msgpack.type.Value} object.
+     * 
+     * @since 0.6.0
+     * @param v
+     * @return
+     * @throws IOException
+     */
+    public <T> Value unconvert(T v) throws IOException {
+        Unconverter pk = new Unconverter(this);
+        if (v == null) {
+            pk.writeNil();
+        } else {
+            @SuppressWarnings("unchecked")
+            Template<T> tmpl = registry.lookup(v.getClass());
+            tmpl.write(pk, v);
+        }
+        return pk.getResult();
+    }
 
-   public <T> T convert(Value v, Class<T> c) throws IOException {
-      Template<T> tmpl = this.registry.lookup(c);
-      return tmpl.read(new Converter(this, v), (Object)null);
-   }
+    /**
+     * Registers {@link org.msgpack.template.Template} object for objects of
+     * specified class. <tt>Template</tt> object is a pair of serializer and
+     * deserializer for object serialization. It is generated automatically.
+     * 
+     * @since 0.6.0
+     * @param type
+     */
+    public void register(Class<?> type) {
+        registry.register(type);
+    }
 
-   public <T> T convert(Value v, Template<T> tmpl) throws IOException {
-      return tmpl.read(new Converter(this, v), (Object)null);
-   }
+    /**
+     * Registers specified {@link org.msgpack.template.Template} object
+     * associated by class.
+     * 
+     * @see #register(Class)
+     * @since 0.6.0
+     * @param type
+     * @param template
+     */
+    public <T> void register(Class<T> type, Template<T> template) {
+        registry.register(type, template);
+    }
 
-   public <T> Value unconvert(T v) throws IOException {
-      Unconverter pk = new Unconverter(this);
-      if (v == null) {
-         pk.writeNil();
-      } else {
-         Template<T> tmpl = this.registry.lookup(v.getClass());
-         tmpl.write(pk, v);
-      }
+    /**
+     * Unregisters {@link org.msgpack.template.Template} object for objects of
+     * specified class.
+     * 
+     * @since 0.6.0
+     * @param type
+     * @return
+     */
+    public boolean unregister(Class<?> type) {
+        return registry.unregister(type);
+    }
 
-      return pk.getResult();
-   }
+    /**
+     * Unregisters all {@link org.msgpack.template.Template} objects that have
+     * been registered in advance.
+     * 
+     * @since 0.6.0
+     */
+    public void unregister() {
+        registry.unregister();
+    }
 
-   public void register(Class<?> type) {
-      this.registry.register(type);
-   }
+    /**
+     * Looks up a {@link org.msgpack.template.Template} object, which is
+     * serializer/deserializer associated by specified class.
+     * 
+     * @since 0.6.0
+     * @param type
+     * @return
+     */
+    @SuppressWarnings("unchecked")
+    public <T> Template<T> lookup(Class<T> type) {
+        return registry.lookup(type);
+    }
 
-   public <T> void register(Class<T> type, Template<T> template) {
-      this.registry.register((Type)type, (Template)template);
-   }
+    public Template<?> lookup(Type type) {
+        return registry.lookup(type);
+    }
 
-   public boolean unregister(Class<?> type) {
-      return this.registry.unregister(type);
-   }
+    private static final MessagePack globalMessagePack = new MessagePack();
 
-   public void unregister() {
-      this.registry.unregister();
-   }
+    /**
+     * Serializes specified object and returns the byte array.
+     * 
+     * @deprecated {@link MessagePack#write(Object)}
+     * @param v
+     * @return
+     * @throws IOException
+     */
+    @Deprecated
+    public static byte[] pack(Object v) throws IOException {
+        return globalMessagePack.write(v);
+    }
 
-   public <T> Template<T> lookup(Class<T> type) {
-      return this.registry.lookup(type);
-   }
+    /**
+     * Serializes specified object to output stream.
+     * 
+     * @deprecated {@link MessagePack#write(OutputStream, Object)}
+     * @param out
+     * @param v
+     * @throws IOException
+     */
+    @Deprecated
+    public static void pack(OutputStream out, Object v) throws IOException {
+        globalMessagePack.write(out, v);
+    }
 
-   public Template<?> lookup(Type type) {
-      return this.registry.lookup(type);
-   }
+    /**
+     * Serializes object by specified template and return the byte array.
+     * 
+     * @deprecated {@link MessagePack#write(Object, Template)}
+     * @param v
+     * @param template
+     * @return
+     * @throws IOException
+     */
+    @Deprecated
+    public static <T> byte[] pack(T v, Template<T> template) throws IOException {
+        return globalMessagePack.write(v, template);
+    }
 
-   /** @deprecated */
-   @Deprecated
-   public static byte[] pack(Object v) throws IOException {
-      return globalMessagePack.write(v);
-   }
+    /**
+     * Serializes object to output stream. The object is serialized by specified
+     * template.
+     * 
+     * @deprecated {@link MessagePack#write(OutputStream, Object, Template)}
+     * @param out
+     * @param v
+     * @param template
+     * @throws IOException
+     */
+    @Deprecated
+    public static <T> void pack(OutputStream out, T v, Template<T> template)
+            throws IOException {
+        globalMessagePack.write(out, v, template);
+    }
 
-   /** @deprecated */
-   @Deprecated
-   public static void pack(OutputStream out, Object v) throws IOException {
-      globalMessagePack.write(out, v);
-   }
+    /**
+     * Converts byte array to {@link org.msgpack.type.Value} object.
+     * 
+     * @deprecated {@link MessagePack#read(byte[])}
+     * @param bytes
+     * @return
+     * @throws IOException
+     */
+    @Deprecated
+    public static Value unpack(byte[] bytes) throws IOException {
+        return globalMessagePack.read(bytes);
+    }
 
-   /** @deprecated */
-   @Deprecated
-   public static <T> byte[] pack(T v, Template<T> template) throws IOException {
-      return globalMessagePack.write(v, template);
-   }
+    @Deprecated
+    public static <T> T unpack(byte[] bytes, Template<T> template) throws IOException {
+        BufferUnpacker u = new MessagePackBufferUnpacker(globalMessagePack).wrap(bytes);
+        return template.read(u, null);
+    }
 
-   /** @deprecated */
-   @Deprecated
-   public static <T> void pack(OutputStream out, T v, Template<T> template) throws IOException {
-      globalMessagePack.write(out, v, template);
-   }
+    @Deprecated
+    public static <T> T unpack(byte[] bytes, Template<T> template, T to) throws IOException {
+        BufferUnpacker u = new MessagePackBufferUnpacker(globalMessagePack).wrap(bytes);
+        return template.read(u, to);
+    }
 
-   /** @deprecated */
-   @Deprecated
-   public static Value unpack(byte[] bytes) throws IOException {
-      return globalMessagePack.read(bytes);
-   }
+    /**
+     * Deserializes byte array to object of specified class.
+     * 
+     * @deprecated {@link MessagePack#read(byte[], Class)}
+     * @param bytes
+     * @param klass
+     * @return
+     * @throws IOException
+     */
+    @Deprecated
+    public static <T> T unpack(byte[] bytes, Class<T> klass) throws IOException {
+        return globalMessagePack.read(bytes, klass);
+    }
 
-   /** @deprecated */
-   @Deprecated
-   public static <T> T unpack(byte[] bytes, Template<T> template) throws IOException {
-      BufferUnpacker u = (new MessagePackBufferUnpacker(globalMessagePack)).wrap(bytes);
-      return template.read(u, (Object)null);
-   }
+    /**
+     * Deserializes byte array to object.
+     * 
+     * @param bytes
+     * @param to
+     * @return
+     * @throws IOException
+     */
+    @Deprecated
+    public static <T> T unpack(byte[] bytes, T to) throws IOException {
+        return globalMessagePack.read(bytes, to);
+    }
 
-   /** @deprecated */
-   @Deprecated
-   public static <T> T unpack(byte[] bytes, Template<T> template, T to) throws IOException {
-      BufferUnpacker u = (new MessagePackBufferUnpacker(globalMessagePack)).wrap(bytes);
-      return template.read(u, to);
-   }
+    /**
+     * Converts input stream to {@link org.msgpack.type.Value} object.
+     * 
+     * @deprecated {@link MessagePack#read(InputStream)}
+     * @param in
+     * @return
+     * @throws IOException
+     */
+    @Deprecated
+    public static Value unpack(InputStream in) throws IOException {
+        return globalMessagePack.read(in);
+    }
 
-   /** @deprecated */
-   @Deprecated
-   public static <T> T unpack(byte[] bytes, Class<T> klass) throws IOException {
-      return globalMessagePack.read(bytes, klass);
-   }
+    /**
+     * @deprecated
+     * @param in
+     * @param tmpl
+     * @return
+     * @throws IOException
+     * @throws MessageTypeException
+     */
+    @Deprecated
+    public static <T> T unpack(InputStream in, Template<T> tmpl)
+            throws IOException, MessageTypeException {
+        return tmpl.read(new MessagePackUnpacker(globalMessagePack, in), null);
+    }
 
-   /** @deprecated */
-   @Deprecated
-   public static <T> T unpack(byte[] bytes, T to) throws IOException {
-      return globalMessagePack.read(bytes, to);
-   }
+    /**
+     * @deprecated
+     * @param in
+     * @param tmpl
+     * @param to
+     * @return
+     * @throws IOException
+     * @throws MessageTypeException
+     */
+    @Deprecated
+    public static <T> T unpack(InputStream in, Template<T> tmpl, T to)
+            throws IOException, MessageTypeException {
+        return (T) tmpl.read(new MessagePackUnpacker(globalMessagePack, in), to);
+    }
 
-   /** @deprecated */
-   @Deprecated
-   public static Value unpack(InputStream in) throws IOException {
-      return globalMessagePack.read(in);
-   }
+    /**
+     * Deserializes input stream to object of specified class.
+     * 
+     * @deprecated {@link MessagePack#read(InputStream, Class)}
+     * @param in
+     * @param klass
+     * @return
+     * @throws IOException
+     */
+    @Deprecated
+    public static <T> T unpack(InputStream in, Class<T> klass)
+            throws IOException {
+        return globalMessagePack.read(in, klass);
+    }
 
-   /** @deprecated */
-   @Deprecated
-   public static <T> T unpack(InputStream in, Template<T> tmpl) throws IOException, MessageTypeException {
-      return tmpl.read(new MessagePackUnpacker(globalMessagePack, in), (Object)null);
-   }
-
-   /** @deprecated */
-   @Deprecated
-   public static <T> T unpack(InputStream in, Template<T> tmpl, T to) throws IOException, MessageTypeException {
-      return tmpl.read(new MessagePackUnpacker(globalMessagePack, in), to);
-   }
-
-   /** @deprecated */
-   @Deprecated
-   public static <T> T unpack(InputStream in, Class<T> klass) throws IOException {
-      return globalMessagePack.read(in, klass);
-   }
-
-   /** @deprecated */
-   @Deprecated
-   public static <T> T unpack(InputStream in, T to) throws IOException {
-      return globalMessagePack.read(in, to);
-   }
+    /**
+     * Deserializes input stream to object.
+     * 
+     * @deprecated {@link MessagePack#read(InputStream, Object)}
+     * @param in
+     * @param to
+     * @return
+     * @throws IOException
+     */
+    @Deprecated
+    public static <T> T unpack(InputStream in, T to) throws IOException {
+        return globalMessagePack.read(in, to);
+    }
 }
