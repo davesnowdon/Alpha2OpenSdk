@@ -1,225 +1,413 @@
+/* Jackson JSON-processor.
+ *
+ * Copyright (c) 2007- Tatu Saloranta, tatu.saloranta@iki.fi
+ *
+ * Licensed under the License specified in file LICENSE, included with
+ * the source code and binary code bundles.
+ * You may not use this file except in compliance with the License.
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.codehaus.jackson;
 
 import java.util.Arrays;
 
-public final class Base64Variant {
-   static final char PADDING_CHAR_NONE = '\u0000';
-   public static final int BASE64_VALUE_INVALID = -1;
-   public static final int BASE64_VALUE_PADDING = -2;
-   private final int[] _asciiToBase64;
-   private final char[] _base64ToAsciiC;
-   private final byte[] _base64ToAsciiB;
-   final String _name;
-   final boolean _usesPadding;
-   final char _paddingChar;
-   final int _maxLineLength;
+/**
+ * Abstract base class used to define specific details of which
+ * variant of Base64 encoding/decoding is to be used. Although there is
+ * somewhat standard basic version (so-called "MIME Base64"), other variants
+ * exists, see <a href="http://en.wikipedia.org/wiki/Base64">Base64 Wikipedia entry</a> for details.
+ * 
+ * @author Tatu Saloranta
+ *
+ * @since 0.9.3
+ */
+public final class Base64Variant
+{
+    /**
+     * Placeholder used by "no padding" variant, to be used when a character
+     * value is needed.
+     */
+    final static char PADDING_CHAR_NONE = '\0';
 
-   public Base64Variant(String name, String base64Alphabet, boolean usesPadding, char paddingChar, int maxLineLength) {
-      this._asciiToBase64 = new int[128];
-      this._base64ToAsciiC = new char[64];
-      this._base64ToAsciiB = new byte[64];
-      this._name = name;
-      this._usesPadding = usesPadding;
-      this._paddingChar = paddingChar;
-      this._maxLineLength = maxLineLength;
-      int alphaLen = base64Alphabet.length();
-      if (alphaLen != 64) {
-         throw new IllegalArgumentException("Base64Alphabet length must be exactly 64 (was " + alphaLen + ")");
-      } else {
-         base64Alphabet.getChars(0, alphaLen, this._base64ToAsciiC, 0);
-         Arrays.fill(this._asciiToBase64, -1);
+    /**
+     * Marker used to denote ascii characters that do not correspond
+     * to a 6-bit value (in this variant), and is not used as a padding
+     * character.
+     */
+    public final static int BASE64_VALUE_INVALID = -1;
 
-         char alpha;
-         for(int i = 0; i < alphaLen; this._asciiToBase64[alpha] = i++) {
-            alpha = this._base64ToAsciiC[i];
-            this._base64ToAsciiB[i] = (byte)alpha;
-         }
+    /**
+     * Marker used to denote ascii character (in decoding table) that
+     * is the padding character using this variant (if any).
+     */
+    public final static int BASE64_VALUE_PADDING = -2;
 
-         if (usesPadding) {
-            this._asciiToBase64[paddingChar] = -2;
-         }
+    /*
+    /**********************************************************
+    /* Encoding/decoding tables
+    /**********************************************************
+     */
 
-      }
-   }
+    /**
+     * Decoding table used for base 64 decoding.
+     */
+    private final int[] _asciiToBase64 = new int[128];
 
-   public Base64Variant(Base64Variant base, String name, int maxLineLength) {
-      this(base, name, base._usesPadding, base._paddingChar, maxLineLength);
-   }
+    /**
+     * Encoding table used for base 64 decoding when output is done
+     * as characters.
+     */
+    private final char[] _base64ToAsciiC = new char[64];
 
-   public Base64Variant(Base64Variant base, String name, boolean usesPadding, char paddingChar, int maxLineLength) {
-      this._asciiToBase64 = new int[128];
-      this._base64ToAsciiC = new char[64];
-      this._base64ToAsciiB = new byte[64];
-      this._name = name;
-      byte[] srcB = base._base64ToAsciiB;
-      System.arraycopy(srcB, 0, this._base64ToAsciiB, 0, srcB.length);
-      char[] srcC = base._base64ToAsciiC;
-      System.arraycopy(srcC, 0, this._base64ToAsciiC, 0, srcC.length);
-      int[] srcV = base._asciiToBase64;
-      System.arraycopy(srcV, 0, this._asciiToBase64, 0, srcV.length);
-      this._usesPadding = usesPadding;
-      this._paddingChar = paddingChar;
-      this._maxLineLength = maxLineLength;
-   }
+    /**
+     * Alternative encoding table used for base 64 decoding when output is done
+     * as ascii bytes.
+     */
+    private final byte[] _base64ToAsciiB = new byte[64];
 
-   public String getName() {
-      return this._name;
-   }
+    /*
+    /**********************************************************
+    /* Other configuration
+    /**********************************************************
+     */
 
-   public boolean usesPadding() {
-      return this._usesPadding;
-   }
+    /**
+     * Symbolic name of variant; used for diagnostics/debugging.
+     */
+    final String _name;
 
-   public boolean usesPaddingChar(char c) {
-      return c == this._paddingChar;
-   }
+    /**
+     * Whether this variant uses padding or not.
+     */
+    final boolean _usesPadding;
 
-   public boolean usesPaddingChar(int ch) {
-      return ch == this._paddingChar;
-   }
+    /**
+     * Characted used for padding, if any ({@link #PADDING_CHAR_NONE} if not).
+     */
+    final char _paddingChar;
+    
+    /**
+     * Maximum number of encoded base64 characters to output during encoding
+     * before adding a linefeed, if line length is to be limited
+     * ({@link java.lang.Integer#MAX_VALUE} if not limited).
+     *<p>
+     * Note: for some output modes (when writing attributes) linefeeds may
+     * need to be avoided, and this value ignored.
+     */
+    final int _maxLineLength;
 
-   public char getPaddingChar() {
-      return this._paddingChar;
-   }
+    /*
+    /**********************************************************
+    /* Life-cycle
+    /**********************************************************
+     */
 
-   public byte getPaddingByte() {
-      return (byte)this._paddingChar;
-   }
+    public Base64Variant(String name, String base64Alphabet, boolean usesPadding, char paddingChar, int maxLineLength)
+    {
+        _name = name;
+        _usesPadding = usesPadding;
+        _paddingChar = paddingChar;
+        _maxLineLength = maxLineLength;
 
-   public int getMaxLineLength() {
-      return this._maxLineLength;
-   }
+        // Ok and then we need to create codec tables.
 
-   public int decodeBase64Char(char c) {
-      return c <= 127 ? this._asciiToBase64[c] : -1;
-   }
+        // First the main encoding table:
+        int alphaLen = base64Alphabet.length();
+        if (alphaLen != 64) {
+            throw new IllegalArgumentException("Base64Alphabet length must be exactly 64 (was "+alphaLen+")");
+        }
 
-   public int decodeBase64Char(int ch) {
-      return ch <= 127 ? this._asciiToBase64[ch] : -1;
-   }
+        // And then secondary encoding table and decoding table:
+        base64Alphabet.getChars(0, alphaLen, _base64ToAsciiC, 0);
+        Arrays.fill(_asciiToBase64, BASE64_VALUE_INVALID);
+        for (int i = 0; i < alphaLen; ++i) {
+            char alpha = _base64ToAsciiC[i];
+            _base64ToAsciiB[i] = (byte) alpha;
+            _asciiToBase64[alpha] = i;
+        }
 
-   public int decodeBase64Byte(byte b) {
-      return b <= 127 ? this._asciiToBase64[b] : -1;
-   }
+        // Plus if we use padding, add that in too
+        if (usesPadding) {
+            _asciiToBase64[(int) paddingChar] = BASE64_VALUE_PADDING;
+        }
+    }
 
-   public char encodeBase64BitsAsChar(int value) {
-      return this._base64ToAsciiC[value];
-   }
+    /**
+     * "Copy constructor" that can be used when the base alphabet is identical
+     * to one used by another variant except for the maximum line length
+     * (and obviously, name).
+     */
+    public Base64Variant(Base64Variant base, String name, int maxLineLength)
+    {
+        this(base, name, base._usesPadding, base._paddingChar, maxLineLength);
+    }
 
-   public int encodeBase64Chunk(int b24, char[] buffer, int ptr) {
-      buffer[ptr++] = this._base64ToAsciiC[b24 >> 18 & 63];
-      buffer[ptr++] = this._base64ToAsciiC[b24 >> 12 & 63];
-      buffer[ptr++] = this._base64ToAsciiC[b24 >> 6 & 63];
-      buffer[ptr++] = this._base64ToAsciiC[b24 & 63];
-      return ptr;
-   }
+    /**
+     * "Copy constructor" that can be used when the base alphabet is identical
+     * to one used by another variant, but other details (padding, maximum
+     * line length) differ
+     */
+    public Base64Variant(Base64Variant base, String name, boolean usesPadding, char paddingChar, int maxLineLength)
+    {
+        _name = name;
+        byte[] srcB = base._base64ToAsciiB;
+        System.arraycopy(srcB, 0, this._base64ToAsciiB, 0, srcB.length);
+        char[] srcC = base._base64ToAsciiC;
+        System.arraycopy(srcC, 0, this._base64ToAsciiC, 0, srcC.length);
+        int[] srcV = base._asciiToBase64;
+        System.arraycopy(srcV, 0, this._asciiToBase64, 0, srcV.length);
 
-   public void encodeBase64Chunk(StringBuilder sb, int b24) {
-      sb.append(this._base64ToAsciiC[b24 >> 18 & 63]);
-      sb.append(this._base64ToAsciiC[b24 >> 12 & 63]);
-      sb.append(this._base64ToAsciiC[b24 >> 6 & 63]);
-      sb.append(this._base64ToAsciiC[b24 & 63]);
-   }
+        _usesPadding = usesPadding;
+        _paddingChar = paddingChar;
+        _maxLineLength = maxLineLength;
+    }
 
-   public int encodeBase64Partial(int bits, int outputBytes, char[] buffer, int outPtr) {
-      buffer[outPtr++] = this._base64ToAsciiC[bits >> 18 & 63];
-      buffer[outPtr++] = this._base64ToAsciiC[bits >> 12 & 63];
-      if (this._usesPadding) {
-         buffer[outPtr++] = outputBytes == 2 ? this._base64ToAsciiC[bits >> 6 & 63] : this._paddingChar;
-         buffer[outPtr++] = this._paddingChar;
-      } else if (outputBytes == 2) {
-         buffer[outPtr++] = this._base64ToAsciiC[bits >> 6 & 63];
-      }
+    /*
+    /**********************************************************
+    /* Public accessors
+    /**********************************************************
+     */
 
-      return outPtr;
-   }
+    public String getName() { return _name; }
 
-   public void encodeBase64Partial(StringBuilder sb, int bits, int outputBytes) {
-      sb.append(this._base64ToAsciiC[bits >> 18 & 63]);
-      sb.append(this._base64ToAsciiC[bits >> 12 & 63]);
-      if (this._usesPadding) {
-         sb.append(outputBytes == 2 ? this._base64ToAsciiC[bits >> 6 & 63] : this._paddingChar);
-         sb.append(this._paddingChar);
-      } else if (outputBytes == 2) {
-         sb.append(this._base64ToAsciiC[bits >> 6 & 63]);
-      }
+    public boolean usesPadding() { return _usesPadding; }
+    public boolean usesPaddingChar(char c) { return c == _paddingChar; }
+    public boolean usesPaddingChar(int ch) { return ch == (int) _paddingChar; }
+    public char getPaddingChar() { return _paddingChar; }
+    public byte getPaddingByte() { return (byte)_paddingChar; }
 
-   }
+    public int getMaxLineLength() { return _maxLineLength; }
 
-   public byte encodeBase64BitsAsByte(int value) {
-      return this._base64ToAsciiB[value];
-   }
+    /*
+    /**********************************************************
+    /* Decoding support
+    /**********************************************************
+     */
 
-   public int encodeBase64Chunk(int b24, byte[] buffer, int ptr) {
-      buffer[ptr++] = this._base64ToAsciiB[b24 >> 18 & 63];
-      buffer[ptr++] = this._base64ToAsciiB[b24 >> 12 & 63];
-      buffer[ptr++] = this._base64ToAsciiB[b24 >> 6 & 63];
-      buffer[ptr++] = this._base64ToAsciiB[b24 & 63];
-      return ptr;
-   }
+    /**
+     * @return 6-bit decoded value, if valid character; 
+     */
+    public int decodeBase64Char(char c)
+    {
+        int ch = (int) c;
+        return (ch <= 127) ? _asciiToBase64[ch] : BASE64_VALUE_INVALID;
+    }
 
-   public int encodeBase64Partial(int bits, int outputBytes, byte[] buffer, int outPtr) {
-      buffer[outPtr++] = this._base64ToAsciiB[bits >> 18 & 63];
-      buffer[outPtr++] = this._base64ToAsciiB[bits >> 12 & 63];
-      if (this._usesPadding) {
-         byte pb = (byte)this._paddingChar;
-         buffer[outPtr++] = outputBytes == 2 ? this._base64ToAsciiB[bits >> 6 & 63] : pb;
-         buffer[outPtr++] = pb;
-      } else if (outputBytes == 2) {
-         buffer[outPtr++] = this._base64ToAsciiB[bits >> 6 & 63];
-      }
+    public int decodeBase64Char(int ch)
+    {
+        return (ch <= 127) ? _asciiToBase64[ch] : BASE64_VALUE_INVALID;
+    }
 
-      return outPtr;
-   }
+    public int decodeBase64Byte(byte b)
+    {
+        int ch = (int) b;
+        return (ch <= 127) ? _asciiToBase64[ch] : BASE64_VALUE_INVALID;
+    }
 
-   public String encode(byte[] input) {
-      return this.encode(input, false);
-   }
+    /*
+    /**********************************************************
+    /* Encoding support
+    /**********************************************************
+     */
 
-   public String encode(byte[] input, boolean addQuotes) {
-      int inputEnd = input.length;
-      int chunksBeforeLF = inputEnd + (inputEnd >> 2) + (inputEnd >> 3);
-      StringBuilder sb = new StringBuilder(chunksBeforeLF);
-      if (addQuotes) {
-         sb.append('"');
-      }
+    public char encodeBase64BitsAsChar(int value)
+    {
+        /* Let's assume caller has done necessary checks; this
+         * method must be fast and inlinable
+         */
+        return _base64ToAsciiC[value];
+    }
 
-      chunksBeforeLF = this.getMaxLineLength() >> 2;
-      int inputPtr = 0;
-      int safeInputEnd = inputEnd - 3;
+    /**
+     * Method that encodes given right-aligned (LSB) 24-bit value
+     * into 4 base64 characters, stored in given result buffer.
+     */
+    public int encodeBase64Chunk(int b24, char[] buffer, int ptr)
+    {
+        buffer[ptr++] = _base64ToAsciiC[(b24 >> 18) & 0x3F];
+        buffer[ptr++] = _base64ToAsciiC[(b24 >> 12) & 0x3F];
+        buffer[ptr++] = _base64ToAsciiC[(b24 >> 6) & 0x3F];
+        buffer[ptr++] = _base64ToAsciiC[b24 & 0x3F];
+        return ptr;
+    }
 
-      int inputLeft;
-      while(inputPtr <= safeInputEnd) {
-         inputLeft = input[inputPtr++] << 8;
-         inputLeft |= input[inputPtr++] & 255;
-         inputLeft = inputLeft << 8 | input[inputPtr++] & 255;
-         this.encodeBase64Chunk(sb, inputLeft);
-         --chunksBeforeLF;
-         if (chunksBeforeLF <= 0) {
-            sb.append('\\');
-            sb.append('n');
-            chunksBeforeLF = this.getMaxLineLength() >> 2;
-         }
-      }
+    public void encodeBase64Chunk(StringBuilder sb, int b24)
+    {
+        sb.append(_base64ToAsciiC[(b24 >> 18) & 0x3F]);
+        sb.append(_base64ToAsciiC[(b24 >> 12) & 0x3F]);
+        sb.append(_base64ToAsciiC[(b24 >> 6) & 0x3F]);
+        sb.append(_base64ToAsciiC[b24 & 0x3F]);
+    }
 
-      inputLeft = inputEnd - inputPtr;
-      if (inputLeft > 0) {
-         int b24 = input[inputPtr++] << 16;
-         if (inputLeft == 2) {
-            b24 |= (input[inputPtr++] & 255) << 8;
-         }
+    /**
+     * Method that outputs partial chunk (which only encodes one
+     * or two bytes of data). Data given is still aligned same as if
+     * it as full data; that is, missing data is at the "right end"
+     * (LSB) of int.
+     *
+     * @param outputBytes Number of encoded bytes included (either 1 or 2)
+     */
+    public int encodeBase64Partial(int bits, int outputBytes, char[] buffer, int outPtr)
+    {
+        buffer[outPtr++] = _base64ToAsciiC[(bits >> 18) & 0x3F];
+        buffer[outPtr++] = _base64ToAsciiC[(bits >> 12) & 0x3F];
+        if (_usesPadding) {
+            buffer[outPtr++] = (outputBytes == 2) ?
+                _base64ToAsciiC[(bits >> 6) & 0x3F] : _paddingChar;
+            buffer[outPtr++] = _paddingChar;
+        } else {
+            if (outputBytes == 2) {
+                buffer[outPtr++] = _base64ToAsciiC[(bits >> 6) & 0x3F];
+            }
+        }
+        return outPtr;
+    }
 
-         this.encodeBase64Partial(sb, b24, inputLeft);
-      }
+    public void encodeBase64Partial(StringBuilder sb, int bits, int outputBytes)
+    {
+        sb.append(_base64ToAsciiC[(bits >> 18) & 0x3F]);
+        sb.append(_base64ToAsciiC[(bits >> 12) & 0x3F]);
+        if (_usesPadding) {
+            sb.append((outputBytes == 2) ?
+                      _base64ToAsciiC[(bits >> 6) & 0x3F] : _paddingChar);
+            sb.append(_paddingChar);
+        } else {
+            if (outputBytes == 2) {
+                sb.append(_base64ToAsciiC[(bits >> 6) & 0x3F]);
+            }
+        }
+    }
 
-      if (addQuotes) {
-         sb.append('"');
-      }
+    public byte encodeBase64BitsAsByte(int value)
+    {
+        // As with above, assuming it is 6-bit value
+        return _base64ToAsciiB[value];
+    }
 
-      return sb.toString();
-   }
+    /**
+     * Method that encodes given right-aligned (LSB) 24-bit value
+     * into 4 base64 bytes (ascii), stored in given result buffer.
+     */
+    public int encodeBase64Chunk(int b24, byte[] buffer, int ptr)
+    {
+        buffer[ptr++] = _base64ToAsciiB[(b24 >> 18) & 0x3F];
+        buffer[ptr++] = _base64ToAsciiB[(b24 >> 12) & 0x3F];
+        buffer[ptr++] = _base64ToAsciiB[(b24 >> 6) & 0x3F];
+        buffer[ptr++] = _base64ToAsciiB[b24 & 0x3F];
+        return ptr;
+    }
 
-   public String toString() {
-      return this._name;
-   }
+    /**
+     * Method that outputs partial chunk (which only encodes one
+     * or two bytes of data). Data given is still aligned same as if
+     * it as full data; that is, missing data is at the "right end"
+     * (LSB) of int.
+     *
+     * @param outputBytes Number of encoded bytes included (either 1 or 2)
+     */
+    public int encodeBase64Partial(int bits, int outputBytes, byte[] buffer, int outPtr)
+    {
+        buffer[outPtr++] = _base64ToAsciiB[(bits >> 18) & 0x3F];
+        buffer[outPtr++] = _base64ToAsciiB[(bits >> 12) & 0x3F];
+        if (_usesPadding) {
+            byte pb = (byte) _paddingChar;
+            buffer[outPtr++] = (outputBytes == 2) ?
+                _base64ToAsciiB[(bits >> 6) & 0x3F] : pb;
+            buffer[outPtr++] = pb;
+        } else {
+            if (outputBytes == 2) {
+                buffer[outPtr++] = _base64ToAsciiB[(bits >> 6) & 0x3F];
+            }
+        }
+        return outPtr;
+    }
+
+    /**
+     * Convenience method for converting given byte array as base64 encoded
+     * String using this variant's settings.
+     * Resulting value is "raw", that is, not enclosed in double-quotes.
+     * 
+     * @param input Byte array to encode
+     * 
+     * @since 1.6
+     */
+    public String encode(byte[] input)
+    {
+        return encode(input, false);
+    }
+
+    /**
+     * Convenience method for converting given byte array as base64 encoded
+     * String using this variant's settings, optionally enclosed in
+     * double-quotes.
+     * 
+     * @param input Byte array to encode
+     * @param addQuotes Whether to surround resulting value in double quotes
+     *   or not
+     * 
+     * @since 1.6
+     */
+    public String encode(byte[] input, boolean addQuotes)
+    {
+        int inputEnd = input.length;
+        StringBuilder sb;
+        {
+            // let's approximate... 33% overhead, ~= 3/8 (0.375)
+            int outputLen = inputEnd + (inputEnd >> 2) + (inputEnd >> 3);
+            sb = new StringBuilder(outputLen);
+        }
+        if (addQuotes) {
+            sb.append('"');
+        }
+
+        int chunksBeforeLF = getMaxLineLength() >> 2;
+
+        // Ok, first we loop through all full triplets of data:
+        int inputPtr = 0;
+        int safeInputEnd = inputEnd-3; // to get only full triplets
+
+        while (inputPtr <= safeInputEnd) {
+            // First, mash 3 bytes into lsb of 32-bit int
+            int b24 = ((int) input[inputPtr++]) << 8;
+            b24 |= ((int) input[inputPtr++]) & 0xFF;
+            b24 = (b24 << 8) | (((int) input[inputPtr++]) & 0xFF);
+            encodeBase64Chunk(sb, b24);
+            if (--chunksBeforeLF <= 0) {
+                // note: must quote in JSON value, so not really useful...
+                sb.append('\\');
+                sb.append('n');
+                chunksBeforeLF = getMaxLineLength() >> 2;
+            }
+        }
+
+        // And then we may have 1 or 2 leftover bytes to encode
+        int inputLeft = inputEnd - inputPtr; // 0, 1 or 2
+        if (inputLeft > 0) { // yes, but do we have room for output?
+            int b24 = ((int) input[inputPtr++]) << 16;
+            if (inputLeft == 2) {
+                b24 |= (((int) input[inputPtr++]) & 0xFF) << 8;
+            }
+            encodeBase64Partial(sb, b24, inputLeft);
+        }
+
+        if (addQuotes) {
+            sb.append('"');
+        }
+        return sb.toString();
+    }
+    
+    /*
+    /**********************************************************
+    /* other methods
+    /**********************************************************
+     */
+
+    @Override
+    public String toString() { return _name; }
 }
+

@@ -3,167 +3,241 @@ package org.codehaus.jackson.util;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import org.codehaus.jackson.Base64Variant;
-import org.codehaus.jackson.FormatSchema;
-import org.codehaus.jackson.JsonLocation;
-import org.codehaus.jackson.JsonParseException;
-import org.codehaus.jackson.JsonParser;
-import org.codehaus.jackson.JsonStreamContext;
-import org.codehaus.jackson.JsonToken;
-import org.codehaus.jackson.ObjectCodec;
-import org.codehaus.jackson.Version;
 
-public class JsonParserDelegate extends JsonParser {
-   protected JsonParser delegate;
+import org.codehaus.jackson.*;
 
-   public JsonParserDelegate(JsonParser d) {
-      this.delegate = d;
-   }
+/**
+ * Helper class that implements
+ * <a href="http://en.wikipedia.org/wiki/Delegation_pattern">delegation pattern</a> for {@link JsonParser},
+ * to allow for simple overridability of basic parsing functionality.
+ * The idea is that any functionality to be modified can be simply
+ * overridden; and anything else will be delegated by default.
+ * 
+ * @since 1.4
+ */
+public class JsonParserDelegate extends JsonParser
+{
+    /**
+     * Delegate object that method calls are delegated to.
+     */
+    protected JsonParser delegate;
 
-   public void setCodec(ObjectCodec c) {
-      this.delegate.setCodec(c);
-   }
+    public JsonParserDelegate(JsonParser d) {
+        delegate = d;
+    }
 
-   public ObjectCodec getCodec() {
-      return this.delegate.getCodec();
-   }
+    /*
+    /**********************************************************
+    /* Public API, configuration
+    /**********************************************************
+     */
 
-   public JsonParser enable(JsonParser.Feature f) {
-      this.delegate.enable(f);
-      return this;
-   }
+    @Override
+    public void setCodec(ObjectCodec c) {
+        delegate.setCodec(c);
+    }
 
-   public JsonParser disable(JsonParser.Feature f) {
-      this.delegate.disable(f);
-      return this;
-   }
+    @Override
+    public ObjectCodec getCodec() {
+        return delegate.getCodec();
+    }
 
-   public boolean isEnabled(JsonParser.Feature f) {
-      return this.delegate.isEnabled(f);
-   }
+    @Override
+    public JsonParser enable(Feature f) {
+        delegate.enable(f);
+        return this;
+    }
 
-   public void setSchema(FormatSchema schema) {
-      this.delegate.setSchema(schema);
-   }
+    @Override
+    public JsonParser disable(Feature f) {
+        delegate.disable(f);
+        return this;
+    }
+ 
+    @Override
+    public boolean isEnabled(Feature f) {
+        return delegate.isEnabled(f);
+    }
 
-   public boolean canUseSchema(FormatSchema schema) {
-      return this.delegate.canUseSchema(schema);
-   }
+    @Override
+    public void setSchema(FormatSchema schema) {
+        delegate.setSchema(schema);
+    }
 
-   public Version version() {
-      return this.delegate.version();
-   }
+    @Override
+    public boolean canUseSchema(FormatSchema schema) {
+        return delegate.canUseSchema(schema);
+    }
+    
+    @Override
+    public Version version() {
+        return delegate.version();
+    }
 
-   public Object getInputSource() {
-      return this.delegate.getInputSource();
-   }
+    @Override
+    public Object getInputSource() {
+        return delegate.getInputSource();
+    }
+    
+    /*
+    /**********************************************************
+    /* Closeable impl
+    /**********************************************************
+     */
 
-   public void close() throws IOException {
-      this.delegate.close();
-   }
+    @Override
+    public void close() throws IOException {
+        delegate.close();
+    }
 
-   public boolean isClosed() {
-      return this.delegate.isClosed();
-   }
+    @Override
+    public boolean isClosed() {
+        return delegate.isClosed();
+    }
 
-   public JsonToken getCurrentToken() {
-      return this.delegate.getCurrentToken();
-   }
+    /*
+    /**********************************************************
+    /* Public API, token accessors
+    /**********************************************************
+     */
 
-   public boolean hasCurrentToken() {
-      return this.delegate.hasCurrentToken();
-   }
+    @Override
+    public JsonToken getCurrentToken() {
+        return delegate.getCurrentToken();
+    }
 
-   public void clearCurrentToken() {
-      this.delegate.clearCurrentToken();
-   }
+    @Override
+    public boolean hasCurrentToken() {
+        return delegate.hasCurrentToken();
+    }
 
-   public String getCurrentName() throws IOException, JsonParseException {
-      return this.delegate.getCurrentName();
-   }
+    @Override
+    public void clearCurrentToken() {
+        delegate.clearCurrentToken();        
+    }
 
-   public JsonLocation getCurrentLocation() {
-      return this.delegate.getCurrentLocation();
-   }
+    @Override
+    public String getCurrentName() throws IOException, JsonParseException {
+        return delegate.getCurrentName();
+    }
 
-   public JsonToken getLastClearedToken() {
-      return this.delegate.getLastClearedToken();
-   }
+    @Override
+    public JsonLocation getCurrentLocation() {
+        return delegate.getCurrentLocation();
+    }
 
-   public JsonStreamContext getParsingContext() {
-      return this.delegate.getParsingContext();
-   }
+    @Override
+    public JsonToken getLastClearedToken() {
+        return delegate.getLastClearedToken();
+    }
 
-   public String getText() throws IOException, JsonParseException {
-      return this.delegate.getText();
-   }
+    @Override
+    public JsonStreamContext getParsingContext() {
+        return delegate.getParsingContext();
+    }
 
-   public char[] getTextCharacters() throws IOException, JsonParseException {
-      return this.delegate.getTextCharacters();
-   }
+    /*
+    /**********************************************************
+    /* Public API, access to token information, text
+    /**********************************************************
+     */
 
-   public int getTextLength() throws IOException, JsonParseException {
-      return this.delegate.getTextLength();
-   }
+    @Override
+    public String getText() throws IOException, JsonParseException {
+        return delegate.getText();
+    }
 
-   public int getTextOffset() throws IOException, JsonParseException {
-      return this.delegate.getTextOffset();
-   }
+    @Override
+    public char[] getTextCharacters() throws IOException, JsonParseException {
+        return delegate.getTextCharacters();
+    }
 
-   public BigInteger getBigIntegerValue() throws IOException, JsonParseException {
-      return this.delegate.getBigIntegerValue();
-   }
+    @Override
+    public int getTextLength() throws IOException, JsonParseException {
+        return delegate.getTextLength();
+    }
 
-   public byte getByteValue() throws IOException, JsonParseException {
-      return this.delegate.getByteValue();
-   }
+    @Override
+    public int getTextOffset() throws IOException, JsonParseException {
+        return delegate.getTextOffset();
+    }
 
-   public short getShortValue() throws IOException, JsonParseException {
-      return this.delegate.getShortValue();
-   }
 
-   public BigDecimal getDecimalValue() throws IOException, JsonParseException {
-      return this.delegate.getDecimalValue();
-   }
+    /*
+    /**********************************************************
+    /* Public API, access to token information, numeric
+    /**********************************************************
+     */
+    
+    @Override
+    public BigInteger getBigIntegerValue() throws IOException,JsonParseException {
+        return delegate.getBigIntegerValue();
+    }
 
-   public double getDoubleValue() throws IOException, JsonParseException {
-      return this.delegate.getDoubleValue();
-   }
+    @Override
+    public byte getByteValue() throws IOException, JsonParseException {
+        return delegate.getByteValue();
+    }
 
-   public float getFloatValue() throws IOException, JsonParseException {
-      return this.delegate.getFloatValue();
-   }
+    @Override
+    public short getShortValue() throws IOException, JsonParseException {
+        return delegate.getShortValue();
+    }
 
-   public int getIntValue() throws IOException, JsonParseException {
-      return this.delegate.getIntValue();
-   }
+    @Override
+    public BigDecimal getDecimalValue() throws IOException, JsonParseException {
+        return delegate.getDecimalValue();
+    }
 
-   public long getLongValue() throws IOException, JsonParseException {
-      return this.delegate.getLongValue();
-   }
+    @Override
+    public double getDoubleValue() throws IOException, JsonParseException {
+        return delegate.getDoubleValue();
+    }
 
-   public JsonParser.NumberType getNumberType() throws IOException, JsonParseException {
-      return this.delegate.getNumberType();
-   }
+    @Override
+    public float getFloatValue() throws IOException, JsonParseException {
+        return delegate.getFloatValue();
+    }
 
-   public Number getNumberValue() throws IOException, JsonParseException {
-      return this.delegate.getNumberValue();
-   }
+    @Override
+    public int getIntValue() throws IOException, JsonParseException {
+        return delegate.getIntValue();
+    }
 
-   public byte[] getBinaryValue(Base64Variant b64variant) throws IOException, JsonParseException {
-      return this.delegate.getBinaryValue(b64variant);
-   }
+    @Override
+    public long getLongValue() throws IOException, JsonParseException {
+        return delegate.getLongValue();
+    }
 
-   public JsonLocation getTokenLocation() {
-      return this.delegate.getTokenLocation();
-   }
+    @Override
+    public NumberType getNumberType() throws IOException, JsonParseException {
+        return delegate.getNumberType();
+    }
 
-   public JsonToken nextToken() throws IOException, JsonParseException {
-      return this.delegate.nextToken();
-   }
+    @Override
+    public Number getNumberValue() throws IOException, JsonParseException {
+        return delegate.getNumberValue();
+    }
 
-   public JsonParser skipChildren() throws IOException, JsonParseException {
-      this.delegate.skipChildren();
-      return this;
-   }
+    @Override
+    public byte[] getBinaryValue(Base64Variant b64variant) throws IOException, JsonParseException {
+        return delegate.getBinaryValue(b64variant);
+    }
+
+    @Override
+    public JsonLocation getTokenLocation() {
+        return delegate.getTokenLocation();
+    }
+
+    @Override
+    public JsonToken nextToken() throws IOException, JsonParseException {
+        return delegate.nextToken();
+    }
+    
+    @Override
+    public JsonParser skipChildren() throws IOException, JsonParseException {
+        delegate.skipChildren();
+        // NOTE: must NOT delegate this method to delegate, needs to be self-reference for chaining
+        return this;
+    }
 }

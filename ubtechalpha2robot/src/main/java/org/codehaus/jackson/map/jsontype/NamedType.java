@@ -1,53 +1,53 @@
 package org.codehaus.jackson.map.jsontype;
 
-public final class NamedType {
-   protected final Class<?> _class;
-   protected final int _hashCode;
-   protected String _name;
+/**
+ * Simple container class for types with optional logical name, used
+ * as external identifier
+ * 
+ * @author tatu
+ * @since 1.5
+ */
+public final class NamedType
+{
+    protected final Class<?> _class;
+    protected final int _hashCode;
 
-   public NamedType(Class<?> c) {
-      this(c, (String)null);
-   }
+    protected String _name;
+    
+    public NamedType(Class<?> c) { this(c, null); }
+    
+    public NamedType(Class<?> c, String name)
+    {
+        _class = c;
+        _hashCode = c.getName().hashCode();
+        setName(name);
+    }
 
-   public NamedType(Class<?> c, String name) {
-      this._class = c;
-      this._hashCode = c.getName().hashCode();
-      this.setName(name);
-   }
+    public Class<?> getType() { return _class; }
+    public String getName() { return _name; }
+    public void setName(String name) {
+        _name = (name == null || name.length() == 0) ? null : name;
+    }
 
-   public Class<?> getType() {
-      return this._class;
-   }
+    public boolean hasName() { return _name != null; }
+    
+    /**
+     * Equality is defined based on class only, not on name
+     */
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o == this) return true;
+        if (o == null) return false;
+        if (o.getClass() != getClass()) return false;
+        return _class == ((NamedType) o)._class;
+    }
 
-   public String getName() {
-      return this._name;
-   }
+    @Override
+    public int hashCode() { return _hashCode; }
 
-   public void setName(String name) {
-      this._name = name != null && name.length() != 0 ? name : null;
-   }
-
-   public boolean hasName() {
-      return this._name != null;
-   }
-
-   public boolean equals(Object o) {
-      if (o == this) {
-         return true;
-      } else if (o == null) {
-         return false;
-      } else if (o.getClass() != this.getClass()) {
-         return false;
-      } else {
-         return this._class == ((NamedType)o)._class;
-      }
-   }
-
-   public int hashCode() {
-      return this._hashCode;
-   }
-
-   public String toString() {
-      return "[NamedType, class " + this._class.getName() + ", name: " + (this._name == null ? "null" : "'" + this._name + "'") + "]";
-   }
+    @Override
+    public String toString() {
+    	return "[NamedType, class "+_class.getName()+", name: "+(_name == null ? "null" :("'"+_name+"'"))+"]";
+    }
 }

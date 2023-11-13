@@ -2,38 +2,79 @@ package org.codehaus.jackson.map.type;
 
 import org.codehaus.jackson.type.JavaType;
 
-public final class CollectionType extends CollectionLikeType {
-   private CollectionType(Class<?> collT, JavaType elemT) {
-      super(collT, elemT);
-   }
+/**
+ * Type that represents Java Collection types (Lists, Sets).
+ */
+public final class CollectionType
+    extends CollectionLikeType
+{
+    /*
+    /**********************************************************
+    /* Life-cycle
+    /**********************************************************
+     */
 
-   protected JavaType _narrow(Class<?> subclass) {
-      return new CollectionType(subclass, this._elementType);
-   }
+    private CollectionType(Class<?> collT, JavaType elemT)
+    {
+        super(collT,  elemT);
+    }
 
-   public JavaType narrowContentsBy(Class<?> contentClass) {
-      return (JavaType)(contentClass == this._elementType.getRawClass() ? this : (new CollectionType(this._class, this._elementType.narrowBy(contentClass))).copyHandlers(this));
-   }
+    @Override
+    protected JavaType _narrow(Class<?> subclass) {
+        return new CollectionType(subclass, _elementType);
+    }
 
-   public JavaType widenContentsBy(Class<?> contentClass) {
-      return (JavaType)(contentClass == this._elementType.getRawClass() ? this : (new CollectionType(this._class, this._elementType.widenBy(contentClass))).copyHandlers(this));
-   }
+    @Override
+    public JavaType narrowContentsBy(Class<?> contentClass)
+    {
+        // Can do a quick check first:
+        if (contentClass == _elementType.getRawClass()) {
+            return this;
+        }
+        return new CollectionType(_class, _elementType.narrowBy(contentClass)).copyHandlers(this);
+    }
 
-   public static CollectionType construct(Class<?> rawType, JavaType elemT) {
-      return new CollectionType(rawType, elemT);
-   }
+    @Override
+    public JavaType widenContentsBy(Class<?> contentClass)
+    {
+        // Can do a quick check first:
+        if (contentClass == _elementType.getRawClass()) {
+            return this;
+        }
+        return new CollectionType(_class, _elementType.widenBy(contentClass)).copyHandlers(this);
+    }
+    
+    public static CollectionType construct(Class<?> rawType, JavaType elemT)
+    {
+        // nominally component types will be just Object.class
+        return new CollectionType(rawType, elemT);
+    }
 
-   public CollectionType withTypeHandler(Object h) {
-      CollectionType newInstance = new CollectionType(this._class, this._elementType);
-      newInstance._typeHandler = h;
-      return newInstance;
-   }
+    // Since 1.7:
+    @Override
+    public CollectionType withTypeHandler(Object h)
+    {
+        CollectionType newInstance = new CollectionType(_class, _elementType);
+        newInstance._typeHandler = h;
+        return newInstance;
+    }
 
-   public CollectionType withContentTypeHandler(Object h) {
-      return new CollectionType(this._class, this._elementType.withTypeHandler(h));
-   }
+    // Since 1.7:
+    @Override
+    public CollectionType withContentTypeHandler(Object h)
+    {
+        return new CollectionType(_class, _elementType.withTypeHandler(h));
+    }
 
-   public String toString() {
-      return "[collection type; class " + this._class.getName() + ", contains " + this._elementType + "]";
-   }
+    /*
+    /**********************************************************
+    /* Standard methods
+    /**********************************************************
+     */
+
+    @Override
+    public String toString()
+    {
+        return "[collection type; class "+_class.getName()+", contains "+_elementType+"]";
+    }
 }

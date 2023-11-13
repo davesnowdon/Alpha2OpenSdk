@@ -2,32 +2,46 @@ package org.codehaus.jackson.map.ser;
 
 import java.lang.reflect.Method;
 import java.util.Map;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.map.JsonMappingException;
-import org.codehaus.jackson.map.SerializerProvider;
+
+import org.codehaus.jackson.*;
 import org.codehaus.jackson.map.introspect.AnnotatedMethod;
+import org.codehaus.jackson.map.*;
 
-public class AnyGetterWriter {
-   protected final Method _anyGetter;
-   protected final MapSerializer _serializer;
+/**
+ * Class similar to {@link BeanPropertyWriter}, but that will be used
+ * for serializing {@link org.codehaus.jackson.annotate.JsonAnyGetter} annotated
+ * (Map) properties
+ * 
+ * @since 1.6
+ */
+public class AnyGetterWriter
+{
+    protected final Method _anyGetter;
+    
+    protected final MapSerializer _serializer;
+    
+    public AnyGetterWriter(AnnotatedMethod anyGetter, MapSerializer serializer)
+    {
+        _anyGetter = anyGetter.getAnnotated();
+        _serializer = serializer;
+    }
 
-   public AnyGetterWriter(AnnotatedMethod anyGetter, MapSerializer serializer) {
-      this._anyGetter = anyGetter.getAnnotated();
-      this._serializer = serializer;
-   }
+    public void getAndSerialize(Object bean, JsonGenerator jgen, SerializerProvider provider)
+        throws Exception
+    {
+        Object value = _anyGetter.invoke(bean);
+        if (value == null) {
+            return;
+        }
+        if (!(value instanceof Map<?,?>)) {
+            throw new JsonMappingException("Value returned by 'any-getter' ("+_anyGetter.getName()+"()) not java.util.Map but "
+                    +value.getClass().getName());
+        }
+        _serializer.serializeFields((Map<?,?>) value, jgen, provider);
+    }
 
-   public void getAndSerialize(Object bean, JsonGenerator jgen, SerializerProvider provider) throws Exception {
-      Object value = this._anyGetter.invoke(bean);
-      if (value != null) {
-         if (!(value instanceof Map)) {
-            throw new JsonMappingException("Value returned by 'any-getter' (" + this._anyGetter.getName() + "()) not java.util.Map but " + value.getClass().getName());
-         } else {
-            this._serializer.serializeFields((Map)value, jgen, provider);
-         }
-      }
-   }
-
-   public void resolve(SerializerProvider provider) throws JsonMappingException {
-      this._serializer.resolve(provider);
-   }
+    public void resolve(SerializerProvider provider) throws JsonMappingException
+    {
+        _serializer.resolve(provider);
+    }
 }

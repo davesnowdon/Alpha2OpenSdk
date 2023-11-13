@@ -1,91 +1,159 @@
 package org.codehaus.jackson.map.introspect;
 
-import java.lang.reflect.Member;
-import java.lang.reflect.Method;
-import java.lang.reflect.Type;
+import java.lang.reflect.*;
+
 import org.codehaus.jackson.map.type.TypeBindings;
 import org.codehaus.jackson.type.JavaType;
 
-public final class AnnotatedMethod extends AnnotatedWithParams {
-   protected final Method _method;
-   protected Class<?>[] _paramTypes;
+public final class AnnotatedMethod
+    extends AnnotatedWithParams
+{
+    final protected Method _method;
 
-   public AnnotatedMethod(Method method, AnnotationMap classAnn, AnnotationMap[] paramAnnotations) {
-      super(classAnn, paramAnnotations);
-      this._method = method;
-   }
+    // // Simple lazy-caching:
 
-   public AnnotatedMethod withMethod(Method m) {
-      return new AnnotatedMethod(m, this._annotations, this._paramAnnotations);
-   }
+    protected Class<?>[] _paramTypes;
 
-   public Method getAnnotated() {
-      return this._method;
-   }
+    /*
+    /*****************************************************
+    /* Life-cycle
+    /*****************************************************
+     */
 
-   public int getModifiers() {
-      return this._method.getModifiers();
-   }
+    public AnnotatedMethod(Method method, AnnotationMap classAnn, AnnotationMap[] paramAnnotations)
+    {
+        super(classAnn, paramAnnotations);
+        _method = method;
+    }
 
-   public String getName() {
-      return this._method.getName();
-   }
+    /**
+     * Method that constructs a new instance with settings (annotations, parameter annotations)
+     * of this instance, but with different physical {@link Method}.
+     * 
+     * @since 1.7
+     */
+    public AnnotatedMethod withMethod(Method m)
+    {
+        return new AnnotatedMethod(m, _annotations, _paramAnnotations);
+    }
+    
+    /*
+    /*****************************************************
+    /* Annotated impl
+    /*****************************************************
+     */
 
-   public Type getGenericType() {
-      return this._method.getGenericReturnType();
-   }
+    @Override
+    public Method getAnnotated() { return _method; }
 
-   public Class<?> getRawType() {
-      return this._method.getReturnType();
-   }
+    @Override
+    public int getModifiers() { return _method.getModifiers(); }
 
-   public JavaType getType(TypeBindings bindings) {
-      return this.getType(bindings, this._method.getTypeParameters());
-   }
+    @Override
+    public String getName() { return _method.getName(); }
 
-   public Class<?> getDeclaringClass() {
-      return this._method.getDeclaringClass();
-   }
+    /**
+     * For methods, this returns declared return type, which is only
+     * useful with getters (setters do not return anything; hence "void"
+     * type is returned here)
+     */
+    @Override
+    public Type getGenericType() {
+        return _method.getGenericReturnType();
+    }
 
-   public Member getMember() {
-      return this._method;
-   }
+    /**
+     * For methods, this returns declared return type, which is only
+     * useful with getters (setters do not return anything; hence "void"
+     * type is returned here)
+     */
+    @Override
+    public Class<?> getRawType() {
+        return _method.getReturnType();
+    }
 
-   public AnnotatedParameter getParameter(int index) {
-      return new AnnotatedParameter(this, this.getParameterType(index), this._paramAnnotations[index]);
-   }
+    /**
+     * As per [JACKSON-468], we need to also allow declaration of local
+     * type bindings; mostly it will allow defining bounds.
+     */
+    @Override
+    public JavaType getType(TypeBindings bindings)
+    {
+        return getType(bindings, _method.getTypeParameters());
+    }
+    
+    /*
+    /********************************************************
+    /* AnnotatedMember impl
+    /********************************************************
+     */
 
-   public int getParameterCount() {
-      return this.getParameterTypes().length;
-   }
+    @Override
+    public Class<?> getDeclaringClass() { return _method.getDeclaringClass(); }
 
-   public Type[] getParameterTypes() {
-      return this._method.getGenericParameterTypes();
-   }
+    @Override
+    public Member getMember() { return _method; }
+    
+    /*
+    /*****************************************************
+    /* Extended API, generic
+    /*****************************************************
+     */
 
-   public Class<?> getParameterClass(int index) {
-      Class<?>[] types = this._method.getParameterTypes();
-      return index >= types.length ? null : types[index];
-   }
+    @Override
+    public AnnotatedParameter getParameter(int index) {
+        return new AnnotatedParameter(this, getParameterType(index), _paramAnnotations[index]);
+    }
 
-   public Type getParameterType(int index) {
-      Type[] types = this._method.getGenericParameterTypes();
-      return index >= types.length ? null : types[index];
-   }
+    @Override
+    public int getParameterCount() {
+        return getParameterTypes().length;
+    }
 
-   public Class<?>[] getParameterClasses() {
-      if (this._paramTypes == null) {
-         this._paramTypes = this._method.getParameterTypes();
-      }
+    public Type[] getParameterTypes() {
+        return _method.getGenericParameterTypes();
+    }
 
-      return this._paramTypes;
-   }
+    @Override
+    public Class<?> getParameterClass(int index)
+    {
+        Class<?>[] types = _method.getParameterTypes();
+        return (index >= types.length) ? null : types[index];
+    }
 
-   public String getFullName() {
-      return this.getDeclaringClass().getName() + "#" + this.getName() + "(" + this.getParameterCount() + " params)";
-   }
+    @Override
+    public Type getParameterType(int index)
+    {
+        Type[] types = _method.getGenericParameterTypes();
+        return (index >= types.length) ? null : types[index];
+    }
 
-   public String toString() {
-      return "[method " + this.getName() + ", annotations: " + this._annotations + "]";
-   }
+    public Class<?>[] getParameterClasses()
+    {
+        if (_paramTypes == null) {
+            _paramTypes = _method.getParameterTypes();
+        }
+        return _paramTypes;
+    }
+
+    //public Type getGenericReturnType() { return _method.getGenericReturnType(); }
+
+    //public Class<?> getReturnType() { return _method.getReturnType(); }
+
+    public String getFullName() {
+        return getDeclaringClass().getName() + "#" + getName() + "("
+            +getParameterCount()+" params)";
+    }
+
+    /*
+    /********************************************************
+    /* Extended API, specific annotations
+    /********************************************************
+     */
+
+    @Override
+    public String toString()
+    {
+        return "[method "+getName()+", annotations: "+_annotations+"]";
+    }
 }

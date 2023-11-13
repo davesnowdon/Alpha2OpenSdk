@@ -1,50 +1,58 @@
 package org.codehaus.jackson.node;
 
 import java.io.IOException;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.JsonProcessingException;
-import org.codehaus.jackson.JsonToken;
+
+import org.codehaus.jackson.*;
 import org.codehaus.jackson.map.SerializerProvider;
 
-public final class NullNode extends ValueNode {
-   public static final NullNode instance = new NullNode();
+/**
+ * This singleton value class is used to contain explicit JSON null
+ * value.
+ */
+public final class NullNode
+    extends ValueNode
+{
+    // // Just need a fly-weight singleton
 
-   private NullNode() {
-   }
+    public final static NullNode instance = new NullNode();
 
-   public static NullNode getInstance() {
-      return instance;
-   }
+    private NullNode() { }
 
-   public JsonToken asToken() {
-      return JsonToken.VALUE_NULL;
-   }
+    public static NullNode getInstance() { return instance; }
 
-   public boolean isNull() {
-      return true;
-   }
+    @Override public JsonToken asToken() { return JsonToken.VALUE_NULL; }
 
-   public String getValueAsText() {
-      return "null";
-   }
+    @Override
+    public boolean isNull() { return true; }
 
-   public int getValueAsInt(int defaultValue) {
-      return 0;
-   }
+    @Override
+    public String getValueAsText() {
+        return "null";
+    }
 
-   public long getValueAsLong(long defaultValue) {
-      return 0L;
-   }
+    @Override
+    public int getValueAsInt(int defaultValue) {
+        return 0;
+    }
+    @Override
+    public long getValueAsLong(long defaultValue) {
+        return 0L;
+    }
+    @Override
+    public double getValueAsDouble(double defaultValue) {
+        return 0.0;
+    }
+    
+    @Override
+    public final void serialize(JsonGenerator jg, SerializerProvider provider)
+        throws IOException, JsonProcessingException
+    {
+        jg.writeNull();
+    }
 
-   public double getValueAsDouble(double defaultValue) {
-      return 0.0D;
-   }
-
-   public final void serialize(JsonGenerator jg, SerializerProvider provider) throws IOException, JsonProcessingException {
-      jg.writeNull();
-   }
-
-   public boolean equals(Object o) {
-      return o == this;
-   }
+    @Override
+    public boolean equals(Object o)
+    {
+        return (o == this);
+    }
 }

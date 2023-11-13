@@ -1,39 +1,69 @@
 package org.codehaus.jackson.map.jsontype.impl;
 
 import java.io.IOException;
+
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.JsonProcessingException;
-import org.codehaus.jackson.annotate.JsonTypeInfo;
+import org.codehaus.jackson.annotate.JsonTypeInfo.As;
 import org.codehaus.jackson.map.BeanProperty;
 import org.codehaus.jackson.map.jsontype.TypeIdResolver;
 
-public class AsPropertyTypeSerializer extends AsArrayTypeSerializer {
-   protected final String _typePropertyName;
+/**
+ * Type serializer that preferably embeds type information as an additional
+ * JSON Object property, if possible (when resulting serialization would
+ * use JSON Object). If this is not possible (for JSON Arrays, scalars),
+ * uses a JSON Array wrapper (similar to how
+ * {@link As#WRAPPER_ARRAY} always works) as a fallback.
+ * 
+ * @since 1.5
+ * @author tatus
+ */
+public class AsPropertyTypeSerializer
+    extends AsArrayTypeSerializer
+{
+    protected final String _typePropertyName;
 
-   public AsPropertyTypeSerializer(TypeIdResolver idRes, BeanProperty property, String propName) {
-      super(idRes, property);
-      this._typePropertyName = propName;
-   }
+    public AsPropertyTypeSerializer(TypeIdResolver idRes, BeanProperty property,
+            String propName)
+    {
+        super(idRes, property);
+        _typePropertyName = propName;
+    }
 
-   public String getPropertyName() {
-      return this._typePropertyName;
-   }
+    @Override
+    public String getPropertyName() { return _typePropertyName; }
 
-   public JsonTypeInfo.As getTypeInclusion() {
-      return JsonTypeInfo.As.PROPERTY;
-   }
+    @Override
+    public As getTypeInclusion() { return As.PROPERTY; }
+    
+    @Override
+    public void writeTypePrefixForObject(Object value, JsonGenerator jgen)
+        throws IOException, JsonProcessingException
+    {
+        jgen.writeStartObject();
+        jgen.writeStringField(_typePropertyName, _idResolver.idFromValue(value));
+    }
 
-   public void writeTypePrefixForObject(Object value, JsonGenerator jgen) throws IOException, JsonProcessingException {
-      jgen.writeStartObject();
-      jgen.writeStringField(this._typePropertyName, this._idResolver.idFromValue(value));
-   }
+    @Override
+    public void writeTypePrefixForObject(Object value, JsonGenerator jgen, Class<?> type)
+        throws IOException, JsonProcessingException
+    {
+        jgen.writeStartObject();
+        jgen.writeStringField(_typePropertyName, _idResolver.idFromValueAndType(value, type));
+    }
+    
+    //public void writeTypePrefixForArray(Object value, JsonGenerator jgen)
+    //public void writeTypePrefixForArray(Object value, JsonGenerator jgen, Class<?> type)
+    //public void writeTypePrefixForScalar(Object value, JsonGenerator jgen)
+    //public void writeTypePrefixForScalar(Object value, JsonGenerator jgen, Class<?> type)
 
-   public void writeTypePrefixForObject(Object value, JsonGenerator jgen, Class<?> type) throws IOException, JsonProcessingException {
-      jgen.writeStartObject();
-      jgen.writeStringField(this._typePropertyName, this._idResolver.idFromValueAndType(value, type));
-   }
+    @Override
+    public void writeTypeSuffixForObject(Object value, JsonGenerator jgen)
+        throws IOException, JsonProcessingException
+    {
+        jgen.writeEndObject();
+    }
 
-   public void writeTypeSuffixForObject(Object value, JsonGenerator jgen) throws IOException, JsonProcessingException {
-      jgen.writeEndObject();
-   }
+    //public void writeTypeSuffixForArray(Object value, JsonGenerator jgen)
+    //public void writeTypeSuffixForScalar(Object value, JsonGenerator jgen)
 }

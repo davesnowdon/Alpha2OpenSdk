@@ -2,60 +2,139 @@ package org.codehaus.jackson.node;
 
 import java.io.IOException;
 import java.util.List;
-import org.codehaus.jackson.JsonGenerationException;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.JsonParser;
-import org.codehaus.jackson.JsonProcessingException;
-import org.codehaus.jackson.JsonToken;
+
+import org.codehaus.jackson.*;
 import org.codehaus.jackson.map.JsonSerializableWithType;
 import org.codehaus.jackson.map.SerializerProvider;
 import org.codehaus.jackson.map.TypeSerializer;
 
-public abstract class BaseJsonNode extends JsonNode implements JsonSerializableWithType {
-   protected BaseJsonNode() {
-   }
+/**
+ * Abstract base class common to all standard {@link JsonNode}
+ * implementations.
+ * The main addition here is that we declare that sub-classes must
+ * implement {@link JsonSerializableWithType}.
+ * This simplifies object mapping
+ * aspects a bit, as no external serializers are needed.
+ */
+public abstract class BaseJsonNode
+    extends JsonNode
+    implements JsonSerializableWithType
+{
+    protected BaseJsonNode() { }
 
-   public JsonNode findValue(String fieldName) {
-      return null;
-   }
+    /*
+    /**********************************************************
+    /* Basic definitions for non-container types
+    /**********************************************************
+     */
 
-   public final JsonNode findPath(String fieldName) {
-      JsonNode value = this.findValue(fieldName);
-      return (JsonNode)(value == null ? MissingNode.getInstance() : value);
-   }
+    @Override
+    public JsonNode findValue(String fieldName) {
+        return null;
+    }
 
-   public ObjectNode findParent(String fieldName) {
-      return null;
-   }
+    @Override
+    public final JsonNode findPath(String fieldName)
+    {
+        JsonNode value = findValue(fieldName);
+        if (value == null) {
+            return MissingNode.getInstance();
+        }
+        return value;
+    }
+    
+    // note: co-variant return type
+    @Override
+    public ObjectNode findParent(String fieldName) {
+        return null;
+    }
 
-   public List<JsonNode> findValues(String fieldName, List<JsonNode> foundSoFar) {
-      return foundSoFar;
-   }
+    @Override
+    public List<JsonNode> findValues(String fieldName, List<JsonNode> foundSoFar) {
+        return foundSoFar;
+    }
 
-   public List<String> findValuesAsText(String fieldName, List<String> foundSoFar) {
-      return foundSoFar;
-   }
+    @Override
+    public List<String> findValuesAsText(String fieldName, List<String> foundSoFar) {
+        return foundSoFar;
+    }
+    
+    @Override
+    public List<JsonNode> findParents(String fieldName, List<JsonNode> foundSoFar) {
+        return foundSoFar;
+    }
+    
+    /*
+    /**********************************************************
+    /* Support for traversal-as-stream
+    /**********************************************************
+     */
 
-   public List<JsonNode> findParents(String fieldName, List<JsonNode> foundSoFar) {
-      return foundSoFar;
-   }
+    @Override
+    public JsonParser traverse() {
+        return new TreeTraversingParser(this);
+    }
 
-   public JsonParser traverse() {
-      return new TreeTraversingParser(this);
-   }
+    /**
+     * Method that can be used for efficient type detection
+     * when using stream abstraction for traversing nodes.
+     * Will return the first {@link JsonToken} that equivalent
+     * stream event would produce (for most nodes there is just
+     * one token but for structured/container types multiple)
+     *
+     * @since 1.3
+     */
+    @Override
+    public abstract JsonToken asToken();
 
-   public abstract JsonToken asToken();
+    /**
+     * @since 1.3
+     */
+    @Override
+    public JsonParser.NumberType getNumberType() {
+        // most types non-numeric, so:
+        return null; 
+    }
 
-   public JsonParser.NumberType getNumberType() {
-      return null;
-   }
+    /*
+    /**********************************************************
+    /* JsonSerializable
+    /**********************************************************
+     */
 
-   public abstract void serialize(JsonGenerator var1, SerializerProvider var2) throws IOException, JsonProcessingException;
+    /**
+     * Method called to serialize node instances using given generator.
+     */
+    public abstract void serialize(JsonGenerator jgen, SerializerProvider provider)
+        throws IOException, JsonProcessingException;
 
-   public abstract void serializeWithType(JsonGenerator var1, SerializerProvider var2, TypeSerializer var3) throws IOException, JsonProcessingException;
+    /**
+     * Type information is needed, even if JsonNode instances are "plain" JSON,
+     * since they may be mixed with other types.
+     */
+    public abstract void serializeWithType(JsonGenerator jgen, SerializerProvider provider,
+            TypeSerializer typeSer)
+        throws IOException, JsonProcessingException;
 
-   public final void writeTo(JsonGenerator jgen) throws IOException, JsonGenerationException {
-      this.serialize(jgen, (SerializerProvider)null);
-   }
+    /*
+    /**********************************************************
+    /* Other
+    /**********************************************************
+     */
+
+    /**
+     *<p>
+     * Note: this method is deprecated, given that we
+     * want to use the standard serialization interface.
+     */
+    @Override
+    public final void writeTo(JsonGenerator jgen)
+        throws IOException, JsonGenerationException
+    {
+        /* it's ok to pass null, as long as other nodes handle
+         * it properly...
+         */
+        serialize(jgen, null);
+    }
 }
+

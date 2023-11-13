@@ -3,77 +3,147 @@ package org.codehaus.jackson.map.introspect;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
+
 import org.codehaus.jackson.map.type.TypeBindings;
 import org.codehaus.jackson.map.type.TypeFactory;
 import org.codehaus.jackson.type.JavaType;
 
-public abstract class AnnotatedWithParams extends AnnotatedMember {
-   protected final AnnotationMap _annotations;
-   protected final AnnotationMap[] _paramAnnotations;
+/**
+ * Intermediate base class that encapsulates features that
+ * constructors and methods share.
+ */
+public abstract class AnnotatedWithParams
+    extends AnnotatedMember
+{
+    /**
+     * Annotations directly associated with the annotated
+     * entity.
+     */
+    protected final AnnotationMap _annotations;
 
-   protected AnnotatedWithParams(AnnotationMap classAnn, AnnotationMap[] paramAnnotations) {
-      this._annotations = classAnn;
-      this._paramAnnotations = paramAnnotations;
-   }
+    /**
+     * Annotations associated with parameters of the annotated
+     * entity (method or constructor parameters)
+     */
+    protected final AnnotationMap[] _paramAnnotations;
 
-   public final void addOrOverride(Annotation a) {
-      this._annotations.add(a);
-   }
+    /*
+    /**********************************************************
+    /* Life-cycle
+    /**********************************************************
+     */
 
-   public final void addOrOverrideParam(int paramIndex, Annotation a) {
-      AnnotationMap old = this._paramAnnotations[paramIndex];
-      if (old == null) {
-         old = new AnnotationMap();
-         this._paramAnnotations[paramIndex] = old;
-      }
+    protected AnnotatedWithParams(AnnotationMap classAnn, AnnotationMap[] paramAnnotations)
+    {
+        _annotations = classAnn;
+        _paramAnnotations = paramAnnotations;
+    }
 
-      old.add(a);
-   }
+    /**
+     * Method called to override a class annotation, usually due to a mix-in
+     * annotation masking or overriding an annotation 'real' class
+     */
+    public final void addOrOverride(Annotation a)
+    {
+        _annotations.add(a);
+    }
 
-   public final void addIfNotPresent(Annotation a) {
-      this._annotations.addIfNotPresent(a);
-   }
+    /**
+     * Method called to override a method parameter annotation,
+     * usually due to a mix-in
+     * annotation masking or overriding an annotation 'real' method
+     * has.
+     */
+    public final void addOrOverrideParam(int paramIndex, Annotation a)
+    {
+        AnnotationMap old = _paramAnnotations[paramIndex];
+        if (old == null) {
+            old = new AnnotationMap();
+            _paramAnnotations[paramIndex] = old;
+        }
+        old.add(a);
+    }
 
-   protected JavaType getType(TypeBindings bindings, TypeVariable<?>[] typeParams) {
-      if (typeParams != null && typeParams.length > 0) {
-         bindings = bindings.childInstance();
-         TypeVariable[] arr$ = typeParams;
-         int len$ = typeParams.length;
+    /**
+     * Method called to augment annotations, by adding specified
+     * annotation if and only if it is not yet present in the
+     * annotation map we have.
+     */
+    public final void addIfNotPresent(Annotation a)
+    {
+        _annotations.addIfNotPresent(a);
+    }
 
-         for(int i$ = 0; i$ < len$; ++i$) {
-            TypeVariable<?> var = arr$[i$];
-            String name = var.getName();
-            bindings._addPlaceholder(name);
-            Type lowerBound = var.getBounds()[0];
-            JavaType type = lowerBound == null ? TypeFactory.unknownType() : bindings.resolveType(lowerBound);
-            bindings.addBinding(var.getName(), type);
-         }
-      }
+    /*
+    /**********************************************************
+    /* Helper methods for subclasses
+    /**********************************************************
+     */
 
-      return bindings.resolveType(this.getGenericType());
-   }
+    protected  JavaType getType(TypeBindings bindings, TypeVariable<?>[] typeParams)
+    {
+        // [JACKSON-468] Need to consider local type binding declarations too...
+        if (typeParams != null && typeParams.length > 0) {
+            bindings = bindings.childInstance();
+            for (TypeVariable<?> var : typeParams) {
+                String name = var.getName();
+                // to prevent infinite loops, need to first add placeholder ("<T extends Enum<T>>" etc)
+                bindings._addPlaceholder(name);
+                // About only useful piece of information is the lower bound (which is at least Object.class)
+                Type lowerBound = var.getBounds()[0];
+                JavaType type = (lowerBound == null) ? TypeFactory.unknownType()
+                        : bindings.resolveType(lowerBound);
+                bindings.addBinding(var.getName(), type);
+            }
+        }
+        return bindings.resolveType(getGenericType());
+    }
 
-   public final <A extends Annotation> A getAnnotation(Class<A> acls) {
-      return this._annotations.get(acls);
-   }
+    /*
+    /**********************************************************
+    /* Partial Annotated impl
+    /**********************************************************
+     */
 
-   public final AnnotationMap getParameterAnnotations(int index) {
-      return this._paramAnnotations != null && index >= 0 && index <= this._paramAnnotations.length ? this._paramAnnotations[index] : null;
-   }
+    @Override
+    public final <A extends Annotation> A getAnnotation(Class<A> acls)
+    {
+        return _annotations.get(acls);
+    }
 
-   public abstract AnnotatedParameter getParameter(int var1);
+    /*
+    /**********************************************************
+    /* Extended API
+    /**********************************************************
+     */
 
-   public abstract int getParameterCount();
+    public final AnnotationMap getParameterAnnotations(int index)
+    {
+        if (_paramAnnotations != null) {
+            if (index >= 0 && index <= _paramAnnotations.length) {
+                return _paramAnnotations[index];
+            }
+        }
+        return null;
+    }
 
-   public abstract Class<?> getParameterClass(int var1);
+    public abstract AnnotatedParameter getParameter(int index);
 
-   public abstract Type getParameterType(int var1);
+    public abstract int getParameterCount();
 
-   public final JavaType resolveParameterType(int index, TypeBindings bindings) {
-      return bindings.resolveType(this.getParameterType(index));
-   }
+    public abstract Class<?> getParameterClass(int index);
 
-   public final int getAnnotationCount() {
-      return this._annotations.size();
-   }
+    public abstract Type getParameterType(int index);
+
+    /**
+     * Method called to fully resolve type of one of parameters, given
+     * specified type variable bindings.
+     * 
+     * @since 1.8
+     */
+    public final JavaType resolveParameterType(int index, TypeBindings bindings) {
+        return bindings.resolveType(getParameterType(index));
+    }
+    
+    public final int getAnnotationCount() { return _annotations.size(); }
 }

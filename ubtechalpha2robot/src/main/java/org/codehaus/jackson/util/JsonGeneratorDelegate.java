@@ -3,213 +3,271 @@ package org.codehaus.jackson.util;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import org.codehaus.jackson.Base64Variant;
-import org.codehaus.jackson.FormatSchema;
-import org.codehaus.jackson.JsonGenerationException;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.JsonParser;
-import org.codehaus.jackson.JsonProcessingException;
-import org.codehaus.jackson.JsonStreamContext;
-import org.codehaus.jackson.ObjectCodec;
-import org.codehaus.jackson.SerializableString;
-import org.codehaus.jackson.Version;
+
+import org.codehaus.jackson.*;
 import org.codehaus.jackson.io.SerializedString;
 
-public class JsonGeneratorDelegate extends JsonGenerator {
-   protected JsonGenerator delegate;
+public class JsonGeneratorDelegate extends JsonGenerator
+{
+    /**
+     * Delegate object that method calls are delegated to.
+     */
+    protected JsonGenerator delegate;
 
-   public JsonGeneratorDelegate(JsonGenerator d) {
-      this.delegate = d;
-   }
+    public JsonGeneratorDelegate(JsonGenerator d) {
+        delegate = d;
+    }   
 
-   public void close() throws IOException {
-      this.delegate.close();
-   }
+    @Override
+    public void close() throws IOException {
+        delegate.close();
+    }
 
-   public void copyCurrentEvent(JsonParser jp) throws IOException, JsonProcessingException {
-      this.delegate.copyCurrentEvent(jp);
-   }
+    @Override
+    public void copyCurrentEvent(JsonParser jp) throws IOException, JsonProcessingException {
+        delegate.copyCurrentEvent(jp);
+    }
 
-   public void copyCurrentStructure(JsonParser jp) throws IOException, JsonProcessingException {
-      this.delegate.copyCurrentStructure(jp);
-   }
+    @Override
+    public void copyCurrentStructure(JsonParser jp) throws IOException, JsonProcessingException {
+        delegate.copyCurrentStructure(jp);
+    }
 
-   public JsonGenerator disable(JsonGenerator.Feature f) {
-      return this.delegate.disable(f);
-   }
+    @Override
+    public JsonGenerator disable(Feature f) {
+        return delegate.disable(f);
+    }
 
-   public JsonGenerator enable(JsonGenerator.Feature f) {
-      return this.delegate.enable(f);
-   }
+    @Override
+    public JsonGenerator enable(Feature f) {
+        return delegate.enable(f);
+    }
 
-   public void flush() throws IOException {
-      this.delegate.flush();
-   }
+    @Override
+    public void flush() throws IOException {
+        delegate.flush();
+    }
 
-   public ObjectCodec getCodec() {
-      return this.delegate.getCodec();
-   }
+    @Override
+    public ObjectCodec getCodec() {
+        return delegate.getCodec();
+    }
 
-   public JsonStreamContext getOutputContext() {
-      return this.delegate.getOutputContext();
-   }
+    @Override
+    public JsonStreamContext getOutputContext() {
+        return delegate.getOutputContext();
+    }
 
-   public void setSchema(FormatSchema schema) {
-      this.delegate.setSchema(schema);
-   }
+    @Override
+    public void setSchema(FormatSchema schema) {
+        delegate.setSchema(schema);
+    }
+    
+    @Override
+    public boolean canUseSchema(FormatSchema schema) {
+        return delegate.canUseSchema(schema);
+    }
+    
+    @Override
+    public Version version() {
+        return delegate.version();
+    }
+    
+    @Override
+    public Object getOutputTarget() {
+        return delegate.getOutputTarget();
+    }
+    
+    @Override
+    public boolean isClosed() {
+        return delegate.isClosed();
+    }
 
-   public boolean canUseSchema(FormatSchema schema) {
-      return this.delegate.canUseSchema(schema);
-   }
+    @Override
+    public boolean isEnabled(Feature f) {
+        return delegate.isEnabled(f);
+    }
 
-   public Version version() {
-      return this.delegate.version();
-   }
+    @Override
+    public JsonGenerator setCodec(ObjectCodec oc) {
+        delegate.setCodec(oc);
+        return this;
+    }
 
-   public Object getOutputTarget() {
-      return this.delegate.getOutputTarget();
-   }
+    @Override
+    public JsonGenerator useDefaultPrettyPrinter() {
+        delegate.useDefaultPrettyPrinter();
+        return this;
+    }
 
-   public boolean isClosed() {
-      return this.delegate.isClosed();
-   }
+    @Override
+    public void writeBinary(Base64Variant b64variant, byte[] data, int offset, int len)
+        throws IOException, JsonGenerationException
+    {
+        delegate.writeBinary(b64variant, data, offset, len);
+    }
 
-   public boolean isEnabled(JsonGenerator.Feature f) {
-      return this.delegate.isEnabled(f);
-   }
+    @Override
+    public void writeBoolean(boolean state) throws IOException, JsonGenerationException {
+        delegate.writeBoolean(state);
+    }
 
-   public JsonGenerator setCodec(ObjectCodec oc) {
-      this.delegate.setCodec(oc);
-      return this;
-   }
+    @Override
+    public void writeEndArray() throws IOException, JsonGenerationException {
+        delegate.writeEndArray();
+    }
 
-   public JsonGenerator useDefaultPrettyPrinter() {
-      this.delegate.useDefaultPrettyPrinter();
-      return this;
-   }
+    @Override
+    public void writeEndObject() throws IOException, JsonGenerationException {
+        delegate.writeEndObject();
+    }
 
-   public void writeBinary(Base64Variant b64variant, byte[] data, int offset, int len) throws IOException, JsonGenerationException {
-      this.delegate.writeBinary(b64variant, data, offset, len);
-   }
+    @Override
+    public void writeFieldName(String name)
+        throws IOException, JsonGenerationException
+    {
+        delegate.writeFieldName(name);
+    }
 
-   public void writeBoolean(boolean state) throws IOException, JsonGenerationException {
-      this.delegate.writeBoolean(state);
-   }
+    @Override
+    public void writeFieldName(SerializedString name)
+        throws IOException, JsonGenerationException
+    {
+        delegate.writeFieldName(name);
+    }
 
-   public void writeEndArray() throws IOException, JsonGenerationException {
-      this.delegate.writeEndArray();
-   }
+    @Override
+    public void writeFieldName(SerializableString name)
+        throws IOException, JsonGenerationException
+    {
+        delegate.writeFieldName(name);
+    }
+    
+    @Override
+    public void writeNull() throws IOException, JsonGenerationException {
+        delegate.writeNull();
+    }
 
-   public void writeEndObject() throws IOException, JsonGenerationException {
-      this.delegate.writeEndObject();
-   }
+    @Override
+    public void writeNumber(int v) throws IOException, JsonGenerationException {
+        delegate.writeNumber(v);
+    }
 
-   public void writeFieldName(String name) throws IOException, JsonGenerationException {
-      this.delegate.writeFieldName(name);
-   }
+    @Override
+    public void writeNumber(long v) throws IOException, JsonGenerationException {
+        delegate.writeNumber(v);
+    }
 
-   public void writeFieldName(SerializedString name) throws IOException, JsonGenerationException {
-      this.delegate.writeFieldName(name);
-   }
+    @Override
+    public void writeNumber(BigInteger v) throws IOException,
+            JsonGenerationException {
+        delegate.writeNumber(v);
+    }
 
-   public void writeFieldName(SerializableString name) throws IOException, JsonGenerationException {
-      this.delegate.writeFieldName(name);
-   }
+    @Override
+    public void writeNumber(double v) throws IOException,
+            JsonGenerationException {
+        delegate.writeNumber(v);
+    }
 
-   public void writeNull() throws IOException, JsonGenerationException {
-      this.delegate.writeNull();
-   }
+    @Override
+    public void writeNumber(float v) throws IOException,
+            JsonGenerationException {
+        delegate.writeNumber(v);
+    }
 
-   public void writeNumber(int v) throws IOException, JsonGenerationException {
-      this.delegate.writeNumber(v);
-   }
+    @Override
+    public void writeNumber(BigDecimal v) throws IOException,
+            JsonGenerationException {
+        delegate.writeNumber(v);
+    }
 
-   public void writeNumber(long v) throws IOException, JsonGenerationException {
-      this.delegate.writeNumber(v);
-   }
+    @Override
+    public void writeNumber(String encodedValue) throws IOException, JsonGenerationException, UnsupportedOperationException {
+        delegate.writeNumber(encodedValue);
+    }
 
-   public void writeNumber(BigInteger v) throws IOException, JsonGenerationException {
-      this.delegate.writeNumber(v);
-   }
+    @Override
+    public void writeObject(Object pojo) throws IOException,JsonProcessingException {
+        delegate.writeObject(pojo);
+    }
 
-   public void writeNumber(double v) throws IOException, JsonGenerationException {
-      this.delegate.writeNumber(v);
-   }
+    @Override
+    public void writeRaw(String text) throws IOException, JsonGenerationException {
+        delegate.writeRaw(text);
+    }
 
-   public void writeNumber(float v) throws IOException, JsonGenerationException {
-      this.delegate.writeNumber(v);
-   }
+    @Override
+    public void writeRaw(String text, int offset, int len) throws IOException, JsonGenerationException {
+        delegate.writeRaw(text, offset, len);
+    }
 
-   public void writeNumber(BigDecimal v) throws IOException, JsonGenerationException {
-      this.delegate.writeNumber(v);
-   }
+    @Override
+    public void writeRaw(char[] text, int offset, int len) throws IOException, JsonGenerationException {
+        delegate.writeRaw(text, offset, len);
+    }
 
-   public void writeNumber(String encodedValue) throws IOException, JsonGenerationException, UnsupportedOperationException {
-      this.delegate.writeNumber(encodedValue);
-   }
+    @Override
+    public void writeRaw(char c) throws IOException, JsonGenerationException {
+        delegate.writeRaw(c);
+    }
 
-   public void writeObject(Object pojo) throws IOException, JsonProcessingException {
-      this.delegate.writeObject(pojo);
-   }
+    @Override
+    public void writeRawValue(String text) throws IOException, JsonGenerationException {
+        delegate.writeRawValue(text);
+    }
 
-   public void writeRaw(String text) throws IOException, JsonGenerationException {
-      this.delegate.writeRaw(text);
-   }
+    @Override
+    public void writeRawValue(String text, int offset, int len) throws IOException, JsonGenerationException {
+         delegate.writeRawValue(text, offset, len);
+    }
 
-   public void writeRaw(String text, int offset, int len) throws IOException, JsonGenerationException {
-      this.delegate.writeRaw(text, offset, len);
-   }
+    @Override
+    public void writeRawValue(char[] text, int offset, int len) throws IOException, JsonGenerationException {
+         delegate.writeRawValue(text, offset, len);
+    }
 
-   public void writeRaw(char[] text, int offset, int len) throws IOException, JsonGenerationException {
-      this.delegate.writeRaw(text, offset, len);
-   }
+    @Override
+    public void writeStartArray() throws IOException, JsonGenerationException {
+         delegate.writeStartArray();
+    }
 
-   public void writeRaw(char c) throws IOException, JsonGenerationException {
-      this.delegate.writeRaw(c);
-   }
+    @Override
+    public void writeStartObject() throws IOException, JsonGenerationException {
+        delegate.writeStartObject();
+    }
 
-   public void writeRawValue(String text) throws IOException, JsonGenerationException {
-      this.delegate.writeRawValue(text);
-   }
+    @Override
+    public void writeString(String text) throws IOException,JsonGenerationException {
+        delegate.writeString(text);
+    }
 
-   public void writeRawValue(String text, int offset, int len) throws IOException, JsonGenerationException {
-      this.delegate.writeRawValue(text, offset, len);
-   }
+    @Override
+    public void writeString(char[] text, int offset, int len) throws IOException, JsonGenerationException {
+        delegate.writeString(text, offset, len);
+    }
 
-   public void writeRawValue(char[] text, int offset, int len) throws IOException, JsonGenerationException {
-      this.delegate.writeRawValue(text, offset, len);
-   }
+    @Override
+    public void writeString(SerializableString text) throws IOException, JsonGenerationException {
+        delegate.writeString(text);
+    }
 
-   public void writeStartArray() throws IOException, JsonGenerationException {
-      this.delegate.writeStartArray();
-   }
+    @Override
+    public void writeRawUTF8String(byte[] text, int offset, int length)
+        throws IOException, JsonGenerationException
+    {
+        delegate.writeRawUTF8String(text, offset, length);
+    }
 
-   public void writeStartObject() throws IOException, JsonGenerationException {
-      this.delegate.writeStartObject();
-   }
-
-   public void writeString(String text) throws IOException, JsonGenerationException {
-      this.delegate.writeString(text);
-   }
-
-   public void writeString(char[] text, int offset, int len) throws IOException, JsonGenerationException {
-      this.delegate.writeString(text, offset, len);
-   }
-
-   public void writeString(SerializableString text) throws IOException, JsonGenerationException {
-      this.delegate.writeString(text);
-   }
-
-   public void writeRawUTF8String(byte[] text, int offset, int length) throws IOException, JsonGenerationException {
-      this.delegate.writeRawUTF8String(text, offset, length);
-   }
-
-   public void writeUTF8String(byte[] text, int offset, int length) throws IOException, JsonGenerationException {
-      this.delegate.writeUTF8String(text, offset, length);
-   }
-
-   public void writeTree(JsonNode rootNode) throws IOException, JsonProcessingException {
-      this.delegate.writeTree(rootNode);
-   }
+    @Override
+    public void writeUTF8String(byte[] text, int offset, int length)
+        throws IOException, JsonGenerationException
+    {
+        delegate.writeUTF8String(text, offset, length);
+    }
+    
+    @Override
+    public void writeTree(JsonNode rootNode) throws IOException, JsonProcessingException {
+        delegate.writeTree(rootNode);
+    }
 }

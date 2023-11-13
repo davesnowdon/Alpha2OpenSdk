@@ -2,36 +2,51 @@ package org.codehaus.jackson.map.ser.impl;
 
 import java.io.IOException;
 import java.net.InetAddress;
+
 import org.codehaus.jackson.JsonGenerationException;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.map.SerializerProvider;
 import org.codehaus.jackson.map.TypeSerializer;
 import org.codehaus.jackson.map.ser.ScalarSerializerBase;
 
-public class InetAddressSerializer extends ScalarSerializerBase<InetAddress> {
-   public static final InetAddressSerializer instance = new InetAddressSerializer();
+/**
+ * Simple serializer for {@link java.net.InetAddress}. Main complexity is
+ * with registration, since same serializer is to be used for sub-classes.
+ *
+ * @since 1.8
+ */
+public class InetAddressSerializer
+    extends ScalarSerializerBase<InetAddress>
+{
+    public final static InetAddressSerializer instance = new InetAddressSerializer();
+    
+    public InetAddressSerializer() { super(InetAddress.class); }
 
-   public InetAddressSerializer() {
-      super(InetAddress.class);
-   }
+    @Override
+    public void serialize(InetAddress value, JsonGenerator jgen, SerializerProvider provider)
+        throws IOException, JsonGenerationException
+    {
+        // Ok: get textual description; choose "more specific" part
+        String str = value.toString().trim();
+        int ix = str.indexOf('/');
+        if (ix >= 0) {
+            if (ix == 0) { // missing host name; use address
+                str = str.substring(1);
+            } else { // otherwise use name
+                str = str.substring(0, ix);
+            }
+        }
+        jgen.writeString(str);
+    }
 
-   public void serialize(InetAddress value, JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonGenerationException {
-      String str = value.toString().trim();
-      int ix = str.indexOf(47);
-      if (ix >= 0) {
-         if (ix == 0) {
-            str = str.substring(1);
-         } else {
-            str = str.substring(0, ix);
-         }
-      }
-
-      jgen.writeString(str);
-   }
-
-   public void serializeWithType(InetAddress value, JsonGenerator jgen, SerializerProvider provider, TypeSerializer typeSer) throws IOException, JsonGenerationException {
-      typeSer.writeTypePrefixForScalar(value, jgen, InetAddress.class);
-      this.serialize(value, jgen, provider);
-      typeSer.writeTypeSuffixForScalar(value, jgen);
-   }
+    @Override
+    public void serializeWithType(InetAddress value, JsonGenerator jgen, SerializerProvider provider,
+            TypeSerializer typeSer)
+        throws IOException, JsonGenerationException
+    {
+        // Better ensure we don't use specific sub-classes...
+        typeSer.writeTypePrefixForScalar(value, jgen, InetAddress.class);
+        serialize(value, jgen, provider);
+        typeSer.writeTypeSuffixForScalar(value, jgen);
+    }
 }

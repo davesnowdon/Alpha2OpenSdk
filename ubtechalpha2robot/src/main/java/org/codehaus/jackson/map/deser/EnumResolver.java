@@ -1,74 +1,106 @@
 package org.codehaus.jackson.map.deser;
 
-import java.util.HashMap;
 import org.codehaus.jackson.map.AnnotationIntrospector;
 
-public final class EnumResolver<T extends Enum<T>> {
-   protected final Class<T> _enumClass;
-   protected final T[] _enums;
-   protected final HashMap<String, T> _enumsById;
+import java.util.*;
 
-   private EnumResolver(Class<T> enumClass, T[] enums, HashMap<String, T> map) {
-      this._enumClass = enumClass;
-      this._enums = enums;
-      this._enumsById = map;
-   }
+/**
+ * Helper class used to resolve String values (either Json Object field
+ * names or regular String values) into Java Enum instances.
+ */
+public final class EnumResolver<T extends Enum<T>>
+{
+    protected final Class<T> _enumClass;
 
-   public static <ET extends Enum<ET>> EnumResolver<ET> constructFor(Class<ET> enumCls, AnnotationIntrospector ai) {
-      ET[] enumValues = (Enum[])enumCls.getEnumConstants();
-      if (enumValues == null) {
-         throw new IllegalArgumentException("No enum constants for class " + enumCls.getName());
-      } else {
-         HashMap<String, ET> map = new HashMap();
-         Enum[] arr$ = enumValues;
-         int len$ = enumValues.length;
+    protected final T[] _enums;
 
-         for(int i$ = 0; i$ < len$; ++i$) {
-            ET e = arr$[i$];
+    protected final HashMap<String, T> _enumsById;
+
+    private EnumResolver(Class<T> enumClass, T[] enums, HashMap<String, T> map)
+    {
+        _enumClass = enumClass;
+        _enums = enums;
+        _enumsById = map;
+    }
+
+    /**
+     * Factory method for constructing resolver that maps from Enum.name() into
+     * Enum value
+     */
+    public static <ET extends Enum<ET>> EnumResolver<ET> constructFor(Class<ET> enumCls, AnnotationIntrospector ai)
+    {
+        ET[] enumValues = enumCls.getEnumConstants();
+        if (enumValues == null) {
+            throw new IllegalArgumentException("No enum constants for class "+enumCls.getName());
+        }
+        HashMap<String, ET> map = new HashMap<String, ET>();
+        for (ET e : enumValues) {
             map.put(ai.findEnumValue(e), e);
-         }
+        }
+        return new EnumResolver<ET>(enumCls, enumValues, map);
+    }
 
-         return new EnumResolver(enumCls, enumValues, map);
-      }
-   }
+    /**
+     * Factory method for constructing resolver that maps from Enum.toString() into
+     * Enum value
+     * 
+     * @since 1.6
+     */
+    public static <ET extends Enum<ET>> EnumResolver<ET> constructUsingToString(Class<ET> enumCls)
+    {
+        ET[] enumValues = enumCls.getEnumConstants();
+        HashMap<String, ET> map = new HashMap<String, ET>();
+        // from last to first, so that in case of duplicate values, first wins
+        for (int i = enumValues.length; --i >= 0; ) {
+            ET e = enumValues[i];
+            map.put(e.toString(), e);
+        }
+        return new EnumResolver<ET>(enumCls, enumValues, map);
+    }    
+    
+    /**
+     * This method is needed because of the dynamic nature of constructing Enum
+     * resolvers.
+     */
+    @SuppressWarnings("unchecked")
+    public static EnumResolver<?> constructUnsafe(Class<?> rawEnumCls, AnnotationIntrospector ai)
+    {            
+        /* This is oh so wrong... but at least ugliness is mostly hidden in just
+         * this one place.
+         */
+        Class<Enum> enumCls = (Class<Enum>) rawEnumCls;
+        return constructFor(enumCls, ai);
+    }
 
-   public static <ET extends Enum<ET>> EnumResolver<ET> constructUsingToString(Class<ET> enumCls) {
-      ET[] enumValues = (Enum[])enumCls.getEnumConstants();
-      HashMap<String, ET> map = new HashMap();
-      int i = enumValues.length;
+    /**
+     * Method that needs to be used instead of {@link #constructUsingToString}
+     * if static type of enum is not known.
+     * 
+     * @since 1.6
+     */
+    @SuppressWarnings("unchecked")
+    public static EnumResolver<?> constructUnsafeUsingToString(Class<?> rawEnumCls)
+    {            
+        // oh so wrong... not much that can be done tho
+        Class<Enum> enumCls = (Class<Enum>) rawEnumCls;
+        return constructUsingToString(enumCls);
+    }
+    
+    public T findEnum(String key)
+    {
+        return _enumsById.get(key);
+    }
 
-      while(true) {
-         --i;
-         if (i < 0) {
-            return new EnumResolver(enumCls, enumValues, map);
-         }
+    public T getEnum(int index)
+    {
+        if (index < 0 || index >= _enums.length) {
+            return null;
+        }
+        return _enums[index];
+    }
 
-         ET e = enumValues[i];
-         map.put(e.toString(), e);
-      }
-   }
+    public Class<T> getEnumClass() { return _enumClass; }
 
-   public static EnumResolver<?> constructUnsafe(Class<?> rawEnumCls, AnnotationIntrospector ai) {
-      return constructFor(rawEnumCls, ai);
-   }
-
-   public static EnumResolver<?> constructUnsafeUsingToString(Class<?> rawEnumCls) {
-      return constructUsingToString(rawEnumCls);
-   }
-
-   public T findEnum(String key) {
-      return (Enum)this._enumsById.get(key);
-   }
-
-   public T getEnum(int index) {
-      return index >= 0 && index < this._enums.length ? this._enums[index] : null;
-   }
-
-   public Class<T> getEnumClass() {
-      return this._enumClass;
-   }
-
-   public int lastValidIndex() {
-      return this._enums.length - 1;
-   }
+    public int lastValidIndex() { return _enums.length-1; }
 }
+

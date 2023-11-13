@@ -1,128 +1,181 @@
 package org.codehaus.jackson.jaxrs;
 
-import java.util.ArrayList;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.JsonParser;
-import org.codehaus.jackson.map.AnnotationIntrospector;
-import org.codehaus.jackson.map.DeserializationConfig;
-import org.codehaus.jackson.map.ObjectMapper;
-import org.codehaus.jackson.map.SerializationConfig;
+import java.util.*;
+
+import org.codehaus.jackson.*;
+import org.codehaus.jackson.map.*;
 import org.codehaus.jackson.map.introspect.JacksonAnnotationIntrospector;
 import org.codehaus.jackson.xc.JaxbAnnotationIntrospector;
 
-public class MapperConfigurator {
-   protected ObjectMapper _mapper;
-   protected ObjectMapper _defaultMapper;
-   protected Annotations[] _defaultAnnotationsToUse;
-   protected Class<? extends AnnotationIntrospector> _jaxbIntrospectorClass;
+/**
+ * Helper class used to encapsulate details of configuring an
+ * {@link ObjectMapper} instance to be used for data binding, as
+ * well as accessing it.
+ */
+public class MapperConfigurator
+{
+    /**
+     * Mapper provider was constructed with if any, or that was constructed
+     * due to a call to explicitly configure mapper.
+     * If defined (explicitly or implicitly) it will be used, instead
+     * of using provider-based lookup.
+     */
+    protected ObjectMapper _mapper;
 
-   public MapperConfigurator(ObjectMapper mapper, Annotations[] defAnnotations) {
-      this._mapper = mapper;
-      this._defaultAnnotationsToUse = defAnnotations;
-   }
+    /**
+     * If no mapper was specified when constructed, and no configuration
+     * calls are made, a default mapper is constructed. The difference
+     * between default mapper and regular one is that default mapper
+     * is only used if no mapper is found via provider lookup.
+     */
+    protected ObjectMapper _defaultMapper;
 
-   public synchronized ObjectMapper getConfiguredMapper() {
-      return this._mapper;
-   }
+    /**
+     * Annotations set to use by default; overridden by explicit call
+     * to {@link #setAnnotationsToUse}
+     */
+    protected Annotations[] _defaultAnnotationsToUse;
+    
+    /**
+     * To support optional dependency to Jackson-XC module (needed if and
+     * when JAXB annotations are used for configuration)
+     */
+    protected Class<? extends AnnotationIntrospector> _jaxbIntrospectorClass;
+    
+    /*
+    ***********************************************************
+    * Construction
+    ***********************************************************
+     */
+    
+    public MapperConfigurator(ObjectMapper mapper, Annotations[] defAnnotations)
+    {
+        _mapper = mapper;
+        _defaultAnnotationsToUse = defAnnotations;
+    }
 
-   public synchronized ObjectMapper getDefaultMapper() {
-      if (this._defaultMapper == null) {
-         this._defaultMapper = new ObjectMapper();
-         this._setAnnotations(this._defaultMapper, this._defaultAnnotationsToUse);
-      }
+    /**
+     * Method that locates, configures and returns {@link ObjectMapper} to use
+     */
+    public synchronized ObjectMapper getConfiguredMapper() {
+        /* important: should NOT call mapper(); needs to return null
+         * if no instance has been passed or constructed
+         */
+        return _mapper;
+    }
 
-      return this._defaultMapper;
-   }
+    public synchronized ObjectMapper getDefaultMapper() {
+        if (_defaultMapper == null) {
+            _defaultMapper = new ObjectMapper();
+            _setAnnotations(_defaultMapper, _defaultAnnotationsToUse);
+        }
+        return _defaultMapper;
+    }
 
-   public synchronized void setMapper(ObjectMapper m) {
-      this._mapper = m;
-   }
+    /*
+     ***********************************************************
+     * Configuration methods
+     ***********************************************************
+      */
 
-   public synchronized void setAnnotationsToUse(Annotations[] annotationsToUse) {
-      this._setAnnotations(this.mapper(), annotationsToUse);
-   }
+    public synchronized void setMapper(ObjectMapper m) {
+        _mapper = m;
+    }
 
-   public synchronized void configure(DeserializationConfig.Feature f, boolean state) {
-      this.mapper().configure(f, state);
-   }
+    public synchronized void setAnnotationsToUse(Annotations[] annotationsToUse) {
+        _setAnnotations(mapper(), annotationsToUse);
+    }
 
-   public synchronized void configure(SerializationConfig.Feature f, boolean state) {
-      this.mapper().configure(f, state);
-   }
+    public synchronized void configure(DeserializationConfig.Feature f, boolean state) {
+        mapper().configure(f, state);
+    }
 
-   public synchronized void configure(JsonParser.Feature f, boolean state) {
-      this.mapper().configure(f, state);
-   }
+    public synchronized void configure(SerializationConfig.Feature f, boolean state) {
+        mapper().configure(f, state);
+    }
 
-   public synchronized void configure(JsonGenerator.Feature f, boolean state) {
-      this.mapper().configure(f, state);
-   }
+    public synchronized void configure(JsonParser.Feature f, boolean state) {
+        mapper().configure(f, state);
+    }
 
-   protected ObjectMapper mapper() {
-      if (this._mapper == null) {
-         this._mapper = new ObjectMapper();
-         this._setAnnotations(this._mapper, this._defaultAnnotationsToUse);
-      }
+    public synchronized void configure(JsonGenerator.Feature f, boolean state) {
+        mapper().configure(f, state);
+    }
 
-      return this._mapper;
-   }
+    /*
+     ***********************************************************
+     * Internal methods
+     ***********************************************************
+      */
 
-   protected void _setAnnotations(ObjectMapper mapper, Annotations[] annotationsToUse) {
-      AnnotationIntrospector intr;
-      if (annotationsToUse != null && annotationsToUse.length != 0) {
-         intr = this._resolveIntrospectors(annotationsToUse);
-      } else {
-         intr = AnnotationIntrospector.nopInstance();
-      }
+    /**
+     * Helper method that will ensure that there is a configurable non-default
+     * mapper (constructing an instance if one didn't yet exit), and return
+     * that mapper.
+     */
+    protected ObjectMapper mapper()
+    {
+        if (_mapper == null) {
+            _mapper = new ObjectMapper();
+            _setAnnotations(_mapper, _defaultAnnotationsToUse);
+        }
+        return _mapper;
+    }
 
-      mapper.getDeserializationConfig().setAnnotationIntrospector(intr);
-      mapper.getSerializationConfig().setAnnotationIntrospector(intr);
-   }
+    // since replacement methods were added in 1.8, let's not yet switch over to use them:
+    @SuppressWarnings("deprecation")
+    protected void _setAnnotations(ObjectMapper mapper, Annotations[] annotationsToUse)
+    {
+        AnnotationIntrospector intr;
+        if (annotationsToUse == null || annotationsToUse.length == 0) {
+            intr = AnnotationIntrospector.nopInstance();
+        } else {
+            intr = _resolveIntrospectors(annotationsToUse);
+        }
+        mapper.getDeserializationConfig().setAnnotationIntrospector(intr);
+        mapper.getSerializationConfig().setAnnotationIntrospector(intr);
+    }
 
-   protected AnnotationIntrospector _resolveIntrospectors(Annotations[] annotationsToUse) {
-      ArrayList<AnnotationIntrospector> intr = new ArrayList();
-      Annotations[] arr$ = annotationsToUse;
-      int len$ = annotationsToUse.length;
 
-      int i;
-      for(i = 0; i < len$; ++i) {
-         Annotations a = arr$[i];
-         if (a != null) {
-            intr.add(this._resolveIntrospector(a));
-         }
-      }
-
-      int count = intr.size();
-      if (count == 0) {
-         return AnnotationIntrospector.nopInstance();
-      } else {
-         AnnotationIntrospector curr = (AnnotationIntrospector)intr.get(0);
-         i = 1;
-
-         for(int len = intr.size(); i < len; ++i) {
-            curr = AnnotationIntrospector.pair(curr, (AnnotationIntrospector)intr.get(i));
-         }
-
-         return curr;
-      }
-   }
-
-   protected AnnotationIntrospector _resolveIntrospector(Annotations ann) {
-      switch(ann) {
-      case JACKSON:
-         return new JacksonAnnotationIntrospector();
-      case JAXB:
-         try {
-            if (this._jaxbIntrospectorClass == null) {
-               this._jaxbIntrospectorClass = JaxbAnnotationIntrospector.class;
+    protected AnnotationIntrospector _resolveIntrospectors(Annotations[] annotationsToUse)
+    {
+        // Let's ensure there are no dups there first, filter out nulls
+        ArrayList<AnnotationIntrospector> intr = new ArrayList<AnnotationIntrospector>();
+        for (Annotations a : annotationsToUse) {
+            if (a != null) {
+                intr.add(_resolveIntrospector(a));
             }
+        }
+        int count = intr.size();
+        if (count == 0) {
+            return AnnotationIntrospector.nopInstance();
+        }
+        AnnotationIntrospector curr = intr.get(0);
+        for (int i = 1, len = intr.size(); i < len; ++i) {
+            curr = AnnotationIntrospector.pair(curr, intr.get(i));
+        }
+        return curr;
+    }
 
-            return (AnnotationIntrospector)this._jaxbIntrospectorClass.newInstance();
-         } catch (Exception var3) {
-            throw new IllegalStateException("Failed to instantiate JaxbAnnotationIntrospector: " + var3.getMessage(), var3);
-         }
-      default:
-         throw new IllegalStateException();
-      }
-   }
+    protected AnnotationIntrospector _resolveIntrospector(Annotations ann)
+    {
+        switch (ann) {
+        case JACKSON:
+            return new JacksonAnnotationIntrospector();
+        case JAXB:
+            /* For this, need to use indirection just so that error occurs
+             * when we get here, and not when this class is being loaded
+             */
+            try {
+                if (_jaxbIntrospectorClass == null) {
+                    _jaxbIntrospectorClass = JaxbAnnotationIntrospector.class;
+                }
+                return _jaxbIntrospectorClass.newInstance();
+            } catch (Exception e) {
+                throw new IllegalStateException("Failed to instantiate JaxbAnnotationIntrospector: "+e.getMessage(), e);
+            }
+        default:
+            throw new IllegalStateException(); 
+        }
+    }
 }

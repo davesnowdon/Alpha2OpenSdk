@@ -1,74 +1,82 @@
 package org.codehaus.jackson.map.util;
 
-import java.util.Collection;
-import java.util.EnumMap;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+
 import org.codehaus.jackson.io.SerializedString;
-import org.codehaus.jackson.map.AnnotationIntrospector;
+import org.codehaus.jackson.map.*;
 
-public final class EnumValues {
-   private final EnumMap<?, SerializedString> _values;
+/**
+ * Helper class used for storing String serializations of
+ * enumerations.
+ */
+public final class EnumValues
+{
+    /**
+     * Since 1.7, we are storing values as SerializedStrings, to further
+     * speed up serialization.
+     */
+    private final EnumMap<?,SerializedString> _values;
 
-   private EnumValues(Map<Enum<?>, SerializedString> v) {
-      this._values = new EnumMap(v);
-   }
+    @SuppressWarnings("unchecked")
+    private EnumValues(Map<Enum<?>,SerializedString> v) {
+        _values = new EnumMap(v);
+    }
 
-   public static EnumValues construct(Class<Enum<?>> enumClass, AnnotationIntrospector intr) {
-      return constructFromName(enumClass, intr);
-   }
+    public static EnumValues construct(Class<Enum<?>> enumClass, AnnotationIntrospector intr)
+    {
+        return constructFromName(enumClass, intr);
+    }
 
-   public static EnumValues constructFromName(Class<Enum<?>> enumClass, AnnotationIntrospector intr) {
-      Class<? extends Enum<?>> cls = ClassUtil.findEnumType(enumClass);
-      Enum<?>[] values = (Enum[])cls.getEnumConstants();
-      if (values == null) {
-         throw new IllegalArgumentException("Can not determine enum constants for Class " + enumClass.getName());
-      } else {
-         Map<Enum<?>, SerializedString> map = new HashMap();
-         Enum[] arr$ = values;
-         int len$ = values.length;
+    public static EnumValues constructFromName(Class<Enum<?>> enumClass, AnnotationIntrospector intr)
+    {
+        /* [JACKSON-214]: Enum types with per-instance sub-classes
+         *   need special handling
+         */
+    	Class<? extends Enum<?>> cls = ClassUtil.findEnumType(enumClass);
+        Enum<?>[] values = cls.getEnumConstants();
+        if (values != null) {
+            // Type juggling... unfortunate
+            Map<Enum<?>,SerializedString> map = new HashMap<Enum<?>,SerializedString>();
+            for (Enum<?> en : values) {
+                String value = intr.findEnumValue(en);
+                map.put(en, new SerializedString(value));
+            }
+            return new EnumValues(map);
+        }
+        throw new IllegalArgumentException("Can not determine enum constants for Class "+enumClass.getName());
+    }
 
-         for(int i$ = 0; i$ < len$; ++i$) {
-            Enum<?> en = arr$[i$];
-            String value = intr.findEnumValue(en);
-            map.put(en, new SerializedString(value));
-         }
+    public static EnumValues constructFromToString(Class<Enum<?>> enumClass, AnnotationIntrospector intr)
+    {
+        Class<? extends Enum<?>> cls = ClassUtil.findEnumType(enumClass);
+        Enum<?>[] values = cls.getEnumConstants();
+        if (values != null) {
+            // Type juggling... unfortunate
+            Map<Enum<?>,SerializedString> map = new HashMap<Enum<?>,SerializedString>();
+            for (Enum<?> en : values) {
+                map.put(en, new SerializedString(en.toString()));
+            }
+            return new EnumValues(map);
+        }
+        throw new IllegalArgumentException("Can not determine enum constants for Class "+enumClass.getName());
+    }
 
-         return new EnumValues(map);
-      }
-   }
+    /**
+     * @deprecated since 1.7, use {@link #serializedValueFor} instead
+     */
+    @Deprecated
+    public String valueFor(Enum<?> key)
+    {
+        SerializedString sstr = _values.get(key);
+        return (sstr == null) ? null : sstr.getValue();
+    }
 
-   public static EnumValues constructFromToString(Class<Enum<?>> enumClass, AnnotationIntrospector intr) {
-      Class<? extends Enum<?>> cls = ClassUtil.findEnumType(enumClass);
-      Enum<?>[] values = (Enum[])cls.getEnumConstants();
-      if (values == null) {
-         throw new IllegalArgumentException("Can not determine enum constants for Class " + enumClass.getName());
-      } else {
-         Map<Enum<?>, SerializedString> map = new HashMap();
-         Enum[] arr$ = values;
-         int len$ = values.length;
-
-         for(int i$ = 0; i$ < len$; ++i$) {
-            Enum<?> en = arr$[i$];
-            map.put(en, new SerializedString(en.toString()));
-         }
-
-         return new EnumValues(map);
-      }
-   }
-
-   /** @deprecated */
-   @Deprecated
-   public String valueFor(Enum<?> key) {
-      SerializedString sstr = (SerializedString)this._values.get(key);
-      return sstr == null ? null : sstr.getValue();
-   }
-
-   public SerializedString serializedValueFor(Enum<?> key) {
-      return (SerializedString)this._values.get(key);
-   }
-
-   public Collection<SerializedString> values() {
-      return this._values.values();
-   }
+    public SerializedString serializedValueFor(Enum<?> key)
+    {
+        return _values.get(key);
+    }
+    
+    public Collection<SerializedString> values() {
+        return _values.values();
+    }
 }

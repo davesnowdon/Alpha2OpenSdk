@@ -1,83 +1,109 @@
 package org.codehaus.jackson.util;
 
-public class BufferRecycler {
-   public static final int DEFAULT_WRITE_CONCAT_BUFFER_LEN = 2000;
-   protected final byte[][] _byteBuffers = new byte[BufferRecycler.ByteBufferType.values().length][];
-   protected final char[][] _charBuffers = new char[BufferRecycler.CharBufferType.values().length][];
+/**
+ * This is a small utility class, whose main functionality is to allow
+ * simple reuse of raw byte/char buffers. It is usually used through
+ * <code>ThreadLocal</code> member of the owning class pointing to
+ * instance of this class through a <code>SoftReference</code>. The
+ * end result is a low-overhead GC-cleanable recycling: hopefully
+ * ideal for use by stream readers.
+ */
+public class BufferRecycler
+{
+    public final static int DEFAULT_WRITE_CONCAT_BUFFER_LEN = 2000;
+    
+    public enum ByteBufferType {
+        READ_IO_BUFFER(4000)
+        /**
+         * Buffer used for temporarily storing encoded content; used
+         * for example by UTF-8 encoding writer
+         */
+        ,WRITE_ENCODING_BUFFER(4000)
 
-   public BufferRecycler() {
-   }
+        /**
+         * Buffer used for temporarily concatenating output; used for
+         * example when requesting output as byte array.
+         */
+        ,WRITE_CONCAT_BUFFER(2000)
+        ;
+            
+        private final int size;
 
-   public final byte[] allocByteBuffer(BufferRecycler.ByteBufferType type) {
-      int ix = type.ordinal();
-      byte[] buffer = this._byteBuffers[ix];
-      if (buffer == null) {
-         buffer = this.balloc(type.size);
-      } else {
-         this._byteBuffers[ix] = null;
-      }
+        ByteBufferType(int size) { this.size = size; }
+    }
 
-      return buffer;
-   }
+    public enum CharBufferType {
+        TOKEN_BUFFER(2000) // Tokenizable input
+            ,CONCAT_BUFFER(2000) // concatenated output
+            ,TEXT_BUFFER(200) // Text content from input
+            ,NAME_COPY_BUFFER(200) // Temporary buffer for getting name characters
+            ;
+        
+        private final int size;
 
-   public final void releaseByteBuffer(BufferRecycler.ByteBufferType type, byte[] buffer) {
-      this._byteBuffers[type.ordinal()] = buffer;
-   }
+        CharBufferType(int size) { this.size = size; }
+    }
 
-   public final char[] allocCharBuffer(BufferRecycler.CharBufferType type) {
-      return this.allocCharBuffer(type, 0);
-   }
+    final protected byte[][] _byteBuffers = new byte[ByteBufferType.values().length][];
+    final protected char[][] _charBuffers = new char[CharBufferType.values().length][];
 
-   public final char[] allocCharBuffer(BufferRecycler.CharBufferType type, int minSize) {
-      if (type.size > minSize) {
-         minSize = type.size;
-      }
+    public BufferRecycler() { }
 
-      int ix = type.ordinal();
-      char[] buffer = this._charBuffers[ix];
-      if (buffer != null && buffer.length >= minSize) {
-         this._charBuffers[ix] = null;
-      } else {
-         buffer = this.calloc(minSize);
-      }
+    public final byte[] allocByteBuffer(ByteBufferType type)
+    {
+        int ix = type.ordinal();
+        byte[] buffer = _byteBuffers[ix];
+        if (buffer == null) {
+            buffer = balloc(type.size);
+        } else {
+            _byteBuffers[ix] = null;
+        }
+        return buffer;
+    }
 
-      return buffer;
-   }
+    public final void releaseByteBuffer(ByteBufferType type, byte[] buffer)
+    {
+        _byteBuffers[type.ordinal()] = buffer;
+    }
 
-   public final void releaseCharBuffer(BufferRecycler.CharBufferType type, char[] buffer) {
-      this._charBuffers[type.ordinal()] = buffer;
-   }
+    public final char[] allocCharBuffer(CharBufferType type)
+    {
+        return allocCharBuffer(type, 0);
+    }
 
-   private final byte[] balloc(int size) {
-      return new byte[size];
-   }
+    public final char[] allocCharBuffer(CharBufferType type, int minSize)
+    {
+        if (type.size > minSize) {
+            minSize = type.size;
+        }
+        int ix = type.ordinal();
+        char[] buffer = _charBuffers[ix];
+        if (buffer == null || buffer.length < minSize) {
+            buffer = calloc(minSize);
+        } else {
+            _charBuffers[ix] = null;
+        }
+        return buffer;
+    }
 
-   private final char[] calloc(int size) {
-      return new char[size];
-   }
+    public final void releaseCharBuffer(CharBufferType type, char[] buffer)
+    {
+        _charBuffers[type.ordinal()] = buffer;
+    }
 
-   public static enum CharBufferType {
-      TOKEN_BUFFER(2000),
-      CONCAT_BUFFER(2000),
-      TEXT_BUFFER(200),
-      NAME_COPY_BUFFER(200);
+    /*
+    /**********************************************************
+    /* Actual allocations separated for easier debugging/profiling
+    /**********************************************************
+     */
 
-      private final int size;
+    private final byte[] balloc(int size)
+    {
+        return new byte[size];
+    }
 
-      private CharBufferType(int size) {
-         this.size = size;
-      }
-   }
-
-   public static enum ByteBufferType {
-      READ_IO_BUFFER(4000),
-      WRITE_ENCODING_BUFFER(4000),
-      WRITE_CONCAT_BUFFER(2000);
-
-      private final int size;
-
-      private ByteBufferType(int size) {
-         this.size = size;
-      }
-   }
+    private final char[] calloc(int size)
+    {
+        return new char[size];
+    }
 }

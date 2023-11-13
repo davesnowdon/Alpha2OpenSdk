@@ -4,66 +4,93 @@ import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.map.JsonSerializer;
 import org.codehaus.jackson.map.SerializerProvider;
 
-public abstract class FilteredBeanPropertyWriter {
-   public FilteredBeanPropertyWriter() {
-   }
+/**
+ * Decorated {@link BeanPropertyWriter} that will filter out
+ * properties that are not to be included in currently active
+ * JsonView.
+ *
+ * @since 1.4
+ */
+public abstract class FilteredBeanPropertyWriter
+{    
+    public static BeanPropertyWriter constructViewBased(BeanPropertyWriter base, Class<?>[] viewsToIncludeIn)
+    {
+        if (viewsToIncludeIn.length == 1) {
+            return new SingleView(base, viewsToIncludeIn[0]);
+        }
+        return new MultiView(base, viewsToIncludeIn);
+    }
 
-   public static BeanPropertyWriter constructViewBased(BeanPropertyWriter base, Class<?>[] viewsToIncludeIn) {
-      return (BeanPropertyWriter)(viewsToIncludeIn.length == 1 ? new FilteredBeanPropertyWriter.SingleView(base, viewsToIncludeIn[0]) : new FilteredBeanPropertyWriter.MultiView(base, viewsToIncludeIn));
-   }
+    /*
+    /**********************************************************
+    /* Concrete sub-classes
+    /**********************************************************
+     */
 
-   private static final class MultiView extends BeanPropertyWriter {
-      protected final BeanPropertyWriter _delegate;
-      protected final Class<?>[] _views;
+    private final static class SingleView
+        extends BeanPropertyWriter
+    {
+        protected final BeanPropertyWriter _delegate;
 
-      protected MultiView(BeanPropertyWriter delegate, Class<?>[] views) {
-         super(delegate);
-         this._delegate = delegate;
-         this._views = views;
-      }
-
-      public BeanPropertyWriter withSerializer(JsonSerializer<Object> ser) {
-         return new FilteredBeanPropertyWriter.MultiView(this._delegate.withSerializer(ser), this._views);
-      }
-
-      public void serializeAsField(Object bean, JsonGenerator jgen, SerializerProvider prov) throws Exception {
-         Class<?> activeView = prov.getSerializationView();
-         if (activeView != null) {
-            int i = 0;
-
-            int len;
-            for(len = this._views.length; i < len && !this._views[i].isAssignableFrom(activeView); ++i) {
+        protected final Class<?> _view;
+        
+        protected SingleView(BeanPropertyWriter delegate, Class<?> view)
+        {
+            super(delegate);
+            _delegate = delegate;
+            _view = view;
+        }
+        
+        @Override
+        public BeanPropertyWriter withSerializer(JsonSerializer<Object> ser) {
+            return new SingleView(_delegate.withSerializer(ser), _view);
+        }
+        
+        @Override
+        public void serializeAsField(Object bean, JsonGenerator jgen, SerializerProvider prov)
+            throws Exception
+        {
+            Class<?> activeView = prov.getSerializationView();
+            if (activeView == null || _view.isAssignableFrom(activeView)) {
+                _delegate.serializeAsField(bean, jgen, prov);
             }
+        }
+    }
 
-            if (i == len) {
-               return;
+    private final static class MultiView
+        extends BeanPropertyWriter
+    {
+        protected final BeanPropertyWriter _delegate;
+
+        protected final Class<?>[] _views;
+        
+        protected MultiView(BeanPropertyWriter delegate, Class<?>[] views) {
+            super(delegate);
+            _delegate = delegate;
+            _views = views;
+        }
+        
+        @Override
+        public BeanPropertyWriter withSerializer(JsonSerializer<Object> ser) {
+            return new MultiView(_delegate.withSerializer(ser), _views);
+        }
+        
+        @Override
+        public void serializeAsField(Object bean, JsonGenerator jgen, SerializerProvider prov)
+            throws Exception
+        {
+            final Class<?> activeView = prov.getSerializationView();
+            if (activeView != null) {
+                int i = 0, len = _views.length;
+                for (; i < len; ++i) {
+                    if (_views[i].isAssignableFrom(activeView)) break;
+                }
+                // not included, bail out:
+                if (i == len) {
+                    return;
+                }
             }
-         }
-
-         this._delegate.serializeAsField(bean, jgen, prov);
-      }
-   }
-
-   private static final class SingleView extends BeanPropertyWriter {
-      protected final BeanPropertyWriter _delegate;
-      protected final Class<?> _view;
-
-      protected SingleView(BeanPropertyWriter delegate, Class<?> view) {
-         super(delegate);
-         this._delegate = delegate;
-         this._view = view;
-      }
-
-      public BeanPropertyWriter withSerializer(JsonSerializer<Object> ser) {
-         return new FilteredBeanPropertyWriter.SingleView(this._delegate.withSerializer(ser), this._view);
-      }
-
-      public void serializeAsField(Object bean, JsonGenerator jgen, SerializerProvider prov) throws Exception {
-         Class<?> activeView = prov.getSerializationView();
-         if (activeView == null || this._view.isAssignableFrom(activeView)) {
-            this._delegate.serializeAsField(bean, jgen, prov);
-         }
-
-      }
-   }
+            _delegate.serializeAsField(bean, jgen, prov);
+        }
+    }
 }

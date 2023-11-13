@@ -2,53 +2,71 @@ package org.codehaus.jackson.node;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+
 import org.codehaus.jackson.JsonParser;
 
-public abstract class NumericNode extends ValueNode {
-   protected NumericNode() {
-   }
+/**
+ * Intermediate value node used for numeric nodes.
+ */
+public abstract class NumericNode
+    extends ValueNode
+{
+    protected NumericNode() { }
 
-   public final boolean isNumber() {
-      return true;
-   }
+    @Override
+    public final boolean isNumber() { return true; }
 
-   public abstract JsonParser.NumberType getNumberType();
+    // // // Let's re-abstract so sub-classes handle them
 
-   public abstract Number getNumberValue();
+    @Override
+    public abstract JsonParser.NumberType getNumberType();
 
-   public abstract int getIntValue();
+    @Override
+    public abstract Number getNumberValue();
+    @Override
+    public abstract int getIntValue();
+    @Override
+    public abstract long getLongValue();
+    @Override
+    public abstract double getDoubleValue();
+    @Override
+    public abstract BigDecimal getDecimalValue();
+    @Override
+    public abstract BigInteger getBigIntegerValue();
 
-   public abstract long getLongValue();
+    /* 
+    /**********************************************************
+    /* General type coercions
+    /**********************************************************
+     */
+    
+    @Override
+    public abstract String getValueAsText();
 
-   public abstract double getDoubleValue();
+    @Override
+    public int getValueAsInt() {
+        return getIntValue();
+    }
+    @Override
+    public int getValueAsInt(int defaultValue) {
+        return getIntValue();
+    }
 
-   public abstract BigDecimal getDecimalValue();
-
-   public abstract BigInteger getBigIntegerValue();
-
-   public abstract String getValueAsText();
-
-   public int getValueAsInt() {
-      return this.getIntValue();
-   }
-
-   public int getValueAsInt(int defaultValue) {
-      return this.getIntValue();
-   }
-
-   public long getValueAsLong() {
-      return this.getLongValue();
-   }
-
-   public long getValueAsLong(long defaultValue) {
-      return this.getLongValue();
-   }
-
-   public double getValueAsDouble() {
-      return this.getDoubleValue();
-   }
-
-   public double getValueAsDouble(double defaultValue) {
-      return this.getDoubleValue();
-   }
+    @Override
+    public long getValueAsLong() {
+        return getLongValue();
+    }
+    @Override
+    public long getValueAsLong(long defaultValue) {
+        return getLongValue();
+    }
+    
+    @Override
+    public double getValueAsDouble() {
+        return getDoubleValue();
+    }
+    @Override
+    public double getValueAsDouble(double defaultValue) {
+        return getDoubleValue();
+    }
 }

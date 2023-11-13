@@ -1,81 +1,135 @@
 package org.codehaus.jackson.node;
 
 import java.io.IOException;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.JsonProcessingException;
-import org.codehaus.jackson.JsonToken;
+
+import org.codehaus.jackson.*;
 import org.codehaus.jackson.map.SerializerProvider;
 
-public final class POJONode extends ValueNode {
-   protected final Object _value;
+/**
+ * Value node that contains a wrapped POJO, to be serialized as
+ * a JSON constructed through data mapping (usually done by
+ * calling {@link org.codehaus.jackson.map.ObjectMapper}).
+ */
+public final class POJONode
+    extends ValueNode
+{
+    protected final Object _value;
 
-   public POJONode(Object v) {
-      this._value = v;
-   }
+    public POJONode(Object v) { _value = v; }
 
-   public JsonToken asToken() {
-      return JsonToken.VALUE_EMBEDDED_OBJECT;
-   }
+    /*
+    /**********************************************************
+    /* Base class overrides
+    /**********************************************************
+     */
 
-   public boolean isPojo() {
-      return true;
-   }
+    @Override public JsonToken asToken() { return JsonToken.VALUE_EMBEDDED_OBJECT; }
 
-   public String getValueAsText() {
-      return this._value == null ? "null" : this._value.toString();
-   }
+    @Override
+    public boolean isPojo() { return true; }
 
-   public boolean getValueAsBoolean(boolean defaultValue) {
-      return this._value != null && this._value instanceof Boolean ? (Boolean)this._value : defaultValue;
-   }
+    /* 
+    /**********************************************************
+    /* General type coercions
+    /**********************************************************
+     */
 
-   public int getValueAsInt(int defaultValue) {
-      return this._value instanceof Number ? ((Number)this._value).intValue() : defaultValue;
-   }
+    @Override
+    public String getValueAsText() {
+        return (_value == null) ? "null" : _value.toString();
+    }
 
-   public long getValueAsLong(long defaultValue) {
-      return this._value instanceof Number ? ((Number)this._value).longValue() : defaultValue;
-   }
+    @Override
+    public boolean getValueAsBoolean(boolean defaultValue)
+    {
+        if (_value != null && _value instanceof Boolean) {
+            return ((Boolean) _value).booleanValue();
+        }
+        return defaultValue;
+    }
+    
+    @Override
+    public int getValueAsInt(int defaultValue)
+    {
+        if (_value instanceof Number) {
+            return ((Number) _value).intValue();
+        }
+        return defaultValue;
+    }
 
-   public double getValueAsDouble(double defaultValue) {
-      return this._value instanceof Number ? ((Number)this._value).doubleValue() : defaultValue;
-   }
+    @Override
+    public long getValueAsLong(long defaultValue)
+    {
+        if (_value instanceof Number) {
+            return ((Number) _value).longValue();
+        }
+        return defaultValue;
+    }
+    
+    @Override
+    public double getValueAsDouble(double defaultValue)
+    {
+        if (_value instanceof Number) {
+            return ((Number) _value).doubleValue();
+        }
+        return defaultValue;
+    }
+    
+    /*
+    /**********************************************************
+    /* Public API, serialization
+    /**********************************************************
+     */
 
-   public final void serialize(JsonGenerator jg, SerializerProvider provider) throws IOException, JsonProcessingException {
-      if (this._value == null) {
-         jg.writeNull();
-      } else {
-         jg.writeObject(this._value);
-      }
+    @Override
+    public final void serialize(JsonGenerator jg, SerializerProvider provider)
+        throws IOException, JsonProcessingException
+    {
+        if (_value == null) {
+            jg.writeNull();
+        } else {
+            jg.writeObject(_value);
+        }
+    }
 
-   }
+    /*
+    /**********************************************************
+    /* Extended API
+    /**********************************************************
+     */
 
-   public Object getPojo() {
-      return this._value;
-   }
+    /**
+     * Method that can be used to access the POJO this node wraps.
+     */
+    public Object getPojo() { return _value; }
 
-   public boolean equals(Object o) {
-      if (o == this) {
-         return true;
-      } else if (o == null) {
-         return false;
-      } else if (o.getClass() != this.getClass()) {
-         return false;
-      } else {
-         POJONode other = (POJONode)o;
-         if (this._value == null) {
+    /*
+    /**********************************************************
+    /* Overridden standard methods
+    /**********************************************************
+     */
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o == this) return true;
+        if (o == null) return false;
+        if (o.getClass() != getClass()) { // final class, can do this
+            return false;
+        }
+        POJONode other = (POJONode) o;
+        if (_value == null) {
             return other._value == null;
-         } else {
-            return this._value.equals(other._value);
-         }
-      }
-   }
+        }
+        return _value.equals(other._value);
+    }
 
-   public int hashCode() {
-      return this._value.hashCode();
-   }
+    @Override
+    public int hashCode() { return _value.hashCode(); }
 
-   public String toString() {
-      return String.valueOf(this._value);
-   }
+    @Override
+    public String toString()
+    {
+        return String.valueOf(_value);
+    }
 }

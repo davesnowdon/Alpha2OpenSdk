@@ -1,116 +1,221 @@
 package org.codehaus.jackson.map.type;
 
 import java.lang.reflect.Array;
-import java.lang.reflect.Type;
+
 import org.codehaus.jackson.type.JavaType;
 
-public final class ArrayType extends TypeBase {
-   final JavaType _componentType;
-   final Object _emptyArray;
+/**
+ * Array types represent Java arrays, both primitive and object valued.
+ * Further, Object-valued arrays can have element type of any other
+ * legal {@link JavaType}.
+ */
+public final class ArrayType
+    extends TypeBase
+{
+    /**
+     * Type of elements in the array.
+     */
+    final JavaType _componentType;
 
-   private ArrayType(JavaType componentType, Object emptyInstance) {
-      super(emptyInstance.getClass(), componentType.hashCode());
-      this._componentType = componentType;
-      this._emptyArray = emptyInstance;
-   }
+    /**
+     * We will also keep track of shareable instance of empty array,
+     * since it usually needs to be constructed any way; and because
+     * it is essentially immutable and thus can be shared.
+     */
+    final Object _emptyArray;
+    
+    private ArrayType(JavaType componentType, Object emptyInstance)
+    {
+        super(emptyInstance.getClass(), componentType.hashCode());
+        _componentType = componentType;
+        _emptyArray = emptyInstance;
+    }
 
-   public static ArrayType construct(JavaType componentType) {
-      Object emptyInstance = Array.newInstance(componentType.getRawClass(), 0);
-      return new ArrayType(componentType, emptyInstance);
-   }
+    public static ArrayType construct(JavaType componentType)
+    {
+        /* This is bit messy: there is apparently no other way to
+         * reconstruct actual concrete/raw array class from component
+         * type, than to construct an instance, get class (same is
+         * true for GenericArracyType as well; hence we won't bother
+         * passing that in).
+         */
+        Object emptyInstance = Array.newInstance(componentType.getRawClass(), 0);
+        return new ArrayType(componentType, emptyInstance);
+    }                                   
 
-   public ArrayType withTypeHandler(Object h) {
-      ArrayType newInstance = new ArrayType(this._componentType, this._emptyArray);
-      newInstance._typeHandler = h;
-      return newInstance;
-   }
+    // Since 1.7:
+    @Override
+    public ArrayType withTypeHandler(Object h)
+    {
+        ArrayType newInstance = new ArrayType(_componentType, _emptyArray);
+        newInstance._typeHandler = h;
+        return newInstance;
+    }
 
-   public ArrayType withContentTypeHandler(Object h) {
-      return new ArrayType(this._componentType.withTypeHandler(h), this._emptyArray);
-   }
+    // Since 1.7:
+    @Override
+    public ArrayType withContentTypeHandler(Object h)
+    {
+        return new ArrayType(_componentType.withTypeHandler(h), _emptyArray);
+    }
+    
+    @Override
+    protected String buildCanonicalName() {
+        return _class.getName();
+    }
+    
+    /*
+    /**********************************************************
+    /* Methods for narrowing conversions
+    /**********************************************************
+     */
 
-   protected String buildCanonicalName() {
-      return this._class.getName();
-   }
+    /**
+     * Handling of narrowing conversions for arrays is trickier: for now,
+     * it is not even allowed.
+     */
+    @Override
+    protected JavaType _narrow(Class<?> subclass)
+    {
+        /* Ok: need a bit of indirection here. First, must replace component
+         * type (and check that it is compatible), then re-construct.
+         */
+        if (!subclass.isArray()) { // sanity check, should never occur
+            throw new IllegalArgumentException("Incompatible narrowing operation: trying to narrow "+toString()+" to class "+subclass.getName());
+        }
+        /* Hmmh. This is an awkward back reference... but seems like the
+         * only simple way to do it.
+         */
+        Class<?> newCompClass = subclass.getComponentType();
+        /* 14-Mar-2011, tatu: it gets even worse, as we do not have access to
+         *   currently configured TypeFactory. This could theoretically cause
+         *   problems (when narrowing from array of Objects, to array of non-standard
+         *   Maps, for example); but for now need to defer solving this until
+         *   it actually becomes a real problem, not just potential one.
+         *   (famous last words?)
+         */
+        JavaType newCompType = TypeFactory.defaultInstance().constructType(newCompClass);
+        return construct(newCompType);
+    }
 
-   protected JavaType _narrow(Class<?> subclass) {
-      if (!subclass.isArray()) {
-         throw new IllegalArgumentException("Incompatible narrowing operation: trying to narrow " + this.toString() + " to class " + subclass.getName());
-      } else {
-         Class<?> newCompClass = subclass.getComponentType();
-         JavaType newCompType = TypeFactory.defaultInstance().constructType((Type)newCompClass);
-         return construct(newCompType);
-      }
-   }
+    /**
+     * For array types, both main type and content type can be modified;
+     * but ultimately they are interchangeable.
+     */
+    @Override
+    public JavaType narrowContentsBy(Class<?> contentClass)
+    {
+        // Can do a quick check first:
+        if (contentClass == _componentType.getRawClass()) {
+            return this;
+        }
+        return construct(_componentType.narrowBy(contentClass)).copyHandlers(this);
+    }
 
-   public JavaType narrowContentsBy(Class<?> contentClass) {
-      return (JavaType)(contentClass == this._componentType.getRawClass() ? this : construct(this._componentType.narrowBy(contentClass)).copyHandlers(this));
-   }
+    @Override
+    public JavaType widenContentsBy(Class<?> contentClass)
+    {
+        // Can do a quick check first:
+        if (contentClass == _componentType.getRawClass()) {
+            return this;
+        }
+        return construct(_componentType.widenBy(contentClass)).copyHandlers(this);
+    }
+    
+    /*
+    /**********************************************************
+    /* Overridden methods
+    /**********************************************************
+     */
 
-   public JavaType widenContentsBy(Class<?> contentClass) {
-      return (JavaType)(contentClass == this._componentType.getRawClass() ? this : construct(this._componentType.widenBy(contentClass)).copyHandlers(this));
-   }
+    @Override
+    public boolean isArrayType() { return true; }
+    
+    /**
+     * For some odd reason, modifiers for array classes would
+     * claim they are abstract types. Not so, at least for our
+     * purposes.
+     */
+    @Override
+    public boolean isAbstract() { return false; }
 
-   public boolean isArrayType() {
-      return true;
-   }
+    /**
+     * For some odd reason, modifiers for array classes would
+     * claim they are abstract types. Not so, at least for our
+     * purposes.
+     */
+    @Override
+    public boolean isConcrete() { return true; }
 
-   public boolean isAbstract() {
-      return false;
-   }
+    @Override
+    public boolean hasGenericTypes() {
+        // arrays are not parameterized, but element type may be:
+        return _componentType.hasGenericTypes();
+    }
+    
+    /**
+     * Not sure what symbolic name is used internally, if any;
+     * let's follow naming of Collection types here.
+     * Should not really matter since array types have no
+     * super types.
+     */
+    @Override
+    public String containedTypeName(int index) {
+        if (index == 0) return "E";
+        return null;
+    }
+    
+    /*
+    /**********************************************************
+    /* Public API
+    /**********************************************************
+     */
 
-   public boolean isConcrete() {
-      return true;
-   }
+    @Override
+    public boolean isContainerType() { return true; }
 
-   public boolean hasGenericTypes() {
-      return this._componentType.hasGenericTypes();
-   }
+    @Override
+    public JavaType getContentType() { return  _componentType; }
 
-   public String containedTypeName(int index) {
-      return index == 0 ? "E" : null;
-   }
+    @Override
+    public int containedTypeCount() { return 1; }
+    @Override
+    public JavaType containedType(int index) {
+            return (index == 0) ? _componentType : null;
+    }
+    
+    @Override
+    public StringBuilder getGenericSignature(StringBuilder sb) {
+        sb.append('[');
+        return _componentType.getGenericSignature(sb);
+    }
 
-   public boolean isContainerType() {
-      return true;
-   }
+    @Override
+    public StringBuilder getErasedSignature(StringBuilder sb) {
+        sb.append('[');
+        return _componentType.getErasedSignature(sb);
+    }
+    
+    /*
+    /**********************************************************
+    /* Standard methods
+    /**********************************************************
+     */
 
-   public JavaType getContentType() {
-      return this._componentType;
-   }
+    @Override
+    public String toString()
+    {
+        return "[array type, component type: "+_componentType+"]";
+    }
 
-   public int containedTypeCount() {
-      return 1;
-   }
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o == this) return true;
+        if (o == null) return false;
+        if (o.getClass() != getClass()) return false;
 
-   public JavaType containedType(int index) {
-      return index == 0 ? this._componentType : null;
-   }
-
-   public StringBuilder getGenericSignature(StringBuilder sb) {
-      sb.append('[');
-      return this._componentType.getGenericSignature(sb);
-   }
-
-   public StringBuilder getErasedSignature(StringBuilder sb) {
-      sb.append('[');
-      return this._componentType.getErasedSignature(sb);
-   }
-
-   public String toString() {
-      return "[array type, component type: " + this._componentType + "]";
-   }
-
-   public boolean equals(Object o) {
-      if (o == this) {
-         return true;
-      } else if (o == null) {
-         return false;
-      } else if (o.getClass() != this.getClass()) {
-         return false;
-      } else {
-         ArrayType other = (ArrayType)o;
-         return this._componentType.equals(other._componentType);
-      }
-   }
+        ArrayType other = (ArrayType) o;
+        return _componentType.equals(other._componentType);
+    }
 }

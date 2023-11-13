@@ -1,60 +1,117 @@
+
 package org.codehaus.jackson.io;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.Reader;
+import java.io.*;
 
-abstract class BaseReader extends Reader {
-   protected static final int LAST_VALID_UNICODE_CHAR = 1114111;
-   protected static final char NULL_CHAR = '\u0000';
-   protected static final char NULL_BYTE = '\u0000';
-   protected final IOContext _context;
-   protected InputStream _in;
-   protected byte[] _buffer;
-   protected int _ptr;
-   protected int _length;
-   protected char[] _tmpBuf = null;
 
-   protected BaseReader(IOContext context, InputStream in, byte[] buf, int ptr, int len) {
-      this._context = context;
-      this._in = in;
-      this._buffer = buf;
-      this._ptr = ptr;
-      this._length = len;
-   }
+/**
+ * Simple basic class for optimized readers in this package; implements
+ * "cookie-cutter" methods that are used by all actual implementations.
+ */
+abstract class BaseReader
+    extends Reader
+{
+    /**
+     * JSON actually limits available Unicode range in the high end
+     * to the same as xml (to basically limit UTF-8 max byte sequence
+     * length to 4)
+     */
+    final protected static int LAST_VALID_UNICODE_CHAR = 0x10FFFF;
 
-   public void close() throws IOException {
-      InputStream in = this._in;
-      if (in != null) {
-         this._in = null;
-         this.freeBuffers();
-         in.close();
-      }
+    final protected static char NULL_CHAR = (char) 0;
+    final protected static char NULL_BYTE = (byte) 0;
 
-   }
+    final protected IOContext _context;
 
-   public int read() throws IOException {
-      if (this._tmpBuf == null) {
-         this._tmpBuf = new char[1];
-      }
+    protected InputStream _in;
 
-      return this.read(this._tmpBuf, 0, 1) < 1 ? -1 : this._tmpBuf[0];
-   }
+    protected byte[] _buffer;
 
-   public final void freeBuffers() {
-      byte[] buf = this._buffer;
-      if (buf != null) {
-         this._buffer = null;
-         this._context.releaseReadIOBuffer(buf);
-      }
+    protected int _ptr;
+    protected int _length;
 
-   }
+    /*
+    /**********************************************************
+    /* Life-cycle
+    /**********************************************************
+     */
 
-   protected void reportBounds(char[] cbuf, int start, int len) throws IOException {
-      throw new ArrayIndexOutOfBoundsException("read(buf," + start + "," + len + "), cbuf[" + cbuf.length + "]");
-   }
+    protected BaseReader(IOContext context,
+                         InputStream in, byte[] buf, int ptr, int len)
+    {
+        _context = context;
+        _in = in;
+        _buffer = buf;
+        _ptr = ptr;
+        _length = len;
+    }
 
-   protected void reportStrangeStream() throws IOException {
-      throw new IOException("Strange I/O stream, returned 0 bytes on read");
-   }
+    /*
+    /**********************************************************
+    /* Reader API
+    /**********************************************************
+     */
+
+    @Override
+    public void close() throws IOException
+    {
+        InputStream in = _in;
+
+        if (in != null) {
+            _in = null;
+            freeBuffers();
+            in.close();
+        }
+    }
+
+    protected char[] _tmpBuf = null;
+
+    /**
+     * Although this method is implemented by the base class, AND it should
+     * never be called by main code, let's still implement it bit more
+     * efficiently just in case
+     */
+    @Override
+    public int read() throws IOException
+    {
+        if (_tmpBuf == null) {
+            _tmpBuf = new char[1];
+        }
+        if (read(_tmpBuf, 0, 1) < 1) {
+            return -1;
+        }
+        return _tmpBuf[0];
+    }
+
+    /*
+    /**********************************************************
+    /* Internal/package methods:
+    /**********************************************************
+     */
+
+    /**
+     * This method should be called along with (or instead of) normal
+     * close. After calling this method, no further reads should be tried.
+     * Method will try to recycle read buffers (if any).
+     */
+    public final void freeBuffers()
+    {
+        byte[] buf = _buffer;
+        if (buf != null) {
+            _buffer = null;
+            _context.releaseReadIOBuffer(buf);
+        }
+    }
+
+    protected void reportBounds(char[] cbuf, int start, int len)
+        throws IOException
+    {
+        throw new ArrayIndexOutOfBoundsException("read(buf,"+start+","+len+"), cbuf["+cbuf.length+"]");
+    }
+
+    protected void reportStrangeStream()
+        throws IOException
+    {
+        throw new IOException("Strange I/O stream, returned 0 bytes on read");
+    }
 }

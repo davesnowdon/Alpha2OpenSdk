@@ -3,947 +3,1323 @@ package org.codehaus.jackson.util;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import org.codehaus.jackson.Base64Variant;
-import org.codehaus.jackson.JsonGenerationException;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.JsonLocation;
-import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.JsonParseException;
-import org.codehaus.jackson.JsonParser;
-import org.codehaus.jackson.JsonProcessingException;
-import org.codehaus.jackson.JsonStreamContext;
-import org.codehaus.jackson.JsonToken;
-import org.codehaus.jackson.ObjectCodec;
-import org.codehaus.jackson.SerializableString;
+
+import org.codehaus.jackson.*;
 import org.codehaus.jackson.impl.JsonParserMinimalBase;
 import org.codehaus.jackson.impl.JsonReadContext;
 import org.codehaus.jackson.impl.JsonWriteContext;
 import org.codehaus.jackson.io.SerializedString;
 
-public class TokenBuffer extends JsonGenerator {
-   protected static final int DEFAULT_PARSER_FEATURES = JsonParser.Feature.collectDefaults();
-   protected ObjectCodec _objectCodec;
-   protected int _generatorFeatures;
-   protected boolean _closed;
-   protected TokenBuffer.Segment _first;
-   protected TokenBuffer.Segment _last;
-   protected int _appendOffset;
-   protected JsonWriteContext _writeContext;
+/**
+ * Utility class used for efficient storage of {@link JsonToken}
+ * sequences, needed for temporary buffering.
+ * Space efficient for different sequence lengths (especially so for smaller
+ * ones; but not significantly less efficient for larger), highly efficient
+ * for linear iteration and appending. Implemented as segmented/chunked
+ * linked list of tokens; only modifications are via appends.
+ * 
+ * @since 1.5
+ */
+public class TokenBuffer
+/* Won't use JsonGeneratorBase, to minimize overhead for validity
+ * checking
+ */
+    extends JsonGenerator
+{
+    protected final static int DEFAULT_PARSER_FEATURES = JsonParser.Feature.collectDefaults();
 
-   public TokenBuffer(ObjectCodec codec) {
-      this._objectCodec = codec;
-      this._generatorFeatures = DEFAULT_PARSER_FEATURES;
-      this._writeContext = JsonWriteContext.createRootContext();
-      this._first = this._last = new TokenBuffer.Segment();
-      this._appendOffset = 0;
-   }
+    /*
+    /**********************************************************
+    /* Configuration
+    /**********************************************************
+     */
 
-   public JsonParser asParser() {
-      return this.asParser(this._objectCodec);
-   }
+    /**
+     * Object codec to use for stream-based object
+     *   conversion through parser/generator interfaces. If null,
+     *   such methods can not be used.
+     */
+    protected ObjectCodec _objectCodec;
 
-   public JsonParser asParser(ObjectCodec codec) {
-      return new TokenBuffer.Parser(this._first, codec);
-   }
+    /**
+     * Bit flag composed of bits that indicate which
+     * {@link org.codehaus.jackson.JsonGenerator.Feature}s
+     * are enabled.
+     *<p>
+     * NOTE: most features have no effect on this class
+     */
+    protected int _generatorFeatures;
 
-   public JsonParser asParser(JsonParser src) {
-      TokenBuffer.Parser p = new TokenBuffer.Parser(this._first, src.getCodec());
-      p.setLocation(src.getTokenLocation());
-      return p;
-   }
+    protected boolean _closed;
+    
+    /*
+    /**********************************************************
+    /* Token buffering state
+    /**********************************************************
+     */
 
-   public void serialize(JsonGenerator jgen) throws IOException, JsonGenerationException {
-      TokenBuffer.Segment segment = this._first;
-      int ptr = -1;
+    /**
+     * First segment, for contents this buffer has
+     */
+    protected Segment _first;
 
-      while(true) {
-         ++ptr;
-         if (ptr >= 16) {
-            ptr = 0;
-            segment = segment.next();
-            if (segment == null) {
-               break;
+    /**
+     * Last segment of this buffer, one that is used
+     * for appending more tokens
+     */
+    protected Segment _last;
+    
+    /**
+     * Offset within last segment, 
+     */
+    protected int _appendOffset;
+
+    /*
+    /**********************************************************
+    /* Output state
+    /**********************************************************
+     */
+
+    protected JsonWriteContext _writeContext;
+
+    /*
+    /**********************************************************
+    /* Life-cycle
+    /**********************************************************
+     */
+
+    /**
+     * @param codec Object codec to use for stream-based object
+     *   conversion through parser/generator interfaces. If null,
+     *   such methods can not be used.
+     */
+    public TokenBuffer(ObjectCodec codec)
+    {
+        _objectCodec = codec;
+        _generatorFeatures = DEFAULT_PARSER_FEATURES;
+        _writeContext = JsonWriteContext.createRootContext();
+        // at first we have just one segment
+        _first = _last = new Segment();
+        _appendOffset = 0;
+    }
+    
+    /**
+     * Method used to create a {@link JsonParser} that can read contents
+     * stored in this buffer. Will use default <code>_objectCodec</code> for
+     * object conversions.
+     *<p>
+     * Note: instances are not synchronized, that is, they are not thread-safe
+     * if there are concurrent appends to the underlying buffer.
+     * 
+     * @return Parser that can be used for reading contents stored in this buffer
+     */
+    public JsonParser asParser()
+    {
+        return asParser(_objectCodec);
+    }
+
+    /**
+     * Method used to create a {@link JsonParser} that can read contents
+     * stored in this buffer.
+     *<p>
+     * Note: instances are not synchronized, that is, they are not thread-safe
+     * if there are concurrent appends to the underlying buffer.
+     *
+     * @param codec Object codec to use for stream-based object
+     *   conversion through parser/generator interfaces. If null,
+     *   such methods can not be used.
+     * 
+     * @return Parser that can be used for reading contents stored in this buffer
+     */
+    public JsonParser asParser(ObjectCodec codec)
+    {
+        return new Parser(_first, codec);
+    }
+
+    /**
+     * @param src Parser to use for accessing source information
+     *    like location, configured codec
+     */
+    public JsonParser asParser(JsonParser src)
+    {
+        Parser p = new Parser(_first, src.getCodec());
+        p.setLocation(src.getTokenLocation());
+        return p;
+    }
+    
+    /*
+    /**********************************************************
+    /* Other custom methods not needed for implementing interfaces
+    /**********************************************************
+     */
+
+    /**
+     * Helper method that will write all contents of this buffer
+     * using given {@link JsonGenerator}.
+     *<p>
+     * Note: this method would be enough to implement
+     * <code>JsonSerializer</code>  for <code>TokenBuffer</code> type;
+     * but we can not have upwards
+     * references (from core to mapper package); and as such we also
+     * can not take second argument.
+     */
+    public void serialize(JsonGenerator jgen)
+        throws IOException, JsonGenerationException
+    {
+        Segment segment = _first;
+        int ptr = -1;
+
+        while (true) {
+            if (++ptr >= Segment.TOKENS_PER_SEGMENT) {
+                ptr = 0;
+                segment = segment.next();
+                if (segment == null) break;
             }
-         }
+            JsonToken t = segment.type(ptr);
+            if (t == null) break;
 
-         JsonToken t = segment.type(ptr);
-         if (t == null) {
-            break;
-         }
-
-         Object n;
-         switch(t) {
-         case START_OBJECT:
-            jgen.writeStartObject();
-            break;
-         case END_OBJECT:
-            jgen.writeEndObject();
-            break;
-         case START_ARRAY:
-            jgen.writeStartArray();
-            break;
-         case END_ARRAY:
-            jgen.writeEndArray();
-            break;
-         case FIELD_NAME:
-            n = segment.get(ptr);
-            if (n instanceof SerializableString) {
-               jgen.writeFieldName((SerializableString)n);
-            } else {
-               jgen.writeFieldName((String)n);
+            // Note: copied from 'copyCurrentEvent'...
+            switch (t) {
+            case START_OBJECT:
+                jgen.writeStartObject();
+                break;
+            case END_OBJECT:
+                jgen.writeEndObject();
+                break;
+            case START_ARRAY:
+                jgen.writeStartArray();
+                break;
+            case END_ARRAY:
+                jgen.writeEndArray();
+                break;
+            case FIELD_NAME:
+            {
+                // 13-Dec-2010, tatu: Maybe we should start using different type tokens to reduce casting?
+                Object ob = segment.get(ptr);
+                if (ob instanceof SerializableString) {
+                    jgen.writeFieldName((SerializableString) ob);
+                } else {
+                    jgen.writeFieldName((String) ob);
+                }
             }
-            break;
-         case VALUE_STRING:
-            n = segment.get(ptr);
-            if (n instanceof SerializableString) {
-               jgen.writeString((SerializableString)n);
-            } else {
-               jgen.writeString((String)n);
-            }
-            break;
-         case VALUE_NUMBER_INT:
-            Number n = (Number)segment.get(ptr);
-            if (n instanceof BigInteger) {
-               jgen.writeNumber((BigInteger)n);
-            } else if (n instanceof Long) {
-               jgen.writeNumber(n.longValue());
-            } else {
-               jgen.writeNumber(n.intValue());
-            }
-            break;
-         case VALUE_NUMBER_FLOAT:
-            n = segment.get(ptr);
-            if (n instanceof BigDecimal) {
-               jgen.writeNumber((BigDecimal)n);
-            } else if (n instanceof Float) {
-               jgen.writeNumber((Float)n);
-            } else if (n instanceof Double) {
-               jgen.writeNumber((Double)n);
-            } else if (n == null) {
-               jgen.writeNull();
-            } else {
-               if (!(n instanceof String)) {
-                  throw new JsonGenerationException("Unrecognized value type for VALUE_NUMBER_FLOAT: " + n.getClass().getName() + ", can not serialize");
-               }
-
-               jgen.writeNumber((String)n);
-            }
-            break;
-         case VALUE_TRUE:
-            jgen.writeBoolean(true);
-            break;
-         case VALUE_FALSE:
-            jgen.writeBoolean(false);
-            break;
-         case VALUE_NULL:
-            jgen.writeNull();
-            break;
-         case VALUE_EMBEDDED_OBJECT:
-            jgen.writeObject(segment.get(ptr));
-            break;
-         default:
-            throw new RuntimeException("Internal error: should never end up through this code path");
-         }
-      }
-
-   }
-
-   public String toString() {
-      int MAX_COUNT = true;
-      StringBuilder sb = new StringBuilder();
-      sb.append("[TokenBuffer: ");
-      JsonParser jp = this.asParser();
-      int count = 0;
-
-      while(true) {
-         JsonToken t;
-         try {
-            t = jp.nextToken();
-         } catch (IOException var7) {
-            throw new IllegalStateException(var7);
-         }
-
-         if (t == null) {
-            if (count >= 100) {
-               sb.append(" ... (truncated ").append(count - 100).append(" entries)");
-            }
-
-            sb.append(']');
-            return sb.toString();
-         }
-
-         if (count < 100) {
-            if (count > 0) {
-               sb.append(", ");
-            }
-
-            sb.append(t.toString());
-         }
-
-         ++count;
-      }
-   }
-
-   public JsonGenerator enable(JsonGenerator.Feature f) {
-      this._generatorFeatures |= f.getMask();
-      return this;
-   }
-
-   public JsonGenerator disable(JsonGenerator.Feature f) {
-      this._generatorFeatures &= ~f.getMask();
-      return this;
-   }
-
-   public boolean isEnabled(JsonGenerator.Feature f) {
-      return (this._generatorFeatures & f.getMask()) != 0;
-   }
-
-   public JsonGenerator useDefaultPrettyPrinter() {
-      return this;
-   }
-
-   public JsonGenerator setCodec(ObjectCodec oc) {
-      this._objectCodec = oc;
-      return this;
-   }
-
-   public ObjectCodec getCodec() {
-      return this._objectCodec;
-   }
-
-   public final JsonWriteContext getOutputContext() {
-      return this._writeContext;
-   }
-
-   public void flush() throws IOException {
-   }
-
-   public void close() throws IOException {
-      this._closed = true;
-   }
-
-   public boolean isClosed() {
-      return this._closed;
-   }
-
-   public final void writeStartArray() throws IOException, JsonGenerationException {
-      this._append(JsonToken.START_ARRAY);
-      this._writeContext = this._writeContext.createChildArrayContext();
-   }
-
-   public final void writeEndArray() throws IOException, JsonGenerationException {
-      this._append(JsonToken.END_ARRAY);
-      JsonWriteContext c = this._writeContext.getParent();
-      if (c != null) {
-         this._writeContext = c;
-      }
-
-   }
-
-   public final void writeStartObject() throws IOException, JsonGenerationException {
-      this._append(JsonToken.START_OBJECT);
-      this._writeContext = this._writeContext.createChildObjectContext();
-   }
-
-   public final void writeEndObject() throws IOException, JsonGenerationException {
-      this._append(JsonToken.END_OBJECT);
-      JsonWriteContext c = this._writeContext.getParent();
-      if (c != null) {
-         this._writeContext = c;
-      }
-
-   }
-
-   public final void writeFieldName(String name) throws IOException, JsonGenerationException {
-      this._append(JsonToken.FIELD_NAME, name);
-      this._writeContext.writeFieldName(name);
-   }
-
-   public void writeFieldName(SerializableString name) throws IOException, JsonGenerationException {
-      this._append(JsonToken.FIELD_NAME, name);
-      this._writeContext.writeFieldName(name.getValue());
-   }
-
-   public void writeFieldName(SerializedString name) throws IOException, JsonGenerationException {
-      this._append(JsonToken.FIELD_NAME, name);
-      this._writeContext.writeFieldName(name.getValue());
-   }
-
-   public void writeString(String text) throws IOException, JsonGenerationException {
-      if (text == null) {
-         this.writeNull();
-      } else {
-         this._append(JsonToken.VALUE_STRING, text);
-      }
-
-   }
-
-   public void writeString(char[] text, int offset, int len) throws IOException, JsonGenerationException {
-      this.writeString(new String(text, offset, len));
-   }
-
-   public void writeString(SerializableString text) throws IOException, JsonGenerationException {
-      if (text == null) {
-         this.writeNull();
-      } else {
-         this._append(JsonToken.VALUE_STRING, text);
-      }
-
-   }
-
-   public void writeRawUTF8String(byte[] text, int offset, int length) throws IOException, JsonGenerationException {
-      this._reportUnsupportedOperation();
-   }
-
-   public void writeUTF8String(byte[] text, int offset, int length) throws IOException, JsonGenerationException {
-      this._reportUnsupportedOperation();
-   }
-
-   public void writeRaw(String text) throws IOException, JsonGenerationException {
-      this._reportUnsupportedOperation();
-   }
-
-   public void writeRaw(String text, int offset, int len) throws IOException, JsonGenerationException {
-      this._reportUnsupportedOperation();
-   }
-
-   public void writeRaw(char[] text, int offset, int len) throws IOException, JsonGenerationException {
-      this._reportUnsupportedOperation();
-   }
-
-   public void writeRaw(char c) throws IOException, JsonGenerationException {
-      this._reportUnsupportedOperation();
-   }
-
-   public void writeRawValue(String text) throws IOException, JsonGenerationException {
-      this._reportUnsupportedOperation();
-   }
-
-   public void writeRawValue(String text, int offset, int len) throws IOException, JsonGenerationException {
-      this._reportUnsupportedOperation();
-   }
-
-   public void writeRawValue(char[] text, int offset, int len) throws IOException, JsonGenerationException {
-      this._reportUnsupportedOperation();
-   }
-
-   public void writeNumber(int i) throws IOException, JsonGenerationException {
-      this._append(JsonToken.VALUE_NUMBER_INT, i);
-   }
-
-   public void writeNumber(long l) throws IOException, JsonGenerationException {
-      this._append(JsonToken.VALUE_NUMBER_INT, l);
-   }
-
-   public void writeNumber(double d) throws IOException, JsonGenerationException {
-      this._append(JsonToken.VALUE_NUMBER_FLOAT, d);
-   }
-
-   public void writeNumber(float f) throws IOException, JsonGenerationException {
-      this._append(JsonToken.VALUE_NUMBER_FLOAT, f);
-   }
-
-   public void writeNumber(BigDecimal dec) throws IOException, JsonGenerationException {
-      if (dec == null) {
-         this.writeNull();
-      } else {
-         this._append(JsonToken.VALUE_NUMBER_FLOAT, dec);
-      }
-
-   }
-
-   public void writeNumber(BigInteger v) throws IOException, JsonGenerationException {
-      if (v == null) {
-         this.writeNull();
-      } else {
-         this._append(JsonToken.VALUE_NUMBER_INT, v);
-      }
-
-   }
-
-   public void writeNumber(String encodedValue) throws IOException, JsonGenerationException {
-      this._append(JsonToken.VALUE_NUMBER_FLOAT, encodedValue);
-   }
-
-   public void writeBoolean(boolean state) throws IOException, JsonGenerationException {
-      this._append(state ? JsonToken.VALUE_TRUE : JsonToken.VALUE_FALSE);
-   }
-
-   public void writeNull() throws IOException, JsonGenerationException {
-      this._append(JsonToken.VALUE_NULL);
-   }
-
-   public void writeObject(Object value) throws IOException, JsonProcessingException {
-      this._append(JsonToken.VALUE_EMBEDDED_OBJECT, value);
-   }
-
-   public void writeTree(JsonNode rootNode) throws IOException, JsonProcessingException {
-      this._append(JsonToken.VALUE_EMBEDDED_OBJECT, rootNode);
-   }
-
-   public void writeBinary(Base64Variant b64variant, byte[] data, int offset, int len) throws IOException, JsonGenerationException {
-      byte[] copy = new byte[len];
-      System.arraycopy(data, offset, copy, 0, len);
-      this.writeObject(copy);
-   }
-
-   public void copyCurrentEvent(JsonParser jp) throws IOException, JsonProcessingException {
-      switch(jp.getCurrentToken()) {
-      case START_OBJECT:
-         this.writeStartObject();
-         break;
-      case END_OBJECT:
-         this.writeEndObject();
-         break;
-      case START_ARRAY:
-         this.writeStartArray();
-         break;
-      case END_ARRAY:
-         this.writeEndArray();
-         break;
-      case FIELD_NAME:
-         this.writeFieldName(jp.getCurrentName());
-         break;
-      case VALUE_STRING:
-         if (jp.hasTextCharacters()) {
-            this.writeString(jp.getTextCharacters(), jp.getTextOffset(), jp.getTextLength());
-         } else {
-            this.writeString(jp.getText());
-         }
-         break;
-      case VALUE_NUMBER_INT:
-         switch(jp.getNumberType()) {
-         case INT:
-            this.writeNumber(jp.getIntValue());
-            return;
-         case BIG_INTEGER:
-            this.writeNumber(jp.getBigIntegerValue());
-            return;
-         default:
-            this.writeNumber(jp.getLongValue());
-            return;
-         }
-      case VALUE_NUMBER_FLOAT:
-         switch(jp.getNumberType()) {
-         case BIG_DECIMAL:
-            this.writeNumber(jp.getDecimalValue());
-            return;
-         case FLOAT:
-            this.writeNumber(jp.getFloatValue());
-            return;
-         default:
-            this.writeNumber(jp.getDoubleValue());
-            return;
-         }
-      case VALUE_TRUE:
-         this.writeBoolean(true);
-         break;
-      case VALUE_FALSE:
-         this.writeBoolean(false);
-         break;
-      case VALUE_NULL:
-         this.writeNull();
-         break;
-      case VALUE_EMBEDDED_OBJECT:
-         this.writeObject(jp.getEmbeddedObject());
-         break;
-      default:
-         throw new RuntimeException("Internal error: should never end up through this code path");
-      }
-
-   }
-
-   public void copyCurrentStructure(JsonParser jp) throws IOException, JsonProcessingException {
-      JsonToken t = jp.getCurrentToken();
-      if (t == JsonToken.FIELD_NAME) {
-         this.writeFieldName(jp.getCurrentName());
-         t = jp.nextToken();
-      }
-
-      switch(t) {
-      case START_OBJECT:
-         this.writeStartObject();
-
-         while(jp.nextToken() != JsonToken.END_OBJECT) {
-            this.copyCurrentStructure(jp);
-         }
-
-         this.writeEndObject();
-         break;
-      case START_ARRAY:
-         this.writeStartArray();
-
-         while(jp.nextToken() != JsonToken.END_ARRAY) {
-            this.copyCurrentStructure(jp);
-         }
-
-         this.writeEndArray();
-         break;
-      default:
-         this.copyCurrentEvent(jp);
-      }
-
-   }
-
-   protected final void _append(JsonToken type) {
-      TokenBuffer.Segment next = this._last.append(this._appendOffset, type);
-      if (next == null) {
-         ++this._appendOffset;
-      } else {
-         this._last = next;
-         this._appendOffset = 1;
-      }
-
-   }
-
-   protected final void _append(JsonToken type, Object value) {
-      TokenBuffer.Segment next = this._last.append(this._appendOffset, type, value);
-      if (next == null) {
-         ++this._appendOffset;
-      } else {
-         this._last = next;
-         this._appendOffset = 1;
-      }
-
-   }
-
-   protected void _reportUnsupportedOperation() {
-      throw new UnsupportedOperationException("Called operation not supported for TokenBuffer");
-   }
-
-   protected static final class Segment {
-      public static final int TOKENS_PER_SEGMENT = 16;
-      private static final JsonToken[] TOKEN_TYPES_BY_INDEX = new JsonToken[16];
-      protected TokenBuffer.Segment _next;
-      protected long _tokenTypes;
-      protected final Object[] _tokens = new Object[16];
-
-      public Segment() {
-      }
-
-      public JsonToken type(int index) {
-         long l = this._tokenTypes;
-         if (index > 0) {
-            l >>= index << 2;
-         }
-
-         int ix = (int)l & 15;
-         return TOKEN_TYPES_BY_INDEX[ix];
-      }
-
-      public Object get(int index) {
-         return this._tokens[index];
-      }
-
-      public TokenBuffer.Segment next() {
-         return this._next;
-      }
-
-      public TokenBuffer.Segment append(int index, JsonToken tokenType) {
-         if (index < 16) {
-            this.set(index, tokenType);
-            return null;
-         } else {
-            this._next = new TokenBuffer.Segment();
-            this._next.set(0, tokenType);
-            return this._next;
-         }
-      }
-
-      public TokenBuffer.Segment append(int index, JsonToken tokenType, Object value) {
-         if (index < 16) {
-            this.set(index, tokenType, value);
-            return null;
-         } else {
-            this._next = new TokenBuffer.Segment();
-            this._next.set(0, tokenType, value);
-            return this._next;
-         }
-      }
-
-      public void set(int index, JsonToken tokenType) {
-         long typeCode = (long)tokenType.ordinal();
-         if (index > 0) {
-            typeCode <<= index << 2;
-         }
-
-         this._tokenTypes |= typeCode;
-      }
-
-      public void set(int index, JsonToken tokenType, Object value) {
-         this._tokens[index] = value;
-         long typeCode = (long)tokenType.ordinal();
-         if (index > 0) {
-            typeCode <<= index << 2;
-         }
-
-         this._tokenTypes |= typeCode;
-      }
-
-      static {
-         JsonToken[] t = JsonToken.values();
-         System.arraycopy(t, 1, TOKEN_TYPES_BY_INDEX, 1, Math.min(15, t.length - 1));
-      }
-   }
-
-   protected static final class Parser extends JsonParserMinimalBase {
-      protected ObjectCodec _codec;
-      protected TokenBuffer.Segment _segment;
-      protected int _segmentPtr;
-      protected JsonReadContext _parsingContext;
-      protected boolean _closed;
-      protected transient ByteArrayBuilder _byteBuilder;
-      protected JsonLocation _location = null;
-
-      public Parser(TokenBuffer.Segment firstSeg, ObjectCodec codec) {
-         super(0);
-         this._segment = firstSeg;
-         this._segmentPtr = -1;
-         this._codec = codec;
-         this._parsingContext = JsonReadContext.createRootContext(-1, -1);
-      }
-
-      public void setLocation(JsonLocation l) {
-         this._location = l;
-      }
-
-      public ObjectCodec getCodec() {
-         return this._codec;
-      }
-
-      public void setCodec(ObjectCodec c) {
-         this._codec = c;
-      }
-
-      public JsonToken peekNextToken() throws IOException, JsonParseException {
-         if (this._closed) {
-            return null;
-         } else {
-            TokenBuffer.Segment seg = this._segment;
-            int ptr = this._segmentPtr + 1;
-            if (ptr >= 16) {
-               ptr = 0;
-               seg = seg == null ? null : seg.next();
-            }
-
-            return seg == null ? null : seg.type(ptr);
-         }
-      }
-
-      public void close() throws IOException {
-         if (!this._closed) {
-            this._closed = true;
-         }
-
-      }
-
-      public JsonToken nextToken() throws IOException, JsonParseException {
-         if (!this._closed && this._segment != null) {
-            if (++this._segmentPtr >= 16) {
-               this._segmentPtr = 0;
-               this._segment = this._segment.next();
-               if (this._segment == null) {
-                  return null;
-               }
-            }
-
-            this._currToken = this._segment.type(this._segmentPtr);
-            if (this._currToken == JsonToken.FIELD_NAME) {
-               Object ob = this._currentObject();
-               String name = ob instanceof String ? (String)ob : ob.toString();
-               this._parsingContext.setCurrentName(name);
-            } else if (this._currToken == JsonToken.START_OBJECT) {
-               this._parsingContext = this._parsingContext.createChildObjectContext(-1, -1);
-            } else if (this._currToken == JsonToken.START_ARRAY) {
-               this._parsingContext = this._parsingContext.createChildArrayContext(-1, -1);
-            } else if (this._currToken == JsonToken.END_OBJECT || this._currToken == JsonToken.END_ARRAY) {
-               this._parsingContext = this._parsingContext.getParent();
-               if (this._parsingContext == null) {
-                  this._parsingContext = JsonReadContext.createRootContext(-1, -1);
-               }
-            }
-
-            return this._currToken;
-         } else {
-            return null;
-         }
-      }
-
-      public boolean isClosed() {
-         return this._closed;
-      }
-
-      public JsonStreamContext getParsingContext() {
-         return this._parsingContext;
-      }
-
-      public JsonLocation getTokenLocation() {
-         return this.getCurrentLocation();
-      }
-
-      public JsonLocation getCurrentLocation() {
-         return this._location == null ? JsonLocation.NA : this._location;
-      }
-
-      public String getCurrentName() {
-         return this._parsingContext.getCurrentName();
-      }
-
-      public String getText() {
-         Object ob;
-         if (this._currToken != JsonToken.VALUE_STRING && this._currToken != JsonToken.FIELD_NAME) {
-            if (this._currToken == null) {
-               return null;
-            } else {
-               switch(this._currToken) {
-               case VALUE_NUMBER_INT:
-               case VALUE_NUMBER_FLOAT:
-                  ob = this._currentObject();
-                  return ob == null ? null : ob.toString();
-               default:
-                  return this._currToken.asString();
-               }
-            }
-         } else {
-            ob = this._currentObject();
-            if (ob instanceof String) {
-               return (String)ob;
-            } else {
-               return ob == null ? null : ob.toString();
-            }
-         }
-      }
-
-      public char[] getTextCharacters() {
-         String str = this.getText();
-         return str == null ? null : str.toCharArray();
-      }
-
-      public int getTextLength() {
-         String str = this.getText();
-         return str == null ? 0 : str.length();
-      }
-
-      public int getTextOffset() {
-         return 0;
-      }
-
-      public boolean hasTextCharacters() {
-         return false;
-      }
-
-      public BigInteger getBigIntegerValue() throws IOException, JsonParseException {
-         Number n = this.getNumberValue();
-         if (n instanceof BigInteger) {
-            return (BigInteger)n;
-         } else {
-            switch(this.getNumberType()) {
-            case BIG_DECIMAL:
-               return ((BigDecimal)n).toBigInteger();
+                break;
+            case VALUE_STRING:
+                {
+                    Object ob = segment.get(ptr);
+                    if (ob instanceof SerializableString) {
+                        jgen.writeString((SerializableString) ob);
+                    } else {
+                        jgen.writeString((String) ob);
+                    }
+                }
+                break;
+            case VALUE_NUMBER_INT:
+                {
+                    Number n = (Number) segment.get(ptr);
+                    if (n instanceof BigInteger) {
+                        jgen.writeNumber((BigInteger) n);
+                    } else if (n instanceof Long) {
+                        jgen.writeNumber(n.longValue());
+                    } else {
+                        jgen.writeNumber(n.intValue());
+                    }
+                }
+                break;
+            case VALUE_NUMBER_FLOAT:
+                {
+                    Object n = segment.get(ptr);
+                    if (n instanceof BigDecimal) {
+                        jgen.writeNumber((BigDecimal) n);
+                    } else if (n instanceof Float) {
+                        jgen.writeNumber(((Float) n).floatValue());
+                    } else if (n instanceof Double) {
+                        jgen.writeNumber(((Double) n).doubleValue());
+                    } else if (n == null) {
+                        jgen.writeNull();
+                    } else if (n instanceof String) {
+                        jgen.writeNumber((String) n);
+                    } else {
+                        throw new JsonGenerationException("Unrecognized value type for VALUE_NUMBER_FLOAT: "+n.getClass().getName()+", can not serialize");
+                    }
+                }
+                break;
+            case VALUE_TRUE:
+                jgen.writeBoolean(true);
+                break;
+            case VALUE_FALSE:
+                jgen.writeBoolean(false);
+                break;
+            case VALUE_NULL:
+                jgen.writeNull();
+                break;
+            case VALUE_EMBEDDED_OBJECT:
+                jgen.writeObject(segment.get(ptr));
+                break;
             default:
-               return BigInteger.valueOf(n.longValue());
+                throw new RuntimeException("Internal error: should never end up through this code path");
             }
-         }
-      }
+        }
+    }
 
-      public BigDecimal getDecimalValue() throws IOException, JsonParseException {
-         Number n = this.getNumberValue();
-         if (n instanceof BigDecimal) {
-            return (BigDecimal)n;
-         } else {
-            switch(this.getNumberType()) {
+    @Override
+    public String toString()
+    {
+        // Let's print up to 100 first tokens...
+        final int MAX_COUNT = 100;
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("[TokenBuffer: ");
+        JsonParser jp = asParser();
+        int count = 0;
+
+        while (true) {
+            JsonToken t;
+            try {
+                t = jp.nextToken();
+            } catch (IOException ioe) { // should never occur
+                throw new IllegalStateException(ioe);
+            }
+            if (t == null) break;
+            if (count < MAX_COUNT) {
+                if (count > 0) {
+                    sb.append(", ");
+                }
+                sb.append(t.toString());
+            }
+            ++count;
+        }
+
+        if (count >= MAX_COUNT) {
+            sb.append(" ... (truncated ").append(count-MAX_COUNT).append(" entries)");
+        }
+        sb.append(']');
+        return sb.toString();
+    }
+        
+    /*
+    /**********************************************************
+    /* JsonGenerator implementation: configuration
+    /**********************************************************
+     */
+
+    @Override
+    public JsonGenerator enable(Feature f) {
+        _generatorFeatures |= f.getMask();
+        return this;
+    }
+
+    @Override
+    public JsonGenerator disable(Feature f) {
+        _generatorFeatures &= ~f.getMask();
+        return this;
+    }
+
+    //public JsonGenerator configure(Feature f, boolean state) { }
+
+    @Override
+    public boolean isEnabled(Feature f) {
+        return (_generatorFeatures & f.getMask()) != 0;
+    }
+
+    @Override
+    public JsonGenerator useDefaultPrettyPrinter() {
+        // No-op: we don't indent
+        return this;
+    }
+
+    @Override
+    public JsonGenerator setCodec(ObjectCodec oc) {
+        _objectCodec = oc;
+        return this;
+    }
+
+    @Override
+    public ObjectCodec getCodec() { return _objectCodec; }
+
+    @Override
+    public final JsonWriteContext getOutputContext() { return _writeContext; }
+
+    /*
+    /**********************************************************
+    /* JsonGenerator implementation: low-level output handling
+    /**********************************************************
+     */
+
+    @Override
+    public void flush() throws IOException { /* NOP */ }
+
+    @Override
+    public void close() throws IOException {
+        _closed = true;
+    }
+
+    @Override
+    public boolean isClosed() { return _closed; }
+
+    /*
+    /**********************************************************
+    /* JsonGenerator implementation: write methods, structural
+    /**********************************************************
+     */
+
+    @Override
+    public final void writeStartArray()
+        throws IOException, JsonGenerationException
+    {
+        _append(JsonToken.START_ARRAY);
+        _writeContext = _writeContext.createChildArrayContext();
+    }
+
+    @Override
+    public final void writeEndArray()
+        throws IOException, JsonGenerationException
+    {
+        _append(JsonToken.END_ARRAY);
+        // Let's allow unbalanced tho... i.e. not run out of root level, ever
+        JsonWriteContext c = _writeContext.getParent();
+        if (c != null) {
+            _writeContext = c;
+        }
+    }
+
+    @Override
+    public final void writeStartObject()
+        throws IOException, JsonGenerationException
+    {
+        _append(JsonToken.START_OBJECT);
+        _writeContext = _writeContext.createChildObjectContext();
+    }
+
+    @Override
+    public final void writeEndObject()
+        throws IOException, JsonGenerationException
+    {
+        _append(JsonToken.END_OBJECT);
+        // Let's allow unbalanced tho... i.e. not run out of root level, ever
+        JsonWriteContext c = _writeContext.getParent();
+        if (c != null) {
+            _writeContext = c;
+        }
+    }
+
+    @Override
+    public final void writeFieldName(String name)
+        throws IOException, JsonGenerationException
+    {
+        _append(JsonToken.FIELD_NAME, name);
+        _writeContext.writeFieldName(name);
+    }
+
+    @Override
+    public void writeFieldName(SerializableString name)
+        throws IOException, JsonGenerationException
+    {
+        _append(JsonToken.FIELD_NAME, name);
+        _writeContext.writeFieldName(name.getValue());
+    }
+
+    @Override
+    public void writeFieldName(SerializedString name)
+        throws IOException, JsonGenerationException
+    {
+        _append(JsonToken.FIELD_NAME, name);
+        _writeContext.writeFieldName(name.getValue());
+    }
+    
+    /*
+    /**********************************************************
+    /* JsonGenerator implementation: write methods, textual
+    /**********************************************************
+     */
+
+    @Override
+    public void writeString(String text) throws IOException,JsonGenerationException {
+        if (text == null) {
+            writeNull();
+        } else {
+            _append(JsonToken.VALUE_STRING, text);
+        }
+    }
+
+    @Override
+    public void writeString(char[] text, int offset, int len) throws IOException, JsonGenerationException {
+        writeString(new String(text, offset, len));
+    }
+
+    @Override
+    public void writeString(SerializableString text) throws IOException, JsonGenerationException {
+        if (text == null) {
+            writeNull();
+        } else {
+            _append(JsonToken.VALUE_STRING, text);
+        }
+    }
+    
+    @Override
+    public void writeRawUTF8String(byte[] text, int offset, int length)
+        throws IOException, JsonGenerationException
+    {
+        // could add support for buffering if we really want it...
+        _reportUnsupportedOperation();
+    }
+
+    @Override
+    public void writeUTF8String(byte[] text, int offset, int length)
+        throws IOException, JsonGenerationException
+    {
+        // could add support for buffering if we really want it...
+        _reportUnsupportedOperation();
+    }
+
+    @Override
+    public void writeRaw(String text) throws IOException, JsonGenerationException {
+        _reportUnsupportedOperation();
+    }
+
+    @Override
+    public void writeRaw(String text, int offset, int len) throws IOException, JsonGenerationException {
+        _reportUnsupportedOperation();
+    }
+
+    @Override
+    public void writeRaw(char[] text, int offset, int len) throws IOException, JsonGenerationException {
+        _reportUnsupportedOperation();
+    }
+
+    @Override
+    public void writeRaw(char c) throws IOException, JsonGenerationException {
+        _reportUnsupportedOperation();
+    }
+
+    @Override
+    public void writeRawValue(String text) throws IOException, JsonGenerationException {
+        _reportUnsupportedOperation();
+    }
+
+    @Override
+    public void writeRawValue(String text, int offset, int len) throws IOException, JsonGenerationException {
+        _reportUnsupportedOperation();
+    }
+
+    @Override
+    public void writeRawValue(char[] text, int offset, int len) throws IOException, JsonGenerationException {
+        _reportUnsupportedOperation();
+    }
+
+    /*
+    /**********************************************************
+    /* JsonGenerator implementation: write methods, primitive types
+    /**********************************************************
+     */
+
+    @Override
+    public void writeNumber(int i) throws IOException, JsonGenerationException {
+        _append(JsonToken.VALUE_NUMBER_INT, Integer.valueOf(i));
+    }
+
+    @Override
+    public void writeNumber(long l) throws IOException, JsonGenerationException {
+        _append(JsonToken.VALUE_NUMBER_INT, Long.valueOf(l));
+    }
+
+    @Override
+    public void writeNumber(double d) throws IOException,JsonGenerationException {
+        _append(JsonToken.VALUE_NUMBER_FLOAT, Double.valueOf(d));
+    }
+
+    @Override
+    public void writeNumber(float f) throws IOException, JsonGenerationException {
+        _append(JsonToken.VALUE_NUMBER_FLOAT, Float.valueOf(f));
+    }
+
+    @Override
+    public void writeNumber(BigDecimal dec) throws IOException,JsonGenerationException {
+        if (dec == null) {
+            writeNull();
+        } else {
+            _append(JsonToken.VALUE_NUMBER_FLOAT, dec);
+        }
+    }
+
+    @Override
+    public void writeNumber(BigInteger v) throws IOException, JsonGenerationException {
+        if (v == null) {
+            writeNull();
+        } else {
+            _append(JsonToken.VALUE_NUMBER_INT, v);
+        }
+    }
+
+    @Override
+    public void writeNumber(String encodedValue) throws IOException, JsonGenerationException {
+        /* 03-Dec-2010, tatu: related to [JACKSON-423], should try to keep as numeric
+         *   identity as long as possible
+         */
+        _append(JsonToken.VALUE_NUMBER_FLOAT, encodedValue);
+    }
+
+    @Override
+    public void writeBoolean(boolean state) throws IOException,JsonGenerationException {
+        _append(state ? JsonToken.VALUE_TRUE : JsonToken.VALUE_FALSE);
+    }
+
+    @Override
+    public void writeNull() throws IOException, JsonGenerationException {
+        _append(JsonToken.VALUE_NULL);
+    }
+
+    /*
+    /***********************************************************
+    /* JsonGenerator implementation: write methods for POJOs/trees
+    /***********************************************************
+     */
+
+    @Override
+    public void writeObject(Object value)
+        throws IOException, JsonProcessingException
+    {
+        // embedded means that no conversions should be done...
+        _append(JsonToken.VALUE_EMBEDDED_OBJECT, value);
+    }
+
+    @Override
+    public void writeTree(JsonNode rootNode)
+        throws IOException, JsonProcessingException
+    {
+        /* 31-Dec-2009, tatu: no need to convert trees either is there?
+         *  (note: may need to re-evaluate at some point)
+         */
+        _append(JsonToken.VALUE_EMBEDDED_OBJECT, rootNode);
+    }
+
+    /*
+    /***********************************************************
+    /* JsonGenerator implementation; binary
+    /***********************************************************
+     */
+
+    @Override
+    public void writeBinary(Base64Variant b64variant, byte[] data, int offset, int len)
+        throws IOException, JsonGenerationException
+    {
+        /* 31-Dec-2009, tatu: can do this using multiple alternatives; but for
+         *   now, let's try to limit number of conversions.
+         *   The only (?) tricky thing is that of whether to preserve variant,
+         *   seems pointless, so let's not worry about it unless there's some
+         *   compelling reason to.
+         */
+        byte[] copy = new byte[len];
+        System.arraycopy(data, offset, copy, 0, len);
+        writeObject(copy);
+    }
+
+    /*
+    /**********************************************************
+    /* JsonGenerator implementation; pass-through copy
+    /**********************************************************
+     */
+
+    @Override
+    public void copyCurrentEvent(JsonParser jp) throws IOException, JsonProcessingException
+    {
+        switch (jp.getCurrentToken()) {
+        case START_OBJECT:
+            writeStartObject();
+            break;
+        case END_OBJECT:
+            writeEndObject();
+            break;
+        case START_ARRAY:
+            writeStartArray();
+            break;
+        case END_ARRAY:
+            writeEndArray();
+            break;
+        case FIELD_NAME:
+            writeFieldName(jp.getCurrentName());
+            break;
+        case VALUE_STRING:
+            if (jp.hasTextCharacters()) {
+                writeString(jp.getTextCharacters(), jp.getTextOffset(), jp.getTextLength());
+            } else {
+                writeString(jp.getText());
+            }
+            break;
+        case VALUE_NUMBER_INT:
+            switch (jp.getNumberType()) {
+            case INT:
+                writeNumber(jp.getIntValue());
+                break;
+            case BIG_INTEGER:
+                writeNumber(jp.getBigIntegerValue());
+                break;
+            default:
+                writeNumber(jp.getLongValue());
+            }
+            break;
+        case VALUE_NUMBER_FLOAT:
+            switch (jp.getNumberType()) {
+            case BIG_DECIMAL:
+                writeNumber(jp.getDecimalValue());
+                break;
+            case FLOAT:
+                writeNumber(jp.getFloatValue());
+                break;
+            default:
+                writeNumber(jp.getDoubleValue());
+            }
+            break;
+        case VALUE_TRUE:
+            writeBoolean(true);
+            break;
+        case VALUE_FALSE:
+            writeBoolean(false);
+            break;
+        case VALUE_NULL:
+            writeNull();
+            break;
+        case VALUE_EMBEDDED_OBJECT:
+            writeObject(jp.getEmbeddedObject());
+            break;
+        default:
+            throw new RuntimeException("Internal error: should never end up through this code path");
+        }
+    }
+
+    @Override
+    public void copyCurrentStructure(JsonParser jp) throws IOException, JsonProcessingException {
+        JsonToken t = jp.getCurrentToken();
+
+        // Let's handle field-name separately first
+        if (t == JsonToken.FIELD_NAME) {
+            writeFieldName(jp.getCurrentName());
+            t = jp.nextToken();
+            // fall-through to copy the associated value
+        }
+
+        switch (t) {
+        case START_ARRAY:
+            writeStartArray();
+            while (jp.nextToken() != JsonToken.END_ARRAY) {
+                copyCurrentStructure(jp);
+            }
+            writeEndArray();
+            break;
+        case START_OBJECT:
+            writeStartObject();
+            while (jp.nextToken() != JsonToken.END_OBJECT) {
+                copyCurrentStructure(jp);
+            }
+            writeEndObject();
+            break;
+        default: // others are simple:
+            copyCurrentEvent(jp);
+        }
+    }
+    
+    /*
+    /**********************************************************
+    /* Internal methods
+    /**********************************************************
+     */
+    protected final void _append(JsonToken type) {
+        Segment next = _last.append(_appendOffset, type);
+        if (next == null) {
+            ++_appendOffset;
+        } else {
+            _last = next;
+            _appendOffset = 1; // since we added first at 0
+        }
+    }
+
+    protected final void _append(JsonToken type, Object value) {
+        Segment next = _last.append(_appendOffset, type, value);
+        if (next == null) {
+            ++_appendOffset;
+        } else {
+            _last = next;
+            _appendOffset = 1;
+        }
+    }
+    
+    protected void _reportUnsupportedOperation() {
+        throw new UnsupportedOperationException("Called operation not supported for TokenBuffer");
+    }
+    
+    /*
+    /**********************************************************
+    /* Supporting classes
+    /**********************************************************
+     */
+
+    protected final static class Parser
+        extends JsonParserMinimalBase
+    {
+        protected ObjectCodec _codec;
+
+        /*
+        /**********************************************************
+        /* Parsing state
+        /**********************************************************
+         */
+
+        /**
+         * Currently active segment
+         */
+        protected Segment _segment;
+
+        /**
+         * Pointer to current token within current segment
+         */
+        protected int _segmentPtr;
+
+        /**
+         * Information about parser context, context in which
+         * the next token is to be parsed (root, array, object).
+         */
+        protected JsonReadContext _parsingContext;
+        
+        protected boolean _closed;
+
+        protected transient ByteArrayBuilder _byteBuilder;
+
+        protected JsonLocation _location = null;
+        
+        /*
+        /**********************************************************
+        /* Construction, init
+        /**********************************************************
+         */
+        
+        public Parser(Segment firstSeg, ObjectCodec codec)
+        {
+            super(0);
+            _segment = firstSeg;
+            _segmentPtr = -1; // not yet read
+            _codec = codec;
+            _parsingContext = JsonReadContext.createRootContext(-1, -1);
+        }
+
+        public void setLocation(JsonLocation l) {
+            _location = l;
+        }
+        
+        @Override
+        public ObjectCodec getCodec() { return _codec; }
+
+        @Override
+        public void setCodec(ObjectCodec c) { _codec = c; }
+
+        /*
+        /**********************************************************
+        /* Extended API beyond JsonParser
+        /**********************************************************
+         */
+        
+        public JsonToken peekNextToken()
+            throws IOException, JsonParseException
+        {
+            // closed? nothing more to peek, either
+            if (_closed) return null;
+            Segment seg = _segment;
+            int ptr = _segmentPtr+1;
+            if (ptr >= Segment.TOKENS_PER_SEGMENT) {
+                ptr = 0;
+                seg = (seg == null) ? null : seg.next();
+            }
+            return (seg == null) ? null : seg.type(ptr);
+        }
+        
+        /*
+        /**********************************************************
+        /* Closeable implementation
+        /**********************************************************
+         */
+
+        @Override
+        public void close() throws IOException {
+            if (!_closed) {
+                _closed = true;
+            }
+        }
+
+        /*
+        /**********************************************************
+        /* Public API, traversal
+        /**********************************************************
+         */
+        
+        @Override
+        public JsonToken nextToken() throws IOException, JsonParseException
+        {
+            // If we are closed, nothing more to do
+            if (_closed || (_segment == null)) return null;
+
+            // Ok, then: any more tokens?
+            if (++_segmentPtr >= Segment.TOKENS_PER_SEGMENT) {
+                _segmentPtr = 0;
+                _segment = _segment.next();
+                if (_segment == null) {
+                    return null;
+                }
+            }
+            _currToken = _segment.type(_segmentPtr);
+            // Field name? Need to update context
+            if (_currToken == JsonToken.FIELD_NAME) {
+                Object ob = _currentObject();
+                String name = (ob instanceof String) ? ((String) ob) : ob.toString();
+                _parsingContext.setCurrentName(name);
+            } else if (_currToken == JsonToken.START_OBJECT) {
+                _parsingContext = _parsingContext.createChildObjectContext(-1, -1);
+            } else if (_currToken == JsonToken.START_ARRAY) {
+                _parsingContext = _parsingContext.createChildArrayContext(-1, -1);
+            } else if (_currToken == JsonToken.END_OBJECT
+                    || _currToken == JsonToken.END_ARRAY) {
+                // Closing JSON Object/Array? Close matching context
+                _parsingContext = _parsingContext.getParent();
+                // but allow unbalanced cases too (more close markers)
+                if (_parsingContext == null) {
+                    _parsingContext = JsonReadContext.createRootContext(-1, -1);
+                }
+            }
+            return _currToken;
+        }
+
+        @Override
+        public boolean isClosed() { return _closed; }
+
+        /*
+        /**********************************************************
+        /* Public API, token accessors
+        /**********************************************************
+         */
+        
+        @Override
+        public JsonStreamContext getParsingContext() { return _parsingContext; }
+
+        @Override
+        public JsonLocation getTokenLocation() { return getCurrentLocation(); }
+
+        @Override
+        public JsonLocation getCurrentLocation() {
+            return (_location == null) ? JsonLocation.NA : _location;
+        }
+
+        @Override
+        public String getCurrentName() { return _parsingContext.getCurrentName(); }
+        
+        /*
+        /**********************************************************
+        /* Public API, access to token information, text
+        /**********************************************************
+         */
+        
+        @Override
+        public String getText()
+        {
+            // common cases first:
+            if (_currToken == JsonToken.VALUE_STRING
+                    || _currToken == JsonToken.FIELD_NAME) {
+                Object ob = _currentObject();
+                if (ob instanceof String) {
+                    return (String) ob;
+                }
+                return (ob == null) ? null : ob.toString();
+            }
+            if (_currToken == null) {
+                return null;
+            }
+            switch (_currToken) {
+            case VALUE_NUMBER_INT:
+            case VALUE_NUMBER_FLOAT:
+                Object ob = _currentObject();
+                return (ob == null) ? null : ob.toString();
+            }
+            return _currToken.asString();
+        }
+
+        @Override
+        public char[] getTextCharacters() {
+            String str = getText();
+            return (str == null) ? null : str.toCharArray();
+        }
+
+        @Override
+        public int getTextLength() {
+            String str = getText();
+            return (str == null) ? 0 : str.length();
+        }
+
+        @Override
+        public int getTextOffset() { return 0; }
+
+        @Override
+        public boolean hasTextCharacters() {
+            // We never have raw buffer available, so:
+            return false;
+        }
+        
+        /*
+        /**********************************************************
+        /* Public API, access to token information, numeric
+        /**********************************************************
+         */
+
+        @Override
+        public BigInteger getBigIntegerValue() throws IOException, JsonParseException
+        {
+            Number n = getNumberValue();
+            if (n instanceof BigInteger) {
+                return (BigInteger) n;
+            }
+            switch (getNumberType()) {
+            case BIG_DECIMAL:
+                return ((BigDecimal) n).toBigInteger();
+            }
+            // int/long is simple, but let's also just truncate float/double:
+            return BigInteger.valueOf(n.longValue());
+        }
+
+        @Override
+        public BigDecimal getDecimalValue() throws IOException, JsonParseException
+        {
+            Number n = getNumberValue();
+            if (n instanceof BigDecimal) {
+                return (BigDecimal) n;
+            }
+            switch (getNumberType()) {
             case INT:
             case LONG:
-               return BigDecimal.valueOf(n.longValue());
+                return BigDecimal.valueOf(n.longValue());
             case BIG_INTEGER:
-               return new BigDecimal((BigInteger)n);
-            case BIG_DECIMAL:
-            case FLOAT:
-            default:
-               return BigDecimal.valueOf(n.doubleValue());
+                return new BigDecimal((BigInteger) n);
             }
-         }
-      }
+            // float or double
+            return BigDecimal.valueOf(n.doubleValue());
+        }
 
-      public double getDoubleValue() throws IOException, JsonParseException {
-         return this.getNumberValue().doubleValue();
-      }
+        @Override
+        public double getDoubleValue() throws IOException, JsonParseException {
+            return getNumberValue().doubleValue();
+        }
 
-      public float getFloatValue() throws IOException, JsonParseException {
-         return this.getNumberValue().floatValue();
-      }
+        @Override
+        public float getFloatValue() throws IOException, JsonParseException {
+            return getNumberValue().floatValue();
+        }
 
-      public int getIntValue() throws IOException, JsonParseException {
-         return this._currToken == JsonToken.VALUE_NUMBER_INT ? ((Number)this._currentObject()).intValue() : this.getNumberValue().intValue();
-      }
-
-      public long getLongValue() throws IOException, JsonParseException {
-         return this.getNumberValue().longValue();
-      }
-
-      public JsonParser.NumberType getNumberType() throws IOException, JsonParseException {
-         Number n = this.getNumberValue();
-         if (n instanceof Integer) {
-            return JsonParser.NumberType.INT;
-         } else if (n instanceof Long) {
-            return JsonParser.NumberType.LONG;
-         } else if (n instanceof Double) {
-            return JsonParser.NumberType.DOUBLE;
-         } else if (n instanceof BigDecimal) {
-            return JsonParser.NumberType.BIG_DECIMAL;
-         } else if (n instanceof Float) {
-            return JsonParser.NumberType.FLOAT;
-         } else {
-            return n instanceof BigInteger ? JsonParser.NumberType.BIG_INTEGER : null;
-         }
-      }
-
-      public final Number getNumberValue() throws IOException, JsonParseException {
-         this._checkIsNumber();
-         return (Number)this._currentObject();
-      }
-
-      public Object getEmbeddedObject() {
-         return this._currToken == JsonToken.VALUE_EMBEDDED_OBJECT ? this._currentObject() : null;
-      }
-
-      public byte[] getBinaryValue(Base64Variant b64variant) throws IOException, JsonParseException {
-         if (this._currToken == JsonToken.VALUE_EMBEDDED_OBJECT) {
-            Object ob = this._currentObject();
-            if (ob instanceof byte[]) {
-               return (byte[])((byte[])ob);
+        @Override
+        public int getIntValue() throws IOException, JsonParseException
+        {
+            // optimize common case:
+            if (_currToken == JsonToken.VALUE_NUMBER_INT) {
+                return ((Number) _currentObject()).intValue();
             }
-         }
+            return getNumberValue().intValue();
+        }
 
-         if (this._currToken != JsonToken.VALUE_STRING) {
-            throw this._constructError("Current token (" + this._currToken + ") not VALUE_STRING (or VALUE_EMBEDDED_OBJECT with byte[]), can not access as binary");
-         } else {
-            String str = this.getText();
+        @Override
+        public long getLongValue() throws IOException, JsonParseException {
+            return getNumberValue().longValue();
+        }
+
+        @Override
+        public NumberType getNumberType() throws IOException, JsonParseException
+        {
+            Number n = getNumberValue();
+            if (n instanceof Integer) return NumberType.INT;
+            if (n instanceof Long) return NumberType.LONG;
+            if (n instanceof Double) return NumberType.DOUBLE;
+            if (n instanceof BigDecimal) return NumberType.BIG_DECIMAL;
+            if (n instanceof Float) return NumberType.FLOAT;
+            if (n instanceof BigInteger) return NumberType.BIG_INTEGER;
+            return null;
+        }
+
+        @Override
+        public final Number getNumberValue() throws IOException, JsonParseException {
+            _checkIsNumber();
+            return (Number) _currentObject();
+        }
+        
+        /*
+        /**********************************************************
+        /* Public API, access to token information, other
+        /**********************************************************
+         */
+
+        @Override
+        public Object getEmbeddedObject()
+        {
+            if (_currToken == JsonToken.VALUE_EMBEDDED_OBJECT) {
+                return _currentObject();
+            }
+            return null;
+        }
+
+        @Override
+        public byte[] getBinaryValue(Base64Variant b64variant) throws IOException, JsonParseException
+        {
+            // First: maybe we some special types?
+            if (_currToken == JsonToken.VALUE_EMBEDDED_OBJECT) {
+                // Embedded byte array would work nicely...
+                Object ob = _currentObject();
+                if (ob instanceof byte[]) {
+                    return (byte[]) ob;
+                }
+                // fall through to error case
+            }
+            if (_currToken != JsonToken.VALUE_STRING) {
+                throw _constructError("Current token ("+_currToken+") not VALUE_STRING (or VALUE_EMBEDDED_OBJECT with byte[]), can not access as binary");
+            }
+            final String str = getText();
             if (str == null) {
-               return null;
+                return null;
+            }
+            ByteArrayBuilder builder = _byteBuilder;
+            if (builder == null) {
+                _byteBuilder = builder = new ByteArrayBuilder(100);
+            }
+            _decodeBase64(str, builder, b64variant);
+            return builder.toByteArray();
+        }
+
+        /*
+        /**********************************************************
+        /* Internal methods
+        /**********************************************************
+         */
+
+        protected void _decodeBase64(String str, ByteArrayBuilder builder, Base64Variant b64variant)
+            throws IOException, JsonParseException
+        {
+            int ptr = 0;
+            int len = str.length();
+            
+            main_loop:
+            while (ptr < len) {
+                // first, we'll skip preceding white space, if any
+                char ch;
+                do {
+                    ch = str.charAt(ptr++);
+                    if (ptr >= len) {
+                        break main_loop;
+                    }
+                } while (ch <= INT_SPACE);
+                int bits = b64variant.decodeBase64Char(ch);
+                if (bits < 0) {
+                    _reportInvalidBase64(b64variant, ch, 0, null);
+                }
+                int decodedData = bits;
+                // then second base64 char; can't get padding yet, nor ws
+                if (ptr >= len) {
+                    _reportBase64EOF();
+                }
+                ch = str.charAt(ptr++);
+                bits = b64variant.decodeBase64Char(ch);
+                if (bits < 0) {
+                    _reportInvalidBase64(b64variant, ch, 1, null);
+                }
+                decodedData = (decodedData << 6) | bits;
+                // third base64 char; can be padding, but not ws
+                if (ptr >= len) {
+                    _reportBase64EOF();
+                }
+                ch = str.charAt(ptr++);
+                bits = b64variant.decodeBase64Char(ch);
+                
+                // First branch: can get padding (-> 1 byte)
+                if (bits < 0) {
+                    if (bits != Base64Variant.BASE64_VALUE_PADDING) {
+                        _reportInvalidBase64(b64variant, ch, 2, null);
+                    }
+                    // Ok, must get padding
+                    if (ptr >= len) {
+                        _reportBase64EOF();
+                    }
+                    ch = str.charAt(ptr++);
+                    if (!b64variant.usesPaddingChar(ch)) {
+                        _reportInvalidBase64(b64variant, ch, 3, "expected padding character '"+b64variant.getPaddingChar()+"'");
+                    }
+                    // Got 12 bits, only need 8, need to shift
+                    decodedData >>= 4;
+                    builder.append(decodedData);
+                    continue;
+                }
+                // Nope, 2 or 3 bytes
+                decodedData = (decodedData << 6) | bits;
+                // fourth and last base64 char; can be padding, but not ws
+                if (ptr >= len) {
+                    _reportBase64EOF();
+                }
+                ch = str.charAt(ptr++);
+                bits = b64variant.decodeBase64Char(ch);
+                if (bits < 0) {
+                    if (bits != Base64Variant.BASE64_VALUE_PADDING) {
+                        _reportInvalidBase64(b64variant, ch, 3, null);
+                    }
+                    decodedData >>= 2;
+                    builder.appendTwoBytes(decodedData);
+                } else {
+                    // otherwise, our triple is now complete
+                    decodedData = (decodedData << 6) | bits;
+                    builder.appendThreeBytes(decodedData);
+                }
+            }
+        }
+
+        protected final Object _currentObject() {
+            return _segment.get(_segmentPtr);
+        }
+
+        protected final void _checkIsNumber() throws JsonParseException
+        {
+            if (_currToken == null || !_currToken.isNumeric()) {
+                throw _constructError("Current token ("+_currToken+") not numeric, can not use numeric value accessors");
+            }
+        }
+
+        /**
+         * @param bindex Relative index within base64 character unit; between 0
+         *   and 3 (as unit has exactly 4 characters)
+         */
+        protected void _reportInvalidBase64(Base64Variant b64variant, char ch, int bindex, String msg)
+            throws JsonParseException
+        {
+            String base;
+            if (ch <= INT_SPACE) {
+                base = "Illegal white space character (code 0x"+Integer.toHexString(ch)+") as character #"+(bindex+1)+" of 4-char base64 unit: can only used between units";
+            } else if (b64variant.usesPaddingChar(ch)) {
+                base = "Unexpected padding character ('"+b64variant.getPaddingChar()+"') as character #"+(bindex+1)+" of 4-char base64 unit: padding only legal as 3rd or 4th character";
+            } else if (!Character.isDefined(ch) || Character.isISOControl(ch)) {
+                // Not sure if we can really get here... ? (most illegal xml chars are caught at lower level)
+                base = "Illegal character (code 0x"+Integer.toHexString(ch)+") in base64 content";
             } else {
-               ByteArrayBuilder builder = this._byteBuilder;
-               if (builder == null) {
-                  this._byteBuilder = builder = new ByteArrayBuilder(100);
-               }
-
-               this._decodeBase64(str, builder, b64variant);
-               return builder.toByteArray();
+                base = "Illegal character '"+ch+"' (code 0x"+Integer.toHexString(ch)+") in base64 content";
             }
-         }
-      }
-
-      protected void _decodeBase64(String str, ByteArrayBuilder builder, Base64Variant b64variant) throws IOException, JsonParseException {
-         int ptr = 0;
-         int len = str.length();
-
-         while(ptr < len) {
-            char ch;
-            do {
-               ch = str.charAt(ptr++);
-               if (ptr >= len) {
-                  return;
-               }
-            } while(ch <= ' ');
-
-            int bits = b64variant.decodeBase64Char(ch);
-            if (bits < 0) {
-               this._reportInvalidBase64(b64variant, ch, 0, (String)null);
+            if (msg != null) {
+                base = base + ": " + msg;
             }
+            throw _constructError(base);
+        }
 
-            int decodedData = bits;
-            if (ptr >= len) {
-               this._reportBase64EOF();
+        protected void _reportBase64EOF() throws JsonParseException {
+            throw _constructError("Unexpected end-of-String in base64 content");
+        }
+
+        @Override
+        protected void _handleEOF() throws JsonParseException {
+            _throwInternal();
+        }
+    }
+    
+    /**
+     * Individual segment of TokenBuffer that can store up to 16 tokens
+     * (limited by 4 bits per token type marker requirement).
+     * Current implementation uses fixed length array; could alternatively
+     * use 16 distinct fields and switch statement (slightly more efficient
+     * storage, slightly slower access)
+     */
+    protected final static class Segment 
+    {
+        public final static int TOKENS_PER_SEGMENT = 16;
+        
+        /**
+         * Static array used for fast conversion between token markers and
+         * matching {@link JsonToken} instances
+         */
+        private final static JsonToken[] TOKEN_TYPES_BY_INDEX;
+        static {
+            // ... here we know that there are <= 16 values in JsonToken enum
+            TOKEN_TYPES_BY_INDEX = new JsonToken[16];
+            JsonToken[] t = JsonToken.values();
+            System.arraycopy(t, 1, TOKEN_TYPES_BY_INDEX, 1, Math.min(15, t.length - 1));
+        }
+
+        // // // Linking
+        
+        protected Segment _next;
+        
+        // // // State
+
+        /**
+         * Bit field used to store types of buffered tokens; 4 bits per token.
+         * Value 0 is reserved for "not in use"
+         */
+        protected long _tokenTypes;
+
+        
+        // Actual tokens
+
+        protected final Object[] _tokens = new Object[TOKENS_PER_SEGMENT];
+
+        public Segment() { }
+
+        // // // Accessors
+
+        public JsonToken type(int index)
+        {
+            long l = _tokenTypes;
+            if (index > 0) {
+                l >>= (index << 2);
             }
+            int ix = ((int) l) & 0xF;
+            return TOKEN_TYPES_BY_INDEX[ix];
+        }
+        
+        public Object get(int index) {
+            return _tokens[index];
+        }
 
-            ch = str.charAt(ptr++);
-            bits = b64variant.decodeBase64Char(ch);
-            if (bits < 0) {
-               this._reportInvalidBase64(b64variant, ch, 1, (String)null);
+        public Segment next() { return _next; }
+        
+        // // // Mutators
+
+        public Segment append(int index, JsonToken tokenType)
+        {
+            if (index < TOKENS_PER_SEGMENT) {
+                set(index, tokenType);
+                return null;
             }
+            _next = new Segment();
+            _next.set(0, tokenType);
+            return _next;
+        }
 
-            decodedData = decodedData << 6 | bits;
-            if (ptr >= len) {
-               this._reportBase64EOF();
+        public Segment append(int index, JsonToken tokenType, Object value)
+        {
+            if (index < TOKENS_PER_SEGMENT) {
+                set(index, tokenType, value);
+                return null;
             }
-
-            ch = str.charAt(ptr++);
-            bits = b64variant.decodeBase64Char(ch);
-            if (bits < 0) {
-               if (bits != -2) {
-                  this._reportInvalidBase64(b64variant, ch, 2, (String)null);
-               }
-
-               if (ptr >= len) {
-                  this._reportBase64EOF();
-               }
-
-               ch = str.charAt(ptr++);
-               if (!b64variant.usesPaddingChar(ch)) {
-                  this._reportInvalidBase64(b64variant, ch, 3, "expected padding character '" + b64variant.getPaddingChar() + "'");
-               }
-
-               decodedData >>= 4;
-               builder.append(decodedData);
-            } else {
-               decodedData = decodedData << 6 | bits;
-               if (ptr >= len) {
-                  this._reportBase64EOF();
-               }
-
-               ch = str.charAt(ptr++);
-               bits = b64variant.decodeBase64Char(ch);
-               if (bits < 0) {
-                  if (bits != -2) {
-                     this._reportInvalidBase64(b64variant, ch, 3, (String)null);
-                  }
-
-                  decodedData >>= 2;
-                  builder.appendTwoBytes(decodedData);
-               } else {
-                  decodedData = decodedData << 6 | bits;
-                  builder.appendThreeBytes(decodedData);
-               }
+            _next = new Segment();
+            _next.set(0, tokenType, value);
+            return _next;
+        }
+        
+        public void set(int index, JsonToken tokenType)
+        {
+            long typeCode = tokenType.ordinal();
+            /* Assumption here is that there are no overwrites, just appends;
+             * and so no masking is needed
+             */
+            if (index > 0) {
+                typeCode <<= (index << 2);
             }
-         }
+            _tokenTypes |= typeCode;
+        }
 
-      }
-
-      protected final Object _currentObject() {
-         return this._segment.get(this._segmentPtr);
-      }
-
-      protected final void _checkIsNumber() throws JsonParseException {
-         if (this._currToken == null || !this._currToken.isNumeric()) {
-            throw this._constructError("Current token (" + this._currToken + ") not numeric, can not use numeric value accessors");
-         }
-      }
-
-      protected void _reportInvalidBase64(Base64Variant b64variant, char ch, int bindex, String msg) throws JsonParseException {
-         String base;
-         if (ch <= ' ') {
-            base = "Illegal white space character (code 0x" + Integer.toHexString(ch) + ") as character #" + (bindex + 1) + " of 4-char base64 unit: can only used between units";
-         } else if (b64variant.usesPaddingChar(ch)) {
-            base = "Unexpected padding character ('" + b64variant.getPaddingChar() + "') as character #" + (bindex + 1) + " of 4-char base64 unit: padding only legal as 3rd or 4th character";
-         } else if (Character.isDefined(ch) && !Character.isISOControl(ch)) {
-            base = "Illegal character '" + ch + "' (code 0x" + Integer.toHexString(ch) + ") in base64 content";
-         } else {
-            base = "Illegal character (code 0x" + Integer.toHexString(ch) + ") in base64 content";
-         }
-
-         if (msg != null) {
-            base = base + ": " + msg;
-         }
-
-         throw this._constructError(base);
-      }
-
-      protected void _reportBase64EOF() throws JsonParseException {
-         throw this._constructError("Unexpected end-of-String in base64 content");
-      }
-
-      protected void _handleEOF() throws JsonParseException {
-         this._throwInternal();
-      }
-   }
+        public void set(int index, JsonToken tokenType, Object value)
+        {
+            _tokens[index] = value;
+            long typeCode = tokenType.ordinal();
+            /* Assumption here is that there are no overwrites, just appends;
+             * and so no masking is needed
+             */
+            if (index > 0) {
+                typeCode <<= (index << 2);
+            }
+            _tokenTypes |= typeCode;
+        }
+    }
 }

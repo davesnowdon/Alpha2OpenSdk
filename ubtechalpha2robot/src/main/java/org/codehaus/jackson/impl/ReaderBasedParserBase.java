@@ -1,128 +1,224 @@
 package org.codehaus.jackson.impl;
 
-import java.io.IOException;
-import java.io.Reader;
-import java.io.Writer;
-import org.codehaus.jackson.JsonParseException;
-import org.codehaus.jackson.JsonParser;
+import java.io.*;
+
+import org.codehaus.jackson.*;
 import org.codehaus.jackson.io.IOContext;
 
-public abstract class ReaderBasedParserBase extends JsonNumericParserBase {
-   protected Reader _reader;
-   protected char[] _inputBuffer;
+/**
+ * This is a simple low-level input reader base class, used by
+ * JSON parser.
+ * The reason for sub-classing (over composition)
+ * is due to need for direct access to character buffers
+ * and positions.
+ *
+ * @author Tatu Saloranta
+ */
+public abstract class ReaderBasedParserBase
+    extends JsonNumericParserBase
+{
+    /*
+    /**********************************************************
+    /* Configuration
+    /**********************************************************
+     */
 
-   protected ReaderBasedParserBase(IOContext ctxt, int features, Reader r) {
-      super(ctxt, features);
-      this._reader = r;
-      this._inputBuffer = ctxt.allocTokenBuffer();
-   }
+    /**
+     * Reader that can be used for reading more content, if one
+     * buffer from input source, but in some cases pre-loaded buffer
+     * is handed to the parser.
+     */
+    protected Reader _reader;
 
-   public int releaseBuffered(Writer w) throws IOException {
-      int count = this._inputEnd - this._inputPtr;
-      if (count < 1) {
-         return 0;
-      } else {
-         int origPtr = this._inputPtr;
-         w.write(this._inputBuffer, origPtr, count);
-         return count;
-      }
-   }
+    /*
+    /**********************************************************
+    /* Current input data
+    /**********************************************************
+     */
 
-   public Object getInputSource() {
-      return this._reader;
-   }
+    /**
+     * Current buffer from which data is read; generally data is read into
+     * buffer from input source.
+     */
+    protected char[] _inputBuffer;
 
-   protected final boolean loadMore() throws IOException {
-      this._currInputProcessed += (long)this._inputEnd;
-      this._currInputRowStart -= this._inputEnd;
-      if (this._reader != null) {
-         int count = this._reader.read(this._inputBuffer, 0, this._inputBuffer.length);
-         if (count > 0) {
-            this._inputPtr = 0;
-            this._inputEnd = count;
-            return true;
-         }
+    /*
+    /**********************************************************
+    /* Life-cycle
+    /**********************************************************
+     */
 
-         this._closeInput();
-         if (count == 0) {
-            throw new IOException("Reader returned 0 characters when trying to read " + this._inputEnd);
-         }
-      }
+    protected ReaderBasedParserBase(IOContext ctxt, int features, Reader r)
+    {
+        super(ctxt, features);
+        _reader = r;
+        _inputBuffer = ctxt.allocTokenBuffer();
+    }
 
-      return false;
-   }
+    /*
+    /**********************************************************
+    /* Overrides
+    /**********************************************************
+     */
 
-   protected char getNextChar(String eofMsg) throws IOException, JsonParseException {
-      if (this._inputPtr >= this._inputEnd && !this.loadMore()) {
-         this._reportInvalidEOF(eofMsg);
-      }
+    @Override
+    public int releaseBuffered(Writer w) throws IOException
+    {
+        int count = _inputEnd - _inputPtr;
+        if (count < 1) {
+            return 0;
+        }
+        // let's just advance ptr to end
+        int origPtr = _inputPtr;
+        w.write(_inputBuffer, origPtr, count);
+        return count;
+    }
 
-      return this._inputBuffer[this._inputPtr++];
-   }
+    @Override
+    public Object getInputSource() {
+        return _reader;
+    }
+    
+    /*
+    /**********************************************************
+    /* Low-level reading, other
+    /**********************************************************
+     */
 
-   protected void _closeInput() throws IOException {
-      if (this._reader != null) {
-         if (this._ioContext.isResourceManaged() || this.isEnabled(JsonParser.Feature.AUTO_CLOSE_SOURCE)) {
-            this._reader.close();
-         }
+    @Override
+    protected final boolean loadMore() throws IOException
+    {
+        _currInputProcessed += _inputEnd;
+        _currInputRowStart -= _inputEnd;
 
-         this._reader = null;
-      }
+        if (_reader != null) {
+            int count = _reader.read(_inputBuffer, 0, _inputBuffer.length);
+            if (count > 0) {
+                _inputPtr = 0;
+                _inputEnd = count;
+                return true;
+            }
+            // End of input
+            _closeInput();
+            // Should never return 0, so let's fail
+            if (count == 0) {
+                throw new IOException("Reader returned 0 characters when trying to read "+_inputEnd);
+            }
+        }
+        return false;
+    }
 
-   }
+    protected char getNextChar(String eofMsg)
+        throws IOException, JsonParseException
+    {
+        if (_inputPtr >= _inputEnd) {
+            if (!loadMore()) {
+                _reportInvalidEOF(eofMsg);
+            }
+        }
+        return _inputBuffer[_inputPtr++];
+    }
 
-   protected void _releaseBuffers() throws IOException {
-      super._releaseBuffers();
-      char[] buf = this._inputBuffer;
-      if (buf != null) {
-         this._inputBuffer = null;
-         this._ioContext.releaseTokenBuffer(buf);
-      }
+    @Override
+    protected void _closeInput() throws IOException
+    {
+        /* 25-Nov-2008, tatus: As per [JACKSON-16] we are not to call close()
+         *   on the underlying Reader, unless we "own" it, or auto-closing
+         *   feature is enabled.
+         *   One downside is that when using our optimized
+         *   Reader (granted, we only do that for UTF-32...) this
+         *   means that buffer recycling won't work correctly.
+         */
+        if (_reader != null) {
+            if (_ioContext.isResourceManaged() || isEnabled(Feature.AUTO_CLOSE_SOURCE)) {
+                _reader.close();
+            }
+            _reader = null;
+        }
+    }
 
-   }
+    /**
+     * Method called to release internal buffers owned by the base
+     * reader. This may be called along with {@link #_closeInput} (for
+     * example, when explicitly closing this reader instance), or
+     * separately (if need be).
+     */
+    @Override
+    protected void _releaseBuffers()
+        throws IOException
+    {
+        super._releaseBuffers();
+        char[] buf = _inputBuffer;
+        if (buf != null) {
+            _inputBuffer = null;
+            _ioContext.releaseTokenBuffer(buf);
+        }
+    }
 
-   protected final boolean _matchToken(String matchStr, int i) throws IOException, JsonParseException {
-      int len = matchStr.length();
+    /*
+    /**********************************************************
+    /* Helper methods for subclasses
+    /**********************************************************
+     */
 
-      do {
-         if (this._inputPtr >= this._inputEnd && !this.loadMore()) {
-            this._reportInvalidEOFInValue();
-         }
+    /**
+     * Helper method for checking whether input matches expected token
+     * 
+     * @since 1.8
+     */
+    protected final boolean _matchToken(String matchStr, int i)
+        throws IOException, JsonParseException
+    {
+        final int len = matchStr.length();
 
-         if (this._inputBuffer[this._inputPtr] != matchStr.charAt(i)) {
-            this._reportInvalidToken(matchStr.substring(0, i), "'null', 'true', 'false' or NaN");
-         }
+        do {
+            if (_inputPtr >= _inputEnd) {
+                if (!loadMore()) {
+                    _reportInvalidEOFInValue();
+                }
+            }
+            if (_inputBuffer[_inputPtr] != matchStr.charAt(i)) {
+                _reportInvalidToken(matchStr.substring(0, i), "'null', 'true', 'false' or NaN");
+            }
+            ++_inputPtr;
+        } while (++i < len);
 
-         ++this._inputPtr;
-         ++i;
-      } while(i < len);
+        // but let's also ensure we either get EOF, or non-alphanum char...
+        if (_inputPtr >= _inputEnd) {
+            if (!loadMore()) {
+                return true;
+            }
+        }
+        char c = _inputBuffer[_inputPtr];
+        // if Java letter, it's a problem tho
+        if (Character.isJavaIdentifierPart(c)) {
+            ++_inputPtr;
+            _reportInvalidToken(matchStr.substring(0, i), "'null', 'true', 'false' or NaN");
+        }
+        return true;
+    }
 
-      if (this._inputPtr >= this._inputEnd && !this.loadMore()) {
-         return true;
-      } else {
-         char c = this._inputBuffer[this._inputPtr];
-         if (Character.isJavaIdentifierPart(c)) {
-            ++this._inputPtr;
-            this._reportInvalidToken(matchStr.substring(0, i), "'null', 'true', 'false' or NaN");
-         }
-
-         return true;
-      }
-   }
-
-   protected void _reportInvalidToken(String matchedPart, String msg) throws IOException, JsonParseException {
-      StringBuilder sb = new StringBuilder(matchedPart);
-
-      while(this._inputPtr < this._inputEnd || this.loadMore()) {
-         char c = this._inputBuffer[this._inputPtr];
-         if (!Character.isJavaIdentifierPart(c)) {
-            break;
-         }
-
-         ++this._inputPtr;
-         sb.append(c);
-      }
-
-      this._reportError("Unrecognized token '" + sb.toString() + "': was expecting ");
-   }
+    protected void _reportInvalidToken(String matchedPart, String msg)
+        throws IOException, JsonParseException
+    {
+        StringBuilder sb = new StringBuilder(matchedPart);
+        /* Let's just try to find what appears to be the token, using
+         * regular Java identifier character rules. It's just a heuristic,
+         * nothing fancy here.
+         */
+        while (true) {
+            if (_inputPtr >= _inputEnd) {
+                if (!loadMore()) {
+                    break;
+                }
+            }
+            char c = _inputBuffer[_inputPtr];
+            if (!Character.isJavaIdentifierPart(c)) {
+                break;
+            }
+            ++_inputPtr;
+            sb.append(c);
+        }
+        _reportError("Unrecognized token '"+sb.toString()+"': was expecting ");
+    }
 }

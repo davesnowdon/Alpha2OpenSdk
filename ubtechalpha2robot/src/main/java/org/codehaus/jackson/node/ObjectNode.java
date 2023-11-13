@@ -2,473 +2,622 @@ package org.codehaus.jackson.node;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Map.Entry;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.JsonProcessingException;
-import org.codehaus.jackson.JsonToken;
+import java.util.*;
+
+import org.codehaus.jackson.*;
 import org.codehaus.jackson.map.SerializerProvider;
 import org.codehaus.jackson.map.TypeSerializer;
 
-public class ObjectNode extends ContainerNode {
-   protected LinkedHashMap<String, JsonNode> _children = null;
+/**
+ * Node that maps to JSON Object structures in JSON content.
+ */
+public class ObjectNode
+    extends ContainerNode
+{
+    protected LinkedHashMap<String, JsonNode> _children = null;
 
-   public ObjectNode(JsonNodeFactory nc) {
-      super(nc);
-   }
+    public ObjectNode(JsonNodeFactory nc) { super(nc); }
+    
+    /*
+    /**********************************************************
+    /* Implementation of core JsonNode API
+    /**********************************************************
+     */
 
-   public JsonToken asToken() {
-      return JsonToken.START_OBJECT;
-   }
+    @Override public JsonToken asToken() { return JsonToken.START_OBJECT; }
 
-   public boolean isObject() {
-      return true;
-   }
+    @Override
+    public boolean isObject() { return true; }
 
-   public int size() {
-      return this._children == null ? 0 : this._children.size();
-   }
+    @Override
+    public int size() {
+        return (_children == null) ? 0 : _children.size();
+    }
 
-   public Iterator<JsonNode> getElements() {
-      return (Iterator)(this._children == null ? ContainerNode.NoNodesIterator.instance() : this._children.values().iterator());
-   }
+    @Override
+    public Iterator<JsonNode> getElements()
+    {
+        return (_children == null) ? NoNodesIterator.instance() : _children.values().iterator();
+    }
 
-   public JsonNode get(int index) {
-      return null;
-   }
+    @Override
+    public JsonNode get(int index) { return null; }
 
-   public JsonNode get(String fieldName) {
-      return this._children != null ? (JsonNode)this._children.get(fieldName) : null;
-   }
+    @Override
+    public JsonNode get(String fieldName)
+    {
+        if (_children != null) {
+            return _children.get(fieldName);
+        }
+        return null;
+    }
 
-   public Iterator<String> getFieldNames() {
-      return (Iterator)(this._children == null ? ContainerNode.NoStringsIterator.instance() : this._children.keySet().iterator());
-   }
+    @Override
+    public Iterator<String> getFieldNames()
+    {
+        return (_children == null) ? NoStringsIterator.instance() : _children.keySet().iterator();
+    }
 
-   public JsonNode path(int index) {
-      return MissingNode.getInstance();
-   }
+    @Override
+    public JsonNode path(int index)
+    {
+        return MissingNode.getInstance();
+    }
 
-   public JsonNode path(String fieldName) {
-      if (this._children != null) {
-         JsonNode n = (JsonNode)this._children.get(fieldName);
-         if (n != null) {
-            return n;
-         }
-      }
-
-      return MissingNode.getInstance();
-   }
-
-   public Iterator<Entry<String, JsonNode>> getFields() {
-      return (Iterator)(this._children == null ? ObjectNode.NoFieldsIterator.instance : this._children.entrySet().iterator());
-   }
-
-   public ObjectNode with(String propertyName) {
-      if (this._children == null) {
-         this._children = new LinkedHashMap();
-      } else {
-         JsonNode n = (JsonNode)this._children.get(propertyName);
-         if (n != null) {
-            if (n instanceof ObjectNode) {
-               return (ObjectNode)n;
+    @Override
+    public JsonNode path(String fieldName)
+    {
+        if (_children != null) {
+            JsonNode n = _children.get(fieldName);
+            if (n != null) {
+                return n;
             }
+        }
+        return MissingNode.getInstance();
+    }
 
-            throw new UnsupportedOperationException("Property '" + propertyName + "' has value that is not of type ObjectNode (but " + n.getClass().getName() + ")");
-         }
-      }
+    /**
+     * Method to use for accessing all fields (with both names
+     * and values) of this JSON Object.
+     */
+    @Override
+    public Iterator<Map.Entry<String, JsonNode>> getFields()
+    {
+        if (_children == null) {
+            return NoFieldsIterator.instance;
+        }
+        return _children.entrySet().iterator();
+    }
 
-      ObjectNode result = this.objectNode();
-      this._children.put(propertyName, result);
-      return result;
-   }
-
-   public JsonNode findValue(String fieldName) {
-      if (this._children != null) {
-         Iterator i$ = this._children.entrySet().iterator();
-
-         while(i$.hasNext()) {
-            Entry<String, JsonNode> entry = (Entry)i$.next();
-            if (fieldName.equals(entry.getKey())) {
-               return (JsonNode)entry.getValue();
+    @Override
+    public ObjectNode with(String propertyName)
+    {
+        if (_children == null) {
+            _children = new LinkedHashMap<String, JsonNode>();
+        } else {
+            JsonNode n = _children.get(propertyName);
+            if (n != null) {
+                if (n instanceof ObjectNode) {
+                    return (ObjectNode) n;
+                }
+                throw new UnsupportedOperationException("Property '"+propertyName
+                        +"' has value that is not of type ObjectNode (but "
+                        +n.getClass().getName()+")");
             }
-
-            JsonNode value = ((JsonNode)entry.getValue()).findValue(fieldName);
-            if (value != null) {
-               return value;
+        }
+        ObjectNode result = objectNode();
+        _children.put(propertyName, result);
+        return result;
+    }
+    
+    /*
+    /**********************************************************
+    /* Public API, finding value nodes
+    /**********************************************************
+     */
+    
+    @Override
+    public JsonNode findValue(String fieldName)
+    {
+        if (_children != null) {
+            for (Map.Entry<String, JsonNode> entry : _children.entrySet()) {
+                if (fieldName.equals(entry.getKey())) {
+                    return entry.getValue();
+                }
+                JsonNode value = entry.getValue().findValue(fieldName);
+                if (value != null) {
+                    return value;
+                }
             }
-         }
-      }
-
-      return null;
-   }
-
-   public List<JsonNode> findValues(String fieldName, List<JsonNode> foundSoFar) {
-      if (this._children != null) {
-         Iterator i$ = this._children.entrySet().iterator();
-
-         while(i$.hasNext()) {
-            Entry<String, JsonNode> entry = (Entry)i$.next();
-            if (fieldName.equals(entry.getKey())) {
-               if (foundSoFar == null) {
-                  foundSoFar = new ArrayList();
-               }
-
-               ((List)foundSoFar).add(entry.getValue());
-            } else {
-               foundSoFar = ((JsonNode)entry.getValue()).findValues(fieldName, (List)foundSoFar);
+        }
+        return null;
+    }
+    
+    @Override
+    public List<JsonNode> findValues(String fieldName, List<JsonNode> foundSoFar)
+    {
+        if (_children != null) {
+            for (Map.Entry<String, JsonNode> entry : _children.entrySet()) {
+                if (fieldName.equals(entry.getKey())) {
+                    if (foundSoFar == null) {
+                        foundSoFar = new ArrayList<JsonNode>();
+                    }
+                    foundSoFar.add(entry.getValue());
+                } else { // only add children if parent not added
+                    foundSoFar = entry.getValue().findValues(fieldName, foundSoFar);
+                }
             }
-         }
-      }
+        }
+        return foundSoFar;
+    }
 
-      return (List)foundSoFar;
-   }
-
-   public List<String> findValuesAsText(String fieldName, List<String> foundSoFar) {
-      if (this._children != null) {
-         Iterator i$ = this._children.entrySet().iterator();
-
-         while(i$.hasNext()) {
-            Entry<String, JsonNode> entry = (Entry)i$.next();
-            if (fieldName.equals(entry.getKey())) {
-               if (foundSoFar == null) {
-                  foundSoFar = new ArrayList();
-               }
-
-               ((List)foundSoFar).add(((JsonNode)entry.getValue()).getValueAsText());
-            } else {
-               foundSoFar = ((JsonNode)entry.getValue()).findValuesAsText(fieldName, (List)foundSoFar);
+    @Override
+    public List<String> findValuesAsText(String fieldName, List<String> foundSoFar)
+    {
+        if (_children != null) {
+            for (Map.Entry<String, JsonNode> entry : _children.entrySet()) {
+                if (fieldName.equals(entry.getKey())) {
+                    if (foundSoFar == null) {
+                        foundSoFar = new ArrayList<String>();
+                    }
+                    foundSoFar.add(entry.getValue().getValueAsText());
+                } else { // only add children if parent not added
+                    foundSoFar = entry.getValue().findValuesAsText(fieldName, foundSoFar);
+                }
             }
-         }
-      }
-
-      return (List)foundSoFar;
-   }
-
-   public ObjectNode findParent(String fieldName) {
-      if (this._children != null) {
-         Iterator i$ = this._children.entrySet().iterator();
-
-         while(i$.hasNext()) {
-            Entry<String, JsonNode> entry = (Entry)i$.next();
-            if (fieldName.equals(entry.getKey())) {
-               return this;
+        }
+        return foundSoFar;
+    }
+    
+    @Override
+    public ObjectNode findParent(String fieldName)
+    {
+        if (_children != null) {
+            for (Map.Entry<String, JsonNode> entry : _children.entrySet()) {
+                if (fieldName.equals(entry.getKey())) {
+                    return this;
+                }
+                JsonNode value = entry.getValue().findParent(fieldName);
+                if (value != null) {
+                    return (ObjectNode) value;
+                }
             }
+        }
+        return null;
+    }
 
-            JsonNode value = ((JsonNode)entry.getValue()).findParent(fieldName);
-            if (value != null) {
-               return (ObjectNode)value;
+    @Override
+    public List<JsonNode> findParents(String fieldName, List<JsonNode> foundSoFar)
+    {
+        if (_children != null) {
+            for (Map.Entry<String, JsonNode> entry : _children.entrySet()) {
+                if (fieldName.equals(entry.getKey())) {
+                    if (foundSoFar == null) {
+                        foundSoFar = new ArrayList<JsonNode>();
+                    }
+                    foundSoFar.add(this);
+                } else { // only add children if parent not added
+                    foundSoFar = entry.getValue().findParents(fieldName, foundSoFar);
+                }
             }
-         }
-      }
+        }
+        return foundSoFar;
+    }
+    
+    /*
+    /**********************************************************
+    /* Public API, serialization
+    /**********************************************************
+     */
 
-      return null;
-   }
-
-   public List<JsonNode> findParents(String fieldName, List<JsonNode> foundSoFar) {
-      if (this._children != null) {
-         Iterator i$ = this._children.entrySet().iterator();
-
-         while(i$.hasNext()) {
-            Entry<String, JsonNode> entry = (Entry)i$.next();
-            if (fieldName.equals(entry.getKey())) {
-               if (foundSoFar == null) {
-                  foundSoFar = new ArrayList();
-               }
-
-               ((List)foundSoFar).add(this);
-            } else {
-               foundSoFar = ((JsonNode)entry.getValue()).findParents(fieldName, (List)foundSoFar);
+    /**
+     * Method that can be called to serialize this node and
+     * all of its descendants using specified JSON generator.
+     */
+    @Override
+    public final void serialize(JsonGenerator jg, SerializerProvider provider)
+        throws IOException, JsonProcessingException
+    {
+        jg.writeStartObject();
+        if (_children != null) {
+            for (Map.Entry<String, JsonNode> en : _children.entrySet()) {
+                jg.writeFieldName(en.getKey());
+                /* 17-Feb-2009, tatu: Can we trust that all nodes will always
+                 *   extend BaseJsonNode? Or if not, at least implement
+                 *   JsonSerializable? Let's start with former, change if
+                 *   we must.
+                 */
+                ((BaseJsonNode) en.getValue()).serialize(jg, provider);
             }
-         }
-      }
+        }
+        jg.writeEndObject();
+    }
 
-      return (List)foundSoFar;
-   }
-
-   public final void serialize(JsonGenerator jg, SerializerProvider provider) throws IOException, JsonProcessingException {
-      jg.writeStartObject();
-      if (this._children != null) {
-         Iterator i$ = this._children.entrySet().iterator();
-
-         while(i$.hasNext()) {
-            Entry<String, JsonNode> en = (Entry)i$.next();
-            jg.writeFieldName((String)en.getKey());
-            ((BaseJsonNode)en.getValue()).serialize(jg, provider);
-         }
-      }
-
-      jg.writeEndObject();
-   }
-
-   public void serializeWithType(JsonGenerator jg, SerializerProvider provider, TypeSerializer typeSer) throws IOException, JsonProcessingException {
-      typeSer.writeTypePrefixForObject(this, jg);
-      if (this._children != null) {
-         Iterator i$ = this._children.entrySet().iterator();
-
-         while(i$.hasNext()) {
-            Entry<String, JsonNode> en = (Entry)i$.next();
-            jg.writeFieldName((String)en.getKey());
-            ((BaseJsonNode)en.getValue()).serialize(jg, provider);
-         }
-      }
-
-      typeSer.writeTypeSuffixForObject(this, jg);
-   }
-
-   public JsonNode put(String fieldName, JsonNode value) {
-      if (value == null) {
-         value = this.nullNode();
-      }
-
-      return this._put(fieldName, (JsonNode)value);
-   }
-
-   public JsonNode remove(String fieldName) {
-      return this._children != null ? (JsonNode)this._children.remove(fieldName) : null;
-   }
-
-   public ObjectNode remove(Collection<String> fieldNames) {
-      if (this._children != null) {
-         Iterator i$ = fieldNames.iterator();
-
-         while(i$.hasNext()) {
-            String fieldName = (String)i$.next();
-            this._children.remove(fieldName);
-         }
-      }
-
-      return this;
-   }
-
-   public ObjectNode removeAll() {
-      this._children = null;
-      return this;
-   }
-
-   public JsonNode putAll(Map<String, JsonNode> properties) {
-      Entry en;
-      Object n;
-      if (this._children == null) {
-         this._children = new LinkedHashMap(properties);
-      } else {
-         for(Iterator i$ = properties.entrySet().iterator(); i$.hasNext(); this._children.put(en.getKey(), n)) {
-            en = (Entry)i$.next();
-            n = (JsonNode)en.getValue();
-            if (n == null) {
-               n = this.nullNode();
+    @Override
+    public void serializeWithType(JsonGenerator jg, SerializerProvider provider,
+            TypeSerializer typeSer)
+        throws IOException, JsonProcessingException
+    {
+        typeSer.writeTypePrefixForObject(this, jg);
+        if (_children != null) {
+            for (Map.Entry<String, JsonNode> en : _children.entrySet()) {
+                jg.writeFieldName(en.getKey());
+                ((BaseJsonNode) en.getValue()).serialize(jg, provider);
             }
-         }
-      }
+        }
+        typeSer.writeTypeSuffixForObject(this, jg);
+    }
 
-      return this;
-   }
+    /*
+    /**********************************************************
+    /* Extended ObjectNode API, mutators, generic
+    /**********************************************************
+     */
 
-   public JsonNode putAll(ObjectNode other) {
-      int len = other.size();
-      if (len > 0) {
-         if (this._children == null) {
-            this._children = new LinkedHashMap(len);
-         }
+    /**
+     * Method that will set specified field, replacing old value,
+     * if any.
+     *
+     * @param value to set field to; if null, will be converted
+     *   to a {@link NullNode} first  (to remove field entry, call
+     *   {@link #remove} instead)
+     *
+     * @return Old value of the field, if any; null if there was no
+     *   old value.
+     */
+    public JsonNode put(String fieldName, JsonNode value)
+    {
+        if (value == null) { // let's not store 'raw' nulls but nodes
+            value = nullNode();
+        }
+        return _put(fieldName, value);
+    }
 
-         other.putContentsTo(this._children);
-      }
+    /**
+     * Method for removing field entry from this ObjectNode.
+     * Will return value of the field, if such field existed;
+     * null if not.
+     */
+    public JsonNode remove(String fieldName)
+    {
+        if (_children != null) {
+            return _children.remove(fieldName);
+        }
+        return null;
+    }
 
-      return this;
-   }
-
-   public ObjectNode retain(Collection<String> fieldNames) {
-      if (this._children != null) {
-         Iterator entries = this._children.entrySet().iterator();
-
-         while(entries.hasNext()) {
-            Entry<String, JsonNode> entry = (Entry)entries.next();
-            if (!fieldNames.contains(entry.getKey())) {
-               entries.remove();
+    /**
+     * Method for removing specified field properties out of
+     * this ObjectNode.
+     * 
+     * @param fieldNames Names of fields to remove
+     * 
+     * @return This ObjectNode after removing entries
+     * 
+     * @since 1.6
+     */
+    public ObjectNode remove(Collection<String> fieldNames)
+    {
+        if (_children != null) {
+            for (String fieldName : fieldNames) {
+                _children.remove(fieldName);
             }
-         }
-      }
+        }
+        return this;
+    }
+    
+    /**
+     * Method for removing all field properties, such that this
+     * ObjectNode will contain no properties after call.
+     */
+    @Override
+    public ObjectNode removeAll()
+    {
+        _children = null;
+        return this;
+    }
 
-      return this;
-   }
+    /**
+     * Method for adding given properties to this object node, overriding
+     * any existing values for those properties.
+     * 
+     * @param properties Properties to add
+     * 
+     * @return This node (to allow chaining)
+     * 
+     * @since 1.3
+     */
+    public JsonNode putAll(Map<String,JsonNode> properties)
+    {
+        if (_children == null) {
+            _children = new LinkedHashMap<String, JsonNode>(properties);
+        } else {
+            for (Map.Entry<String, JsonNode> en : properties.entrySet()) {
+                JsonNode n = en.getValue();
+                if (n == null) {
+                    n = nullNode();
+                }
+                _children.put(en.getKey(), n);
+            }
+        }
+        return this;
+    }
 
-   public ObjectNode retain(String... fieldNames) {
-      return this.retain((Collection)Arrays.asList(fieldNames));
-   }
+    /**
+     * Method for adding all properties of the given Object, overriding
+     * any existing values for those properties.
+     * 
+     * @param other Object of which properties to add to this object
+     * 
+     * @return This node (to allow chaining)
+     * 
+     * @since 1.3
+     */
+    public JsonNode putAll(ObjectNode other)
+    {
+        int len = other.size();
+        if (len > 0) {
+            if (_children == null) {
+                _children = new LinkedHashMap<String, JsonNode>(len);
+            }
+            other.putContentsTo(_children);
+        }
+        return this;
+    }
 
-   public ArrayNode putArray(String fieldName) {
-      ArrayNode n = this.arrayNode();
-      this._put(fieldName, n);
-      return n;
-   }
+    /**
+     * Method for removing all field properties out of this ObjectNode
+     * <b>except</b> for ones specified in argument.
+     * 
+     * @param fieldNames Fields to <b>retain</b> in this ObjectNode
+     * 
+     * @return This ObjectNode (to allow call chaining)
+     * 
+     * @since 1.6
+     */
+    public ObjectNode retain(Collection<String> fieldNames)
+    {
+        if (_children != null) {
+            Iterator<Map.Entry<String,JsonNode>> entries = _children.entrySet().iterator();
+            while (entries.hasNext()) {
+                Map.Entry<String, JsonNode> entry = entries.next();
+                if (!fieldNames.contains(entry.getKey())) {
+                    entries.remove();
+                }
+            }
+        }
+        return this;
+    }
 
-   public ObjectNode putObject(String fieldName) {
-      ObjectNode n = this.objectNode();
-      this._put(fieldName, n);
-      return n;
-   }
+    /**
+     * Method for removing all field properties out of this ObjectNode
+     * <b>except</b> for ones specified in argument.
+     * 
+     * @param fieldNames Fields to <b>retain</b> in this ObjectNode
+     * 
+     * @return This ObjectNode (to allow call chaining)
+     * 
+     * @since 1.6
+     */
+    public ObjectNode retain(String... fieldNames) {
+        return retain(Arrays.asList(fieldNames));
+    }
+    
+    /*
+    /**********************************************************
+    /* Extended ObjectNode API, mutators, typed
+    /**********************************************************
+     */
 
-   public void putPOJO(String fieldName, Object pojo) {
-      this._put(fieldName, this.POJONode(pojo));
-   }
+    /**
+     * Method that will construct an ArrayNode and add it as a
+     * field of this ObjectNode, replacing old value, if any.
+     *
+     * @return Newly constructed ArrayNode (NOT the old value,
+     *   which could be of any type)
+     */
+    public ArrayNode putArray(String fieldName)
+    {
+        ArrayNode n  = arrayNode();
+        _put(fieldName, n);
+        return n;
+    }
 
-   public void putNull(String fieldName) {
-      this._put(fieldName, this.nullNode());
-   }
+    /**
+     * Method that will construct an ObjectNode and add it as a
+     * field of this ObjectNode, replacing old value, if any.
+     *
+     * @return Newly constructed ObjectNode (NOT the old value,
+     *   which could be of any type)
+     */
+    public ObjectNode putObject(String fieldName)
+    {
+        ObjectNode n  = objectNode();
+        _put(fieldName, n);
+        return n;
+    }
 
-   public void put(String fieldName, int v) {
-      this._put(fieldName, this.numberNode(v));
-   }
+    public void putPOJO(String fieldName, Object pojo)
+    {
+        _put(fieldName, POJONode(pojo));
+    }
 
-   public void put(String fieldName, long v) {
-      this._put(fieldName, this.numberNode(v));
-   }
+    public void putNull(String fieldName)
+    {
+        _put(fieldName, nullNode());
+    }
 
-   public void put(String fieldName, float v) {
-      this._put(fieldName, this.numberNode(v));
-   }
+    /**
+     * Method for setting value of a field to specified numeric value.
+     */
+    public void put(String fieldName, int v) { _put(fieldName, numberNode(v)); }
 
-   public void put(String fieldName, double v) {
-      this._put(fieldName, this.numberNode(v));
-   }
+    /**
+     * Method for setting value of a field to specified numeric value.
+     */
+    public void put(String fieldName, long v) { _put(fieldName, numberNode(v)); }
 
-   public void put(String fieldName, BigDecimal v) {
-      if (v == null) {
-         this.putNull(fieldName);
-      } else {
-         this._put(fieldName, this.numberNode(v));
-      }
+    /**
+     * Method for setting value of a field to specified numeric value.
+     */
+    public void put(String fieldName, float v) { _put(fieldName, numberNode(v)); }
 
-   }
+    /**
+     * Method for setting value of a field to specified numeric value.
+     */
+    public void put(String fieldName, double v) { _put(fieldName, numberNode(v)); }
 
-   public void put(String fieldName, String v) {
-      if (v == null) {
-         this.putNull(fieldName);
-      } else {
-         this._put(fieldName, this.textNode(v));
-      }
+    /**
+     * Method for setting value of a field to specified numeric value.
+     */
+    public void put(String fieldName, BigDecimal v) {
+        if (v == null) {
+            putNull(fieldName);
+        } else {
+            _put(fieldName, numberNode(v));
+        }
+    }
 
-   }
+    /**
+     * Method for setting value of a field to specified String value.
+     */
+    public void put(String fieldName, String v) {
+        if (v == null) {
+            putNull(fieldName);
+        } else {
+            _put(fieldName, textNode(v));
+        }
+    }
 
-   public void put(String fieldName, boolean v) {
-      this._put(fieldName, this.booleanNode(v));
-   }
+    /**
+     * Method for setting value of a field to specified String value.
+     */
+    public void put(String fieldName, boolean v) { _put(fieldName, booleanNode(v)); }
 
-   public void put(String fieldName, byte[] v) {
-      if (v == null) {
-         this.putNull(fieldName);
-      } else {
-         this._put(fieldName, this.binaryNode(v));
-      }
+    /**
+     * Method for setting value of a field to specified binary value
+     */
+    public void put(String fieldName, byte[] v) {
+        if (v == null) {
+            putNull(fieldName);
+        } else {
+            _put(fieldName, binaryNode(v));
+        }
+    }
 
-   }
+    /*
+    /**********************************************************
+    /* Package methods (for other node classes to use)
+    /**********************************************************
+     */
 
-   protected void putContentsTo(Map<String, JsonNode> dst) {
-      if (this._children != null) {
-         Iterator i$ = this._children.entrySet().iterator();
+    /**
+     * @since 1.6
+     */
+    protected void putContentsTo(Map<String,JsonNode> dst)
+    {
+        if (_children != null) {
+            for (Map.Entry<String,JsonNode> en : _children.entrySet()) {
+                dst.put(en.getKey(), en.getValue());
+            }
+        }
+    }
 
-         while(i$.hasNext()) {
-            Entry<String, JsonNode> en = (Entry)i$.next();
-            dst.put(en.getKey(), en.getValue());
-         }
-      }
+    /*
+    /**********************************************************
+    /* Standard methods
+    /**********************************************************
+     */
 
-   }
-
-   public boolean equals(Object o) {
-      if (o == this) {
-         return true;
-      } else if (o == null) {
-         return false;
-      } else if (o.getClass() != this.getClass()) {
-         return false;
-      } else {
-         ObjectNode other = (ObjectNode)o;
-         if (other.size() != this.size()) {
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o == this) return true;
+        if (o == null) return false;
+        if (o.getClass() != getClass()) {
             return false;
-         } else if (this._children != null) {
-            Iterator i$ = this._children.entrySet().iterator();
-
-            JsonNode value;
-            JsonNode otherValue;
-            do {
-               if (!i$.hasNext()) {
-                  return true;
-               }
-
-               Entry<String, JsonNode> en = (Entry)i$.next();
-               String key = (String)en.getKey();
-               value = (JsonNode)en.getValue();
-               otherValue = other.get(key);
-            } while(otherValue != null && otherValue.equals(value));
-
+        }
+        ObjectNode other = (ObjectNode) o;
+        if (other.size() != size()) {
             return false;
-         } else {
-            return true;
-         }
-      }
-   }
+        }
+        if (_children != null) {
+            for (Map.Entry<String, JsonNode> en : _children.entrySet()) {
+                String key = en.getKey();
+                JsonNode value = en.getValue();
 
-   public int hashCode() {
-      return this._children == null ? -1 : this._children.hashCode();
-   }
+                JsonNode otherValue = other.get(key);
 
-   public String toString() {
-      StringBuilder sb = new StringBuilder(32 + (this.size() << 4));
-      sb.append("{");
-      if (this._children != null) {
-         int count = 0;
-         Iterator i$ = this._children.entrySet().iterator();
-
-         while(i$.hasNext()) {
-            Entry<String, JsonNode> en = (Entry)i$.next();
-            if (count > 0) {
-               sb.append(",");
+                if (otherValue == null || !otherValue.equals(value)) {
+                    return false;
+                }
             }
+        }
+        return true;
+    }
 
-            ++count;
-            TextNode.appendQuoted(sb, (String)en.getKey());
-            sb.append(':');
-            sb.append(((JsonNode)en.getValue()).toString());
-         }
-      }
+    @Override
+    public int hashCode()
+    {
+        return (_children == null) ? -1 : _children.hashCode();
+    }
 
-      sb.append("}");
-      return sb.toString();
-   }
+    @Override
+    public String toString()
+    {
+        StringBuilder sb = new StringBuilder(32 + (size() << 4));
+        sb.append("{");
+        if (_children != null) {
+            int count = 0;
+            for (Map.Entry<String, JsonNode> en : _children.entrySet()) {
+                if (count > 0) {
+                    sb.append(",");
+                }
+                ++count;
+                TextNode.appendQuoted(sb, en.getKey());
+                sb.append(':');
+                sb.append(en.getValue().toString());
+            }
+        }
+        sb.append("}");
+        return sb.toString();
+    }
 
-   private final JsonNode _put(String fieldName, JsonNode value) {
-      if (this._children == null) {
-         this._children = new LinkedHashMap();
-      }
+    /*
+    /**********************************************************
+    /* Internal methods
+    /**********************************************************
+     */
 
-      return (JsonNode)this._children.put(fieldName, value);
-   }
+    private final JsonNode _put(String fieldName, JsonNode value)
+    {
+        if (_children == null) {
+            _children = new LinkedHashMap<String, JsonNode>();
+        }
+        return _children.put(fieldName, value);
+    }
 
-   protected static class NoFieldsIterator implements Iterator<Entry<String, JsonNode>> {
-      static final ObjectNode.NoFieldsIterator instance = new ObjectNode.NoFieldsIterator();
+    /*
+    /**********************************************************
+    /* Helper classes
+    /**********************************************************
+     */
 
-      private NoFieldsIterator() {
-      }
+    /**
+     * For efficiency, let's share the "no fields" iterator...
+     */
+    protected static class NoFieldsIterator
+        implements Iterator<Map.Entry<String, JsonNode>>
+    {
+        final static NoFieldsIterator instance = new NoFieldsIterator();
 
-      public boolean hasNext() {
-         return false;
-      }
+        private NoFieldsIterator() { }
 
-      public Entry<String, JsonNode> next() {
-         throw new NoSuchElementException();
-      }
+        public boolean hasNext() { return false; }
+        public Map.Entry<String,JsonNode> next() { throw new NoSuchElementException(); }
 
-      public void remove() {
-         throw new IllegalStateException();
-      }
-   }
+        public void remove() { // or IllegalOperationException?
+            throw new IllegalStateException();
+        }
+    }
 }

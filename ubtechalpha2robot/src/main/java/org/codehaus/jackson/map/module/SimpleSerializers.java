@@ -1,12 +1,8 @@
 package org.codehaus.jackson.map.module;
 
-import java.util.HashMap;
-import org.codehaus.jackson.map.BeanDescription;
-import org.codehaus.jackson.map.BeanProperty;
-import org.codehaus.jackson.map.JsonSerializer;
-import org.codehaus.jackson.map.SerializationConfig;
-import org.codehaus.jackson.map.Serializers;
-import org.codehaus.jackson.map.TypeSerializer;
+import java.util.*;
+
+import org.codehaus.jackson.map.*;
 import org.codehaus.jackson.map.type.ArrayType;
 import org.codehaus.jackson.map.type.ClassKey;
 import org.codehaus.jackson.map.type.CollectionLikeType;
@@ -15,127 +11,195 @@ import org.codehaus.jackson.map.type.MapLikeType;
 import org.codehaus.jackson.map.type.MapType;
 import org.codehaus.jackson.type.JavaType;
 
-public class SimpleSerializers implements Serializers {
-   protected HashMap<ClassKey, JsonSerializer<?>> _classMappings = null;
-   protected HashMap<ClassKey, JsonSerializer<?>> _interfaceMappings = null;
+/**
+ * Simple implementation {@link Serializers} which allows registration of
+ * serializers based on raw (type erased class).
+ * It can work well for basic bean and scalar type serializers, but is not
+ * a good fit for handling generic types (like {@link Map}s and {@link Collection}s).
+ *<p>
+ * Type registrations are assumed to be general; meaning that registration of serializer
+ * for a super type will also be used for handling subtypes, unless an exact match
+ * is found first. As an example, handler for {@link CharSequence} would also be used
+ * serializing {@link StringBuilder} instances, unless a direct mapping was found.
+ * 
+ * @since 1.7
+ */
+public class SimpleSerializers implements Serializers
+{
+    /**
+     * Class-based mappings that are used both for exact and
+     * sub-class matches.
+     */
+    protected HashMap<ClassKey,JsonSerializer<?>> _classMappings = null;
 
-   public SimpleSerializers() {
-   }
+    /**
+     * Interface-based matches.
+     */
+    protected HashMap<ClassKey,JsonSerializer<?>> _interfaceMappings = null;
 
-   public void addSerializer(JsonSerializer<?> ser) {
-      Class<?> cls = ser.handledType();
-      if (cls != null && cls != Object.class) {
-         this._addSerializer(cls, ser);
-      } else {
-         throw new IllegalArgumentException("JsonSerializer of type " + ser.getClass().getName() + " does not define valid handledType() (use alternative registration method?)");
-      }
-   }
+    /*
+    /**********************************************************
+    /* Life-cycle, construction and configuring
+    /**********************************************************
+     */
+    
+    public SimpleSerializers() { }
 
-   public <T> void addSerializer(Class<? extends T> type, JsonSerializer<T> ser) {
-      this._addSerializer(type, ser);
-   }
+    /**
+     * Method for adding given serializer for type that {@link JsonSerializer#handledType}
+     * specifies (which MUST return a non-null class; and can NOT be {@link Object}, as a
+     * sanity check).
+     * For serializers that do not declare handled type, use the variant that takes
+     * two arguments.
+     * 
+     * @param ser
+     */
+    public void addSerializer(JsonSerializer<?> ser)
+    {
+        // Interface to match?
+        Class<?> cls = ser.handledType();
+        if (cls == null || cls == Object.class) {
+            throw new IllegalArgumentException("JsonSerializer of type "+ser.getClass().getName()
+                    +" does not define valid handledType() (use alternative registration method?)");
+        }
+        _addSerializer(cls, ser);
+    }
 
-   private void _addSerializer(Class<?> cls, JsonSerializer<?> ser) {
-      ClassKey key = new ClassKey(cls);
-      if (cls.isInterface()) {
-         if (this._interfaceMappings == null) {
-            this._interfaceMappings = new HashMap();
-         }
+    public <T> void addSerializer(Class<? extends T> type, JsonSerializer<T> ser)
+    {
+        _addSerializer(type, ser);
+    }
+    
+    private void _addSerializer(Class<?> cls, JsonSerializer<?> ser)
+    {
+        ClassKey key = new ClassKey(cls);
+        // Interface or class type?
+        if (cls.isInterface()) {
+            if (_interfaceMappings == null) {
+                _interfaceMappings = new HashMap<ClassKey,JsonSerializer<?>>();
+            }
+            _interfaceMappings.put(key, ser);
+        } else { // nope, class:
+            if (_classMappings == null) {
+                _classMappings = new HashMap<ClassKey,JsonSerializer<?>>();
+            }
+            _classMappings.put(key, ser);
+        }
+    }
+    
+    /*
+    /**********************************************************
+    /* Serializers implementation
+    /**********************************************************
+     */
+    
+    @Override
+    public JsonSerializer<?> findSerializer(SerializationConfig config, JavaType type,
+             BeanDescription beanDesc, BeanProperty property)
+    {
+        Class<?> cls = type.getRawClass();
+        ClassKey key = new ClassKey(cls);
+        JsonSerializer<?> ser = null;
 
-         this._interfaceMappings.put(key, ser);
-      } else {
-         if (this._classMappings == null) {
-            this._classMappings = new HashMap();
-         }
-
-         this._classMappings.put(key, ser);
-      }
-
-   }
-
-   public JsonSerializer<?> findSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc, BeanProperty property) {
-      Class<?> cls = type.getRawClass();
-      ClassKey key = new ClassKey(cls);
-      JsonSerializer<?> ser = null;
-      if (cls.isInterface()) {
-         if (this._interfaceMappings != null) {
-            ser = (JsonSerializer)this._interfaceMappings.get(key);
+        // First: direct match?
+        if (cls.isInterface()) {
+            if (_interfaceMappings != null) {
+                ser = _interfaceMappings.get(key);
+                if (ser != null) {
+                    return ser;
+                }
+            }
+        } else {
+            if (_classMappings != null) {
+                ser = _classMappings.get(key);
+                if (ser != null) {
+                    return ser;
+                }
+                // If not direct match, maybe super-class match?
+                for (Class<?> curr = cls; (curr != null); curr = curr.getSuperclass()) {
+                    key.reset(curr);
+                    ser = _classMappings.get(key);
+                    if (ser != null) {
+                        return ser;
+                    }
+                }
+            }
+        }
+        // No direct match? How about super-interfaces?
+        if (_interfaceMappings != null) {
+            ser = _findInterfaceMapping(cls, key);
             if (ser != null) {
-               return ser;
+                return ser;
             }
-         }
-      } else if (this._classMappings != null) {
-         ser = (JsonSerializer)this._classMappings.get(key);
-         if (ser != null) {
-            return ser;
-         }
+            // still no matches? Maybe interfaces of super classes
+            if (!cls.isInterface()) {
+                while ((cls = cls.getSuperclass()) != null) {
+                    ser = _findInterfaceMapping(cls, key);
+                    if (ser != null) {
+                        return ser;
+                    }
+                }
+            }
+        }
+        return null;
+    }
 
-         for(Class curr = cls; curr != null; curr = curr.getSuperclass()) {
-            key.reset(curr);
-            ser = (JsonSerializer)this._classMappings.get(key);
+    @Override
+    public JsonSerializer<?> findArraySerializer(SerializationConfig config,
+            ArrayType type, BeanDescription beanDesc, BeanProperty property,
+            TypeSerializer elementTypeSerializer, JsonSerializer<Object> elementValueSerializer) {
+        return findSerializer(config, type, beanDesc, property);
+    }
+
+    @Override
+    public JsonSerializer<?> findCollectionSerializer(SerializationConfig config,
+            CollectionType type, BeanDescription beanDesc, BeanProperty property,
+            TypeSerializer elementTypeSerializer, JsonSerializer<Object> elementValueSerializer) {
+        return findSerializer(config, type, beanDesc, property);
+    }
+
+    @Override
+    public JsonSerializer<?> findCollectionLikeSerializer(SerializationConfig config,
+            CollectionLikeType type, BeanDescription beanDesc, BeanProperty property,
+            TypeSerializer elementTypeSerializer, JsonSerializer<Object> elementValueSerializer) {
+        return findSerializer(config, type, beanDesc, property);
+    }
+        
+    @Override
+    public JsonSerializer<?> findMapSerializer(SerializationConfig config,
+            MapType type, BeanDescription beanDesc, BeanProperty property,
+            JsonSerializer<Object> keySerializer,
+            TypeSerializer elementTypeSerializer, JsonSerializer<Object> elementValueSerializer) {
+        return findSerializer(config, type, beanDesc, property);
+    }
+
+    @Override
+    public JsonSerializer<?> findMapLikeSerializer(SerializationConfig config,
+            MapLikeType type, BeanDescription beanDesc, BeanProperty property,
+            JsonSerializer<Object> keySerializer,
+            TypeSerializer elementTypeSerializer, JsonSerializer<Object> elementValueSerializer) {
+        return findSerializer(config, type, beanDesc, property);
+    }
+    
+    /*
+    /**********************************************************
+    /* Internal methods
+    /**********************************************************
+     */
+    
+    protected JsonSerializer<?> _findInterfaceMapping(Class<?> cls, ClassKey key)
+    {
+        for (Class<?> iface : cls.getInterfaces()) {
+            key.reset(iface);
+            JsonSerializer<?> ser = _interfaceMappings.get(key);
             if (ser != null) {
-               return ser;
+                return ser;
             }
-         }
-      }
-
-      if (this._interfaceMappings != null) {
-         ser = this._findInterfaceMapping(cls, key);
-         if (ser != null) {
-            return ser;
-         }
-
-         if (!cls.isInterface()) {
-            while((cls = cls.getSuperclass()) != null) {
-               ser = this._findInterfaceMapping(cls, key);
-               if (ser != null) {
-                  return ser;
-               }
+            ser = _findInterfaceMapping(iface, key);
+            if (ser != null) {
+                return ser;
             }
-         }
-      }
-
-      return null;
-   }
-
-   public JsonSerializer<?> findArraySerializer(SerializationConfig config, ArrayType type, BeanDescription beanDesc, BeanProperty property, TypeSerializer elementTypeSerializer, JsonSerializer<Object> elementValueSerializer) {
-      return this.findSerializer(config, type, beanDesc, property);
-   }
-
-   public JsonSerializer<?> findCollectionSerializer(SerializationConfig config, CollectionType type, BeanDescription beanDesc, BeanProperty property, TypeSerializer elementTypeSerializer, JsonSerializer<Object> elementValueSerializer) {
-      return this.findSerializer(config, type, beanDesc, property);
-   }
-
-   public JsonSerializer<?> findCollectionLikeSerializer(SerializationConfig config, CollectionLikeType type, BeanDescription beanDesc, BeanProperty property, TypeSerializer elementTypeSerializer, JsonSerializer<Object> elementValueSerializer) {
-      return this.findSerializer(config, type, beanDesc, property);
-   }
-
-   public JsonSerializer<?> findMapSerializer(SerializationConfig config, MapType type, BeanDescription beanDesc, BeanProperty property, JsonSerializer<Object> keySerializer, TypeSerializer elementTypeSerializer, JsonSerializer<Object> elementValueSerializer) {
-      return this.findSerializer(config, type, beanDesc, property);
-   }
-
-   public JsonSerializer<?> findMapLikeSerializer(SerializationConfig config, MapLikeType type, BeanDescription beanDesc, BeanProperty property, JsonSerializer<Object> keySerializer, TypeSerializer elementTypeSerializer, JsonSerializer<Object> elementValueSerializer) {
-      return this.findSerializer(config, type, beanDesc, property);
-   }
-
-   protected JsonSerializer<?> _findInterfaceMapping(Class<?> cls, ClassKey key) {
-      Class[] arr$ = cls.getInterfaces();
-      int len$ = arr$.length;
-
-      for(int i$ = 0; i$ < len$; ++i$) {
-         Class<?> iface = arr$[i$];
-         key.reset(iface);
-         JsonSerializer<?> ser = (JsonSerializer)this._interfaceMappings.get(key);
-         if (ser != null) {
-            return ser;
-         }
-
-         ser = this._findInterfaceMapping(iface, key);
-         if (ser != null) {
-            return ser;
-         }
-      }
-
-      return null;
-   }
+        }
+        return null;
+    }
 }

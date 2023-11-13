@@ -1,79 +1,114 @@
 package org.codehaus.jackson.map.util;
 
 import java.io.IOException;
-import java.lang.reflect.Type;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.JsonProcessingException;
-import org.codehaus.jackson.map.BeanProperty;
-import org.codehaus.jackson.map.JsonSerializableWithType;
-import org.codehaus.jackson.map.SerializerProvider;
-import org.codehaus.jackson.map.TypeSerializer;
+
+import org.codehaus.jackson.*;
+import org.codehaus.jackson.map.*;
 import org.codehaus.jackson.map.type.TypeFactory;
 import org.codehaus.jackson.type.JavaType;
 
-public class JSONWrappedObject implements JsonSerializableWithType {
-   protected final String _prefix;
-   protected final String _suffix;
-   protected final Object _value;
-   protected final JavaType _serializationType;
 
-   public JSONWrappedObject(String prefix, String suffix, Object value) {
-      this(prefix, suffix, value, (JavaType)null);
-   }
+/**
+ * General-purpose wrapper class that can be used to decorate serialized
+ * value with arbitrary literal prefix and suffix. This can be used for
+ * example to construct arbitrary Javascript values (similar to how basic
+ * function name and parenthesis are used with JSONP).
+ * 
+ * @see org.codehaus.jackson.map.util.JSONPObject
+ * 
+ * @author tatu
+ * @since 1.5
+ */
+public class JSONWrappedObject
+    implements JsonSerializableWithType
+{
+    /**
+     * Literal String to output before serialized value.
+     * Will not be quoted when serializing value.
+     */
+    protected final String _prefix;
 
-   public JSONWrappedObject(String prefix, String suffix, Object value, JavaType asType) {
-      this._prefix = prefix;
-      this._suffix = suffix;
-      this._value = value;
-      this._serializationType = asType;
-   }
+    /**
+     * Literal String to output after serialized value.
+     * Will not be quoted when serializing value.
+     */
+    protected final String _suffix;
+    
+    /**
+     * Value to be serialized as JSONP padded; can be null.
+     */
+    protected final Object _value;
 
-   /** @deprecated */
-   @Deprecated
-   public JSONWrappedObject(String prefix, String suffix, Object value, Class<?> rawType) {
-      this._prefix = prefix;
-      this._suffix = suffix;
-      this._value = value;
-      this._serializationType = rawType == null ? null : TypeFactory.defaultInstance().constructType((Type)rawType);
-   }
+    /**
+     * Optional static type to use for serialization; if null, runtime
+     * type is used. Can be used to specify declared type which defines
+     * serializer to use, as well as aspects of extra type information
+     * to include (if any).
+     */
+    protected final JavaType _serializationType;
+    
+    public JSONWrappedObject(String prefix, String suffix, Object value) {
+        this(prefix, suffix, value, (JavaType) null);
+    }
 
-   public void serializeWithType(JsonGenerator jgen, SerializerProvider provider, TypeSerializer typeSer) throws IOException, JsonProcessingException {
-      this.serialize(jgen, provider);
-   }
+    public JSONWrappedObject(String prefix, String suffix, Object value, JavaType asType)
+    {
+        _prefix = prefix;
+        _suffix = suffix;
+        _value = value;
+        _serializationType = asType;
+    }
 
-   public void serialize(JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonProcessingException {
-      if (this._prefix != null) {
-         jgen.writeRaw(this._prefix);
-      }
+    /**
+     * @deprecated Since 1.8; should construct with resolved <code>JavaType</code>,
+     *   to ensure type has been properly resolved
+     */
+    @Deprecated
+    public JSONWrappedObject(String prefix, String suffix, Object value, Class<?> rawType) {
+        _prefix = prefix;
+        _suffix = suffix;
+        _value = value;
+        _serializationType = (rawType == null) ? null : TypeFactory.defaultInstance().constructType(rawType);
+    }
+    
+    /*
+    /**************************************************************
+    /* JsonSerializable(WithType) implementation
+    /**************************************************************
+     */
+    
+    public void serializeWithType(JsonGenerator jgen, SerializerProvider provider, TypeSerializer typeSer)
+            throws IOException, JsonProcessingException
+    {
+        // No type for JSONP wrapping: value serializer will handle typing for value:
+        serialize(jgen, provider);
+    }
 
-      if (this._value == null) {
-         provider.defaultSerializeNull(jgen);
-      } else if (this._serializationType != null) {
-         provider.findTypedValueSerializer((JavaType)this._serializationType, true, (BeanProperty)null).serialize(this._value, jgen, provider);
-      } else {
-         Class<?> cls = this._value.getClass();
-         provider.findTypedValueSerializer((Class)cls, true, (BeanProperty)null).serialize(this._value, jgen, provider);
-      }
+    public void serialize(JsonGenerator jgen, SerializerProvider provider)
+            throws IOException, JsonProcessingException
+    {
+        // First, wrapping:
+    	if (_prefix != null) jgen.writeRaw(_prefix);
+        if (_value == null) {
+            provider.defaultSerializeNull(jgen);
+        } else if (_serializationType != null) {
+            provider.findTypedValueSerializer(_serializationType, true, null).serialize(_value, jgen, provider);
+        } else {
+            Class<?> cls = _value.getClass();
+            provider.findTypedValueSerializer(cls, true, null).serialize(_value, jgen, provider);
+        }
+        if (_suffix != null) jgen.writeRaw(_suffix);
+    }
 
-      if (this._suffix != null) {
-         jgen.writeRaw(this._suffix);
-      }
+    /*
+    /**************************************************************
+    /* Accessors
+    /**************************************************************
+     */
+    
+    public String getPrefix() { return _prefix; }
+    public String getSuffix() { return _suffix; }
+    public Object getValue() { return _value; }
+    public JavaType getSerializationType() { return _serializationType; }
 
-   }
-
-   public String getPrefix() {
-      return this._prefix;
-   }
-
-   public String getSuffix() {
-      return this._suffix;
-   }
-
-   public Object getValue() {
-      return this._value;
-   }
-
-   public JavaType getSerializationType() {
-      return this._serializationType;
-   }
 }

@@ -1,107 +1,145 @@
 package org.codehaus.jackson.map.module;
 
 import org.codehaus.jackson.Version;
-import org.codehaus.jackson.map.JsonDeserializer;
-import org.codehaus.jackson.map.JsonSerializer;
-import org.codehaus.jackson.map.KeyDeserializer;
-import org.codehaus.jackson.map.Module;
+import org.codehaus.jackson.map.*;
 
-public class SimpleModule extends Module {
-   protected final String _name;
-   protected final Version _version;
-   protected SimpleSerializers _serializers = null;
-   protected SimpleDeserializers _deserializers = null;
-   protected SimpleSerializers _keySerializers = null;
-   protected SimpleKeyDeserializers _keyDeserializers = null;
-   protected SimpleAbstractTypeResolver _abstractTypes = null;
+/**
+ * Simple {@link Module} implementation that allows registration
+ * of serializers and deserializers, and bean serializer
+ * and deserializer modifiers.
+ * 
+ * @since 1.7
+ */
+public class SimpleModule extends Module
+{
+    protected final String _name;
+    protected final Version _version;
+    
+    protected SimpleSerializers _serializers = null;
+    protected SimpleDeserializers _deserializers = null;
 
-   public SimpleModule(String name, Version version) {
-      this._name = name;
-      this._version = version;
-   }
+    protected SimpleSerializers _keySerializers = null;
+    protected SimpleKeyDeserializers _keyDeserializers = null;
 
-   public SimpleModule addSerializer(JsonSerializer<?> ser) {
-      if (this._serializers == null) {
-         this._serializers = new SimpleSerializers();
-      }
+    /**
+     * Lazily-constructed resolver used for storing mappings from
+     * abstract classes to more specific implementing classes
+     * (which may be abstract or concrete)
+     */
+    protected SimpleAbstractTypeResolver _abstractTypes = null;
+    
+    /*
+    /**********************************************************
+    /* Life-cycle: creation
+    /**********************************************************
+     */
+    
+    public SimpleModule(String name, Version version)
+    {
+        _name = name;
+        _version = version;
+    }
 
-      this._serializers.addSerializer(ser);
-      return this;
-   }
+    /*
+    /**********************************************************
+    /* Configuration methods
+    /**********************************************************
+     */
+    
+    public SimpleModule addSerializer(JsonSerializer<?> ser)
+    {
+        if (_serializers == null) {
+            _serializers = new SimpleSerializers();
+        }
+        _serializers.addSerializer(ser);
+        return this;
+    }
+    
+    public <T> SimpleModule addSerializer(Class<? extends T> type, JsonSerializer<T> ser)
+    {
+        if (_serializers == null) {
+            _serializers = new SimpleSerializers();
+        }
+        _serializers.addSerializer(type, ser);
+        return this;
+    }
 
-   public <T> SimpleModule addSerializer(Class<? extends T> type, JsonSerializer<T> ser) {
-      if (this._serializers == null) {
-         this._serializers = new SimpleSerializers();
-      }
+    public <T> SimpleModule addKeySerializer(Class<? extends T> type, JsonSerializer<T> ser)
+    {
+        if (_keySerializers == null) {
+            _keySerializers = new SimpleSerializers();
+        }
+        _keySerializers.addSerializer(type, ser);
+        return this;
+    }
+    
+    public <T> SimpleModule addDeserializer(Class<T> type, JsonDeserializer<? extends T> deser)
+    {
+        if (_deserializers == null) {
+            _deserializers = new SimpleDeserializers();
+        }
+        _deserializers.addDeserializer(type, deser);
+        return this;
+    }
 
-      this._serializers.addSerializer(type, ser);
-      return this;
-   }
+    public SimpleModule addKeyDeserializer(Class<?> type, KeyDeserializer deser)
+    {
+        if (_keyDeserializers == null) {
+            _keyDeserializers = new SimpleKeyDeserializers();
+        }
+        _keyDeserializers.addDeserializer(type, deser);
+        return this;
+    }
 
-   public <T> SimpleModule addKeySerializer(Class<? extends T> type, JsonSerializer<T> ser) {
-      if (this._keySerializers == null) {
-         this._keySerializers = new SimpleSerializers();
-      }
+    /**
+     * Lazily-constructed resolver used for storing mappings from
+     * abstract classes to more specific implementing classes
+     * (which may be abstract or concrete)
+     */
+    public <T> SimpleModule addAbstractTypeMapping(Class<T> superType,
+            Class<? extends T> subType)
+    {
+        if (_abstractTypes == null) {
+            _abstractTypes = new SimpleAbstractTypeResolver();
+        }
+        // note: addMapping() will verify arguments
+        _abstractTypes = _abstractTypes.addMapping(superType, subType);
+        return this;
+    }
+    
+    /*
+    /**********************************************************
+    /* Module impl
+    /**********************************************************
+     */
+    
+    @Override
+    public String getModuleName() {
+        return _name;
+    }
 
-      this._keySerializers.addSerializer(type, ser);
-      return this;
-   }
+    @Override
+    public void setupModule(SetupContext context)
+    {
+        if (_serializers != null) {
+            context.addSerializers(_serializers);
+        }
+        if (_deserializers != null) {
+            context.addDeserializers(_deserializers);
+        }
+        if (_keySerializers != null) {
+            context.addKeySerializers(_keySerializers);
+        }
+        if (_keyDeserializers != null) {
+            context.addKeyDeserializers(_keyDeserializers);
+        }
+        if (_abstractTypes != null) {
+            context.addAbstractTypeResolver(_abstractTypes);
+        }
+    }
 
-   public <T> SimpleModule addDeserializer(Class<T> type, JsonDeserializer<? extends T> deser) {
-      if (this._deserializers == null) {
-         this._deserializers = new SimpleDeserializers();
-      }
-
-      this._deserializers.addDeserializer(type, deser);
-      return this;
-   }
-
-   public SimpleModule addKeyDeserializer(Class<?> type, KeyDeserializer deser) {
-      if (this._keyDeserializers == null) {
-         this._keyDeserializers = new SimpleKeyDeserializers();
-      }
-
-      this._keyDeserializers.addDeserializer(type, deser);
-      return this;
-   }
-
-   public <T> SimpleModule addAbstractTypeMapping(Class<T> superType, Class<? extends T> subType) {
-      if (this._abstractTypes == null) {
-         this._abstractTypes = new SimpleAbstractTypeResolver();
-      }
-
-      this._abstractTypes = this._abstractTypes.addMapping(superType, subType);
-      return this;
-   }
-
-   public String getModuleName() {
-      return this._name;
-   }
-
-   public void setupModule(Module.SetupContext context) {
-      if (this._serializers != null) {
-         context.addSerializers(this._serializers);
-      }
-
-      if (this._deserializers != null) {
-         context.addDeserializers(this._deserializers);
-      }
-
-      if (this._keySerializers != null) {
-         context.addKeySerializers(this._keySerializers);
-      }
-
-      if (this._keyDeserializers != null) {
-         context.addKeyDeserializers(this._keyDeserializers);
-      }
-
-      if (this._abstractTypes != null) {
-         context.addAbstractTypeResolver(this._abstractTypes);
-      }
-
-   }
-
-   public Version version() {
-      return this._version;
-   }
+    @Override
+    public Version version() {
+        return _version;
+    }
 }

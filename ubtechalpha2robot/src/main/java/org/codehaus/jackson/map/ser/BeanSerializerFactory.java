@@ -1,539 +1,831 @@
 package org.codehaus.jackson.map.ser;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
-import java.util.Map.Entry;
-import org.codehaus.jackson.annotate.JsonAutoDetect;
-import org.codehaus.jackson.map.AnnotationIntrospector;
-import org.codehaus.jackson.map.BeanProperty;
-import org.codehaus.jackson.map.JsonMappingException;
-import org.codehaus.jackson.map.JsonSerializer;
-import org.codehaus.jackson.map.SerializationConfig;
-import org.codehaus.jackson.map.SerializerFactory;
-import org.codehaus.jackson.map.Serializers;
-import org.codehaus.jackson.map.TypeSerializer;
-import org.codehaus.jackson.map.introspect.AnnotatedClass;
-import org.codehaus.jackson.map.introspect.AnnotatedField;
-import org.codehaus.jackson.map.introspect.AnnotatedMember;
-import org.codehaus.jackson.map.introspect.AnnotatedMethod;
-import org.codehaus.jackson.map.introspect.BasicBeanDescription;
-import org.codehaus.jackson.map.introspect.VisibilityChecker;
+import java.util.*;
+
+import org.codehaus.jackson.annotate.JsonAutoDetect.Visibility;
+import org.codehaus.jackson.map.*;
+import org.codehaus.jackson.map.introspect.*;
 import org.codehaus.jackson.map.jsontype.NamedType;
 import org.codehaus.jackson.map.jsontype.TypeResolverBuilder;
-import org.codehaus.jackson.map.type.TypeBindings;
+import org.codehaus.jackson.map.type.*;
 import org.codehaus.jackson.map.util.ArrayBuilders;
 import org.codehaus.jackson.map.util.ClassUtil;
 import org.codehaus.jackson.type.JavaType;
+ 
+/**
+ * Factory class that can provide serializers for any regular Java beans
+ * (as defined by "having at least one get method recognizable as bean
+ * accessor" -- where {@link Object#getClass} does not count);
+ * as well as for "standard" JDK types. Latter is achieved
+ * by delegating calls to {@link BasicSerializerFactory} 
+ * to find serializers both for "standard" JDK types (and in some cases,
+ * sub-classes as is the case for collection classes like
+ * {@link java.util.List}s and {@link java.util.Map}s) and bean (value)
+ * classes.
+ *<p>
+ * Note about delegating calls to {@link BasicSerializerFactory}:
+ * although it would be nicer to use linear delegation
+ * for construction (to essentially dispatch all calls first to the
+ * underlying {@link BasicSerializerFactory}; or alternatively after
+ * failing to provide bean-based serializer}, there is a problem:
+ * priority levels for detecting standard types are mixed. That is,
+ * we want to check if a type is a bean after some of "standard" JDK
+ * types, but before the rest.
+ * As a result, "mixed" delegation used, and calls are NOT done using
+ * regular {@link SerializerFactory} interface but rather via
+ * direct calls to {@link BasicSerializerFactory}.
+ *<p>
+ * Finally, since all caching is handled by the serializer provider
+ * (not factory) and there is no configurability, this
+ * factory is stateless.
+ * This means that a global singleton instance can be used.
+ *<p>
+ * Notes for version 1.7 (and above): the new module registration system
+ * required addition of {@link #withConfig}, which has to
+ * be redefined by sub-classes so that they can work properly with
+ * pluggable additional serializer providing components.
+ */
+public class BeanSerializerFactory
+    extends BasicSerializerFactory
+{
+    /**
+     * Like {@link BasicSerializerFactory}, this factory is stateless, and
+     * thus a single shared global (== singleton) instance can be used
+     * without thread-safety issues.
+     */
+    public final static BeanSerializerFactory instance = new BeanSerializerFactory(null);
 
-public class BeanSerializerFactory extends BasicSerializerFactory {
-   public static final BeanSerializerFactory instance = new BeanSerializerFactory((SerializerFactory.Config)null);
-   protected final SerializerFactory.Config _factoryConfig;
+    /**
+     * Configuration settings for this factory; immutable instance (just like this
+     * factory), new version created via copy-constructor (fluent-style)
+     * 
+     * @since 1.7
+     */
+    protected final Config _factoryConfig;
 
-   /** @deprecated */
-   @Deprecated
-   protected BeanSerializerFactory() {
-      this((SerializerFactory.Config)null);
-   }
+    /*
+    /**********************************************************
+    /* Config class implementation
+    /**********************************************************
+     */
+    
+    /**
+     * Configuration settings container class for bean serializer factory
+     * 
+     * @since 1.7
+     */
+    public static class ConfigImpl extends Config
+    {
+        /**
+         * Constant for empty <code>Serializers</code> array (which by definition
+         * is stateless and reusable)
+         */
+        protected final static Serializers[] NO_SERIALIZERS = new Serializers[0];
 
-   protected BeanSerializerFactory(SerializerFactory.Config config) {
-      if (config == null) {
-         config = new BeanSerializerFactory.ConfigImpl();
-      }
+        protected final static BeanSerializerModifier[] NO_MODIFIERS = new BeanSerializerModifier[0];
+        
+        /**
+         * List of providers for additional serializers, checked before considering default
+         * basic or bean serialializers.
+         * 
+         * @since 1.7
+         */
+        protected final Serializers[] _additionalSerializers;
 
-      this._factoryConfig = (SerializerFactory.Config)config;
-   }
+        /**
+         * @since 1.8
+         */
+        protected final Serializers[] _additionalKeySerializers;
+        
+        /**
+         * List of modifiers that can change the way {@link BeanSerializer} instances
+         * are configured and constructed.
+         */
+        protected final BeanSerializerModifier[] _modifiers;
+        
+        public ConfigImpl() {
+            this(null, null, null);
+        }
 
-   public SerializerFactory.Config getConfig() {
-      return this._factoryConfig;
-   }
+        protected ConfigImpl(Serializers[] allAdditionalSerializers,
+                Serializers[] allAdditionalKeySerializers,
+                BeanSerializerModifier[] modifiers)
+        {
+            _additionalSerializers = (allAdditionalSerializers == null) ?
+                    NO_SERIALIZERS : allAdditionalSerializers;
+            _additionalKeySerializers = (allAdditionalKeySerializers == null) ?
+                    NO_SERIALIZERS : allAdditionalKeySerializers;
+            _modifiers = (modifiers == null) ? NO_MODIFIERS : modifiers;
+        }
 
-   public SerializerFactory withConfig(SerializerFactory.Config config) {
-      if (this._factoryConfig == config) {
-         return this;
-      } else if (this.getClass() != BeanSerializerFactory.class) {
-         throw new IllegalStateException("Subtype of BeanSerializerFactory (" + this.getClass().getName() + ") has not properly overridden method 'withAdditionalSerializers': can not instantiate subtype with " + "additional serializer definitions");
-      } else {
-         return new BeanSerializerFactory(config);
-      }
-   }
+        @Override
+        public Config withAdditionalSerializers(Serializers additional)
+        {
+            if (additional == null) {
+                throw new IllegalArgumentException("Can not pass null Serializers");
+            }
+            Serializers[] all = ArrayBuilders.insertInListNoDup(_additionalSerializers, additional);
+            return new ConfigImpl(all, _additionalKeySerializers, _modifiers);
+        }
 
-   protected Iterable<Serializers> customSerializers() {
-      return this._factoryConfig.serializers();
-   }
+        @Override
+        public Config withAdditionalKeySerializers(Serializers additional)
+        {
+            if (additional == null) {
+                throw new IllegalArgumentException("Can not pass null Serializers");
+            }
+            Serializers[] all = ArrayBuilders.insertInListNoDup(_additionalKeySerializers, additional);
+            return new ConfigImpl(_additionalSerializers, all, _modifiers);
+        }
+        
+        @Override
+        public Config withSerializerModifier(BeanSerializerModifier modifier)
+        {
+            if (modifier == null) {
+                throw new IllegalArgumentException("Can not pass null modifier");
+            }
+            BeanSerializerModifier[] modifiers = ArrayBuilders.insertInListNoDup(_modifiers, modifier);
+            return new ConfigImpl(_additionalSerializers, _additionalKeySerializers, modifiers);
+        }
 
-   public JsonSerializer<Object> createSerializer(SerializationConfig config, JavaType origType, BeanProperty property) throws JsonMappingException {
-      BasicBeanDescription beanDesc = (BasicBeanDescription)config.introspect(origType);
-      JsonSerializer<?> ser = this.findSerializerFromAnnotation(config, beanDesc.getClassInfo(), property);
-      if (ser != null) {
-         return ser;
-      } else {
-         JavaType type = this.modifyTypeByAnnotation(config, beanDesc.getClassInfo(), origType);
-         boolean staticTyping = type != origType;
-         if (origType.isContainerType()) {
-            return this.buildContainerSerializer(config, type, beanDesc, property, staticTyping);
-         } else {
-            Iterator i$ = this._factoryConfig.serializers().iterator();
+        @Override
+        public boolean hasSerializers() { return _additionalSerializers.length > 0; }
 
-            do {
-               if (!i$.hasNext()) {
-                  ser = this.findSerializerByLookup(type, config, beanDesc, property, staticTyping);
-                  if (ser != null) {
-                     return ser;
-                  }
+        @Override
+        public boolean hasKeySerializers() { return _additionalKeySerializers.length > 0; }
+        
+        @Override
+        public boolean hasSerializerModifiers() { return _modifiers.length > 0; }
+        
+        @Override
+        public Iterable<Serializers> serializers() {
+            return ArrayBuilders.arrayAsIterable(_additionalSerializers);
+        }
 
-                  ser = this.findSerializerByPrimaryType(type, config, beanDesc, property, staticTyping);
-                  if (ser != null) {
-                     return ser;
-                  }
+        @Override
+        public Iterable<Serializers> keySerializers() {
+            return ArrayBuilders.arrayAsIterable(_additionalKeySerializers);
+        }
+        
+        @Override
+        public Iterable<BeanSerializerModifier> serializerModifiers() {
+            return ArrayBuilders.arrayAsIterable(_modifiers);
+        }
+    }
 
-                  ser = this.findBeanSerializer(config, type, beanDesc, property);
-                  if (ser == null) {
-                     ser = super.findSerializerByAddonType(config, type, beanDesc, property, staticTyping);
-                  }
+    /*
+    /**********************************************************
+    /* Life-cycle: creation, configuration
+    /**********************************************************
+     */
 
-                  return ser;
-               }
+    @Deprecated
+    protected BeanSerializerFactory() { this(null); }
 
-               Serializers serializers = (Serializers)i$.next();
-               ser = serializers.findSerializer(config, type, beanDesc, property);
-            } while(ser == null);
+    /**
+     * Constructor for creating instances with specified configuration.
+     */
+    protected BeanSerializerFactory(Config config)
+    {
+        if (config == null) {
+            config = new ConfigImpl();
+        }
+        _factoryConfig = config;
+    }
 
-            return ser;
-         }
-      }
-   }
+    @Override public Config getConfig() { return _factoryConfig; }
+    
+    /**
+     * Method used by module registration functionality, to attach additional
+     * serializer providers into this serializer factory. This is typically
+     * handled by constructing a new instance with additional serializers,
+     * to ensure thread-safe access.
+     * 
+     * @since 1.7
+     */
+    @Override
+    public SerializerFactory withConfig(Config config)
+    {
+        if (_factoryConfig == config) {
+            return this;
+        }
+        /* 22-Nov-2010, tatu: Handling of subtypes is tricky if we do immutable-with-copy-ctor;
+         *    and we pretty much have to here either choose between losing subtype instance
+         *    when registering additional serializers, or losing serializers.
+         *    Instead, let's actually just throw an error if this method is called when subtype
+         *    has not properly overridden this method; this to indicate problem as soon as possible.
+         */
+        if (getClass() != BeanSerializerFactory.class) {
+            throw new IllegalStateException("Subtype of BeanSerializerFactory ("+getClass().getName()
+                    +") has not properly overridden method 'withAdditionalSerializers': can not instantiate subtype with "
+                    +"additional serializer definitions");
+        }
+        return new BeanSerializerFactory(config);
+    }
 
-   public JsonSerializer<Object> createKeySerializer(SerializationConfig config, JavaType type, BeanProperty property) {
-      if (!this._factoryConfig.hasKeySerializers()) {
-         return null;
-      } else {
-         BasicBeanDescription beanDesc = (BasicBeanDescription)config.introspectClassAnnotations(type.getRawClass());
-         JsonSerializer<?> ser = null;
-         Iterator i$ = this._factoryConfig.keySerializers().iterator();
+    @Override
+    protected Iterable<Serializers> customSerializers() {
+        return _factoryConfig.serializers();
+    }
+    
+    /*
+    /**********************************************************
+    /* SerializerFactory impl
+    /**********************************************************
+     */
 
-         while(i$.hasNext()) {
-            Serializers serializers = (Serializers)i$.next();
+    /**
+     * Main serializer constructor method. We will have to be careful
+     * with respect to ordering of various method calls: essentially
+     * we want to reliably figure out which classes are standard types,
+     * and which are beans. The problem is that some bean Classes may
+     * implement standard interfaces (say, {@link java.lang.Iterable}.
+     *<p>
+     * Note: sub-classes may choose to complete replace implementation,
+     * if they want to alter priority of serializer lookups.
+     */
+    @Override
+    @SuppressWarnings("unchecked")
+    public JsonSerializer<Object> createSerializer(SerializationConfig config, JavaType origType,
+            BeanProperty property)
+        throws JsonMappingException
+    {
+        // Very first thing, let's check if there is explicit serializer annotation:
+        BasicBeanDescription beanDesc = config.introspect(origType);
+        JsonSerializer<?> ser = findSerializerFromAnnotation(config, beanDesc.getClassInfo(), property);
+        if (ser != null) {
+            return (JsonSerializer<Object>) ser;
+        }
+
+        // Next: we may have annotations that further define types to use...
+        JavaType type = modifyTypeByAnnotation(config, beanDesc.getClassInfo(), origType);
+        // and if so, we consider it implicit "force static typing" instruction
+        boolean staticTyping = (type != origType);
+        
+        // Container types differ from non-container types:
+        if (origType.isContainerType()) {
+            return (JsonSerializer<Object>) buildContainerSerializer(config, type, beanDesc, property, staticTyping);
+        }
+
+        // Modules may provide serializers of all types:
+        for (Serializers serializers : _factoryConfig.serializers()) {
             ser = serializers.findSerializer(config, type, beanDesc, property);
             if (ser != null) {
-               break;
+                return (JsonSerializer<Object>) ser;
             }
-         }
-
-         return ser;
-      }
-   }
-
-   public JsonSerializer<Object> findBeanSerializer(SerializationConfig config, JavaType type, BasicBeanDescription beanDesc, BeanProperty property) throws JsonMappingException {
-      if (!this.isPotentialBeanType(type.getRawClass())) {
-         return null;
-      } else {
-         JsonSerializer<Object> serializer = this.constructBeanSerializer(config, beanDesc, property);
-         BeanSerializerModifier mod;
-         if (this._factoryConfig.hasSerializerModifiers()) {
-            for(Iterator i$ = this._factoryConfig.serializerModifiers().iterator(); i$.hasNext(); serializer = mod.modifySerializer(config, beanDesc, serializer)) {
-               mod = (BeanSerializerModifier)i$.next();
+        }
+        
+        /* Otherwise, we will check "primary types"; both marker types that
+         * indicate specific handling (JsonSerializable), or main types that have
+         * precedence over container types
+         */
+        ser = findSerializerByLookup(type, config, beanDesc, property, staticTyping);
+        if (ser != null) {
+            return (JsonSerializer<Object>) ser;
+        }
+        ser = findSerializerByPrimaryType(type, config, beanDesc, property, staticTyping);
+        if (ser != null) {
+            return (JsonSerializer<Object>) ser;
+        }
+        
+        /* And this is where this class comes in: if type is not a
+         * known "primary JDK type", perhaps it's a bean? We can still
+         * get a null, if we can't find a single suitable bean property.
+         */
+        ser = this.findBeanSerializer(config, type, beanDesc, property);
+        /* Finally: maybe we can still deal with it as an
+         * implementation of some basic JDK interface?
+         */
+        if (ser == null) {
+            ser = super.findSerializerByAddonType(config, type, beanDesc, property, staticTyping);
+        }
+        return (JsonSerializer<Object>) ser;
+    }
+    
+    @Override
+    @SuppressWarnings("unchecked")
+    public JsonSerializer<Object> createKeySerializer(SerializationConfig config, JavaType type,
+            BeanProperty property)
+    {
+        // Minor optimization: to avoid constructing beanDesc, bail out if none registered
+        if (!_factoryConfig.hasKeySerializers()) {
+            return null;
+        }
+        
+        // We should not need any member method info; at most class annotations for Map type
+        BasicBeanDescription beanDesc = config.introspectClassAnnotations(type.getRawClass());
+        JsonSerializer<?> ser = null;
+        
+        // Only thing we have here are module-provided key serializers:
+        for (Serializers serializers : _factoryConfig.keySerializers()) {
+            ser = serializers.findSerializer(config, type, beanDesc, property);
+            if (ser != null) {
+                break;
             }
-         }
+        }
+        return (JsonSerializer<Object>) ser;
+    }
+    
+    /*
+    /**********************************************************
+    /* Other public methods that are not part of
+    /* JsonSerializerFactory API
+    /**********************************************************
+     */
 
-         return serializer;
-      }
-   }
+    /**
+     * Method that will try to construct a {@link BeanSerializer} for
+     * given class. Returns null if no properties are found.
+     */
+    @SuppressWarnings("unchecked")
+    public JsonSerializer<Object> findBeanSerializer(SerializationConfig config, JavaType type,
+            BasicBeanDescription beanDesc, BeanProperty property)
+        throws JsonMappingException
+    {
+        // First things first: we know some types are not beans...
+        if (!isPotentialBeanType(type.getRawClass())) {
+            return null;
+        }
+        JsonSerializer<Object> serializer = constructBeanSerializer(config, beanDesc, property);
+        // [JACKSON-440] Need to allow overriding actual serializer, as well...
+        if (_factoryConfig.hasSerializerModifiers()) {
+            for (BeanSerializerModifier mod : _factoryConfig.serializerModifiers()) {
+                serializer = (JsonSerializer<Object>)mod.modifySerializer(config, beanDesc, serializer);
+            }
+        }
+        return serializer;
+    }
 
-   public TypeSerializer findPropertyTypeSerializer(JavaType baseType, SerializationConfig config, AnnotatedMember accessor, BeanProperty property) throws JsonMappingException {
-      AnnotationIntrospector ai = config.getAnnotationIntrospector();
-      TypeResolverBuilder<?> b = ai.findPropertyTypeResolver(config, accessor, baseType);
-      if (b == null) {
-         return this.createTypeSerializer(config, baseType, property);
-      } else {
-         Collection<NamedType> subtypes = config.getSubtypeResolver().collectAndResolveSubtypes((AnnotatedMember)accessor, config, ai);
-         return b.buildTypeSerializer(config, baseType, subtypes, property);
-      }
-   }
+    /**
+     * Method called to create a type information serializer for values of given
+     * non-container property
+     * if one is needed. If not needed (no polymorphic handling configured), should
+     * return null.
+     *
+     * @param baseType Declared type to use as the base type for type information serializer
+     * 
+     * @return Type serializer to use for property values, if one is needed; null if not.
+     * 
+     * @since 1.5
+     */
+    public TypeSerializer findPropertyTypeSerializer(JavaType baseType, SerializationConfig config,
+            AnnotatedMember accessor, BeanProperty property)
+        throws JsonMappingException
+    {
+        AnnotationIntrospector ai = config.getAnnotationIntrospector();
+        TypeResolverBuilder<?> b = ai.findPropertyTypeResolver(config, accessor, baseType);        
+        // Defaulting: if no annotations on member, check value class
+        if (b == null) {
+            return createTypeSerializer(config, baseType, property);
+        }
+        Collection<NamedType> subtypes = config.getSubtypeResolver().collectAndResolveSubtypes(accessor, config, ai);
+        return b.buildTypeSerializer(config, baseType, subtypes, property);
+    }
 
-   public TypeSerializer findPropertyContentTypeSerializer(JavaType containerType, SerializationConfig config, AnnotatedMember accessor, BeanProperty property) throws JsonMappingException {
-      JavaType contentType = containerType.getContentType();
-      AnnotationIntrospector ai = config.getAnnotationIntrospector();
-      TypeResolverBuilder<?> b = ai.findPropertyContentTypeResolver(config, accessor, containerType);
-      if (b == null) {
-         return this.createTypeSerializer(config, contentType, property);
-      } else {
-         Collection<NamedType> subtypes = config.getSubtypeResolver().collectAndResolveSubtypes((AnnotatedMember)accessor, config, ai);
-         return b.buildTypeSerializer(config, contentType, subtypes, property);
-      }
-   }
+    /**
+     * Method called to create a type information serializer for values of given
+     * container property
+     * if one is needed. If not needed (no polymorphic handling configured), should
+     * return null.
+     *
+     * @param containerType Declared type of the container to use as the base type for type information serializer
+     * 
+     * @return Type serializer to use for property value contents, if one is needed; null if not.
+     * 
+     * @since 1.5
+     */    
+    public TypeSerializer findPropertyContentTypeSerializer(JavaType containerType, SerializationConfig config,
+            AnnotatedMember accessor, BeanProperty property)
+        throws JsonMappingException
+    {
+        JavaType contentType = containerType.getContentType();
+        AnnotationIntrospector ai = config.getAnnotationIntrospector();
+        TypeResolverBuilder<?> b = ai.findPropertyContentTypeResolver(config, accessor, containerType);        
+        // Defaulting: if no annotations on member, check value class
+        if (b == null) {
+            return createTypeSerializer(config, contentType, property);
+        }
+        Collection<NamedType> subtypes = config.getSubtypeResolver().collectAndResolveSubtypes(accessor, config, ai);
+        return b.buildTypeSerializer(config, contentType, subtypes, property);
+    }
+    
+    /*
+    /**********************************************************
+    /* Overridable non-public factory methods
+    /**********************************************************
+     */
 
-   protected JsonSerializer<Object> constructBeanSerializer(SerializationConfig config, BasicBeanDescription beanDesc, BeanProperty property) throws JsonMappingException {
-      if (beanDesc.getBeanClass() == Object.class) {
-         throw new IllegalArgumentException("Can not create bean serializer for Object.class");
-      } else {
-         BeanSerializerBuilder builder = this.constructBeanSerializerBuilder(beanDesc);
-         List<BeanPropertyWriter> props = this.findBeanProperties(config, beanDesc);
-         AnnotatedMethod anyGetter = beanDesc.findAnyGetter();
-         Iterator i$;
-         BeanSerializerModifier mod;
-         if (this._factoryConfig.hasSerializerModifiers()) {
+    /**
+     * Method called to construct serializer for serializing specified bean type.
+     * 
+     * @since 1.6
+     */
+    @SuppressWarnings("unchecked")
+    protected JsonSerializer<Object> constructBeanSerializer(SerializationConfig config,
+            BasicBeanDescription beanDesc, BeanProperty property)
+        throws JsonMappingException
+    {
+        // 13-Oct-2010, tatu: quick sanity check: never try to create bean serializer for plain Object
+        if (beanDesc.getBeanClass() == Object.class) {
+            throw new IllegalArgumentException("Can not create bean serializer for Object.class");
+        }
+        
+        BeanSerializerBuilder builder = constructBeanSerializerBuilder(beanDesc);
+        
+        // First: any detectable (auto-detect, annotations) properties to serialize?
+        List<BeanPropertyWriter> props = findBeanProperties(config, beanDesc);
+        AnnotatedMethod anyGetter = beanDesc.findAnyGetter();
+
+        // [JACKSON-440] Need to allow modification bean properties to serialize:
+        if (_factoryConfig.hasSerializerModifiers()) {
             if (props == null) {
-               props = new ArrayList();
+                props = new ArrayList<BeanPropertyWriter>();
             }
-
-            for(i$ = this._factoryConfig.serializerModifiers().iterator(); i$.hasNext(); props = mod.changeProperties(config, beanDesc, (List)props)) {
-               mod = (BeanSerializerModifier)i$.next();
+            for (BeanSerializerModifier mod : _factoryConfig.serializerModifiers()) {
+                props = mod.changeProperties(config, beanDesc, props);
             }
-         }
-
-         List props;
-         if (props != null && ((List)props).size() != 0) {
-            props = this.filterBeanProperties(config, beanDesc, (List)props);
-            props = this.sortBeanProperties(config, beanDesc, props);
-         } else {
+        }
+        
+        // No properties, no serializer
+        // 16-Oct-2010, tatu: Except that @JsonAnyGetter needs to count as getter
+        if (props == null || props.size() == 0) {
             if (anyGetter == null) {
-               if (beanDesc.hasKnownClassAnnotations()) {
-                  return builder.createDummy();
-               }
-
-               return null;
+                /* 27-Nov-2009, tatu: Except that as per [JACKSON-201], we are
+                 *   ok with that as long as it has a recognized class annotation
+                 *  (which may come from a mix-in too)
+                 */
+                if (beanDesc.hasKnownClassAnnotations()) {
+                    return builder.createDummy();
+                }
+                return null;
             }
-
             props = Collections.emptyList();
-         }
-
-         if (this._factoryConfig.hasSerializerModifiers()) {
-            for(i$ = this._factoryConfig.serializerModifiers().iterator(); i$.hasNext(); props = mod.orderProperties(config, beanDesc, props)) {
-               mod = (BeanSerializerModifier)i$.next();
+        } else {
+            // Any properties to suppress?
+            props = filterBeanProperties(config, beanDesc, props);
+            // Do they need to be sorted in some special way?
+            props = sortBeanProperties(config, beanDesc, props);
+        }
+        // [JACKSON-440] Need to allow reordering of properties to serialize
+        if (_factoryConfig.hasSerializerModifiers()) {
+            for (BeanSerializerModifier mod : _factoryConfig.serializerModifiers()) {
+                props = mod.orderProperties(config, beanDesc, props);
             }
-         }
-
-         builder.setProperties(props);
-         builder.setFilterId(this.findFilterId(config, beanDesc));
-         if (anyGetter != null) {
+        }
+        builder.setProperties(props);
+        builder.setFilterId(findFilterId(config, beanDesc));
+        
+        if (anyGetter != null) { // since 1.6
             JavaType type = anyGetter.getType(beanDesc.bindingsForBeanType());
+            // copied from BasicSerializerFactory.buildMapSerializer():
             boolean staticTyping = config.isEnabled(SerializationConfig.Feature.USE_STATIC_TYPING);
             JavaType valueType = type.getContentType();
-            TypeSerializer typeSer = this.createTypeSerializer(config, valueType, property);
-            MapSerializer mapSer = MapSerializer.construct((String[])null, type, staticTyping, typeSer, property, (JsonSerializer)null, (JsonSerializer)null);
+            TypeSerializer typeSer = createTypeSerializer(config, valueType, property);
+            // last 2 nulls; don't know key, value serializers (yet)
+            MapSerializer mapSer = MapSerializer.construct(/* ignored props*/ null, type, staticTyping,
+                    typeSer, property, null, null);
             builder.setAnyGetter(new AnyGetterWriter(anyGetter, mapSer));
-         }
-
-         this.processViews(config, builder);
-         if (this._factoryConfig.hasSerializerModifiers()) {
-            for(i$ = this._factoryConfig.serializerModifiers().iterator(); i$.hasNext(); builder = mod.updateBuilder(config, beanDesc, builder)) {
-               mod = (BeanSerializerModifier)i$.next();
+        }
+        // One more thing: need to gather view information, if any:
+        processViews(config, builder);
+        // And maybe let interested parties mess with the result bit more...
+        if (_factoryConfig.hasSerializerModifiers()) {
+            for (BeanSerializerModifier mod : _factoryConfig.serializerModifiers()) {
+                builder = mod.updateBuilder(config, beanDesc, builder);
             }
-         }
+        }
+        // And finally construct serializer
+        return (JsonSerializer<Object>) builder.build();
+    }
 
-         return builder.build();
-      }
-   }
+    /**
+     * Method called to construct a filtered writer, for given view
+     * definitions. Default implementation constructs filter that checks
+     * active view type to views property is to be included in.
+     */
+    protected BeanPropertyWriter constructFilteredBeanWriter(BeanPropertyWriter writer, Class<?>[] inViews)
+    {
+        return FilteredBeanPropertyWriter.constructViewBased(writer, inViews);
+    }
+    
+    protected PropertyBuilder constructPropertyBuilder(SerializationConfig config,
+                                                       BasicBeanDescription beanDesc)
+    {
+        return new PropertyBuilder(config, beanDesc);
+    }
 
-   protected BeanPropertyWriter constructFilteredBeanWriter(BeanPropertyWriter writer, Class<?>[] inViews) {
-      return FilteredBeanPropertyWriter.constructViewBased(writer, inViews);
-   }
+    protected BeanSerializerBuilder constructBeanSerializerBuilder(BasicBeanDescription beanDesc) {
+        return new BeanSerializerBuilder(beanDesc);
+    }
 
-   protected PropertyBuilder constructPropertyBuilder(SerializationConfig config, BasicBeanDescription beanDesc) {
-      return new PropertyBuilder(config, beanDesc);
-   }
+    /**
+     * Method called to find filter that is configured to be used with bean
+     * serializer being built, if any.
+     * 
+     * @since 1.7
+     */
+    protected Object findFilterId(SerializationConfig config, BasicBeanDescription beanDesc)
+    {
+        return config.getAnnotationIntrospector().findFilterId(beanDesc.getClassInfo());
+    }
+    
+    /*
+    /**********************************************************
+    /* Overridable non-public introspection methods
+    /**********************************************************
+     */
+    
+    /**
+     * Helper method used to skip processing for types that we know
+     * can not be (i.e. are never consider to be) beans: 
+     * things like primitives, Arrays, Enums, and proxy types.
+     *<p>
+     * Note that usually we shouldn't really be getting these sort of
+     * types anyway; but better safe than sorry.
+     */
+    protected boolean isPotentialBeanType(Class<?> type)
+    {
+        return (ClassUtil.canBeABeanType(type) == null) && !ClassUtil.isProxyType(type);
+    }
 
-   protected BeanSerializerBuilder constructBeanSerializerBuilder(BasicBeanDescription beanDesc) {
-      return new BeanSerializerBuilder(beanDesc);
-   }
+    /**
+     * Method used to collect all actual serializable properties.
+     * Can be overridden to implement custom detection schemes.
+     */
+    protected List<BeanPropertyWriter> findBeanProperties(SerializationConfig config, BasicBeanDescription beanDesc)
+        throws JsonMappingException
+    {
+        // Ok: let's aggregate visibility settings: first, baseline:
+        VisibilityChecker<?> vchecker = config.getDefaultVisibilityChecker();
+        if (!config.isEnabled(SerializationConfig.Feature.AUTO_DETECT_GETTERS)) {
+            vchecker = vchecker.withGetterVisibility(Visibility.NONE);
+        }
+        // then global overrides (disabling)
+        if (!config.isEnabled(SerializationConfig.Feature.AUTO_DETECT_IS_GETTERS)) {
+            vchecker = vchecker.withIsGetterVisibility(Visibility.NONE);
+        }
+        if (!config.isEnabled(SerializationConfig.Feature.AUTO_DETECT_FIELDS)) {
+            vchecker = vchecker.withFieldVisibility(Visibility.NONE);
+        }
+        // and finally per-class overrides:
+        AnnotationIntrospector intr = config.getAnnotationIntrospector();
+        vchecker = intr.findAutoDetectVisibility(beanDesc.getClassInfo(), vchecker);
 
-   protected Object findFilterId(SerializationConfig config, BasicBeanDescription beanDesc) {
-      return config.getAnnotationIntrospector().findFilterId(beanDesc.getClassInfo());
-   }
+        LinkedHashMap<String,AnnotatedMethod> methodsByProp = beanDesc.findGetters(vchecker, null);
+        LinkedHashMap<String,AnnotatedField> fieldsByProp = beanDesc.findSerializableFields(vchecker, methodsByProp.keySet());
 
-   protected boolean isPotentialBeanType(Class<?> type) {
-      return ClassUtil.canBeABeanType(type) == null && !ClassUtil.isProxyType(type);
-   }
+        // [JACKSON-429]: ignore specified types
+        removeIgnorableTypes(config, beanDesc, methodsByProp);
+        removeIgnorableTypes(config, beanDesc, fieldsByProp);
+        
+        // nothing? can't proceed (caller may or may not throw an exception)
+        if (methodsByProp.isEmpty() && fieldsByProp.isEmpty()) {
+            return null;
+        }
+        
+        // null is for value type serializer, which we don't have access to from here (ditto for bean prop)
+        boolean staticTyping = usesStaticTyping(config, beanDesc, null, null);
+        PropertyBuilder pb = constructPropertyBuilder(config, beanDesc);
 
-   protected List<BeanPropertyWriter> findBeanProperties(SerializationConfig config, BasicBeanDescription beanDesc) throws JsonMappingException {
-      VisibilityChecker<?> vchecker = config.getDefaultVisibilityChecker();
-      if (!config.isEnabled(SerializationConfig.Feature.AUTO_DETECT_GETTERS)) {
-         vchecker = vchecker.withGetterVisibility(JsonAutoDetect.Visibility.NONE);
-      }
-
-      if (!config.isEnabled(SerializationConfig.Feature.AUTO_DETECT_IS_GETTERS)) {
-         vchecker = vchecker.withIsGetterVisibility(JsonAutoDetect.Visibility.NONE);
-      }
-
-      if (!config.isEnabled(SerializationConfig.Feature.AUTO_DETECT_FIELDS)) {
-         vchecker = vchecker.withFieldVisibility(JsonAutoDetect.Visibility.NONE);
-      }
-
-      AnnotationIntrospector intr = config.getAnnotationIntrospector();
-      vchecker = intr.findAutoDetectVisibility(beanDesc.getClassInfo(), vchecker);
-      LinkedHashMap<String, AnnotatedMethod> methodsByProp = beanDesc.findGetters(vchecker, (Collection)null);
-      LinkedHashMap<String, AnnotatedField> fieldsByProp = beanDesc.findSerializableFields(vchecker, methodsByProp.keySet());
-      this.removeIgnorableTypes(config, beanDesc, methodsByProp);
-      this.removeIgnorableTypes(config, beanDesc, fieldsByProp);
-      if (methodsByProp.isEmpty() && fieldsByProp.isEmpty()) {
-         return null;
-      } else {
-         boolean staticTyping = this.usesStaticTyping(config, beanDesc, (TypeSerializer)null, (BeanProperty)null);
-         PropertyBuilder pb = this.constructPropertyBuilder(config, beanDesc);
-         ArrayList<BeanPropertyWriter> props = new ArrayList(methodsByProp.size());
-         TypeBindings typeBind = beanDesc.bindingsForBeanType();
-         Iterator i$ = fieldsByProp.entrySet().iterator();
-
-         while(true) {
-            Entry en;
-            AnnotationIntrospector.ReferenceProperty prop;
-            do {
-               if (!i$.hasNext()) {
-                  i$ = methodsByProp.entrySet().iterator();
-
-                  while(true) {
-                     do {
-                        if (!i$.hasNext()) {
-                           return props;
-                        }
-
-                        en = (Entry)i$.next();
-                        prop = intr.findReferenceType((AnnotatedMember)en.getValue());
-                     } while(prop != null && prop.isBackReference());
-
-                     props.add(this._constructWriter(config, typeBind, pb, staticTyping, (String)en.getKey(), (AnnotatedMember)en.getValue()));
-                  }
-               }
-
-               en = (Entry)i$.next();
-               prop = intr.findReferenceType((AnnotatedMember)en.getValue());
-            } while(prop != null && prop.isBackReference());
-
-            props.add(this._constructWriter(config, typeBind, pb, staticTyping, (String)en.getKey(), (AnnotatedMember)en.getValue()));
-         }
-      }
-   }
-
-   protected List<BeanPropertyWriter> filterBeanProperties(SerializationConfig config, BasicBeanDescription beanDesc, List<BeanPropertyWriter> props) {
-      AnnotationIntrospector intr = config.getAnnotationIntrospector();
-      AnnotatedClass ac = beanDesc.getClassInfo();
-      String[] ignored = intr.findPropertiesToIgnore(ac);
-      if (ignored != null && ignored.length > 0) {
-         HashSet<String> ignoredSet = ArrayBuilders.arrayToSet(ignored);
-         Iterator it = props.iterator();
-
-         while(it.hasNext()) {
-            if (ignoredSet.contains(((BeanPropertyWriter)it.next()).getName())) {
-               it.remove();
+        ArrayList<BeanPropertyWriter> props = new ArrayList<BeanPropertyWriter>(methodsByProp.size());
+        TypeBindings typeBind = beanDesc.bindingsForBeanType();
+        // [JACKSON-98]: start with field properties, if any
+        for (Map.Entry<String,AnnotatedField> en : fieldsByProp.entrySet()) {      
+            // [JACKSON-235]: suppress writing of back references
+            AnnotationIntrospector.ReferenceProperty prop = intr.findReferenceType(en.getValue());
+            if (prop != null && prop.isBackReference()) {
+                continue;
             }
-         }
-      }
-
-      return props;
-   }
-
-   protected List<BeanPropertyWriter> sortBeanProperties(SerializationConfig config, BasicBeanDescription beanDesc, List<BeanPropertyWriter> props) {
-      List<String> creatorProps = beanDesc.findCreatorPropertyNames();
-      AnnotationIntrospector intr = config.getAnnotationIntrospector();
-      AnnotatedClass ac = beanDesc.getClassInfo();
-      String[] propOrder = intr.findSerializationPropertyOrder(ac);
-      Boolean alpha = intr.findSerializationSortAlphabetically(ac);
-      boolean sort;
-      if (alpha == null) {
-         sort = config.isEnabled(SerializationConfig.Feature.SORT_PROPERTIES_ALPHABETICALLY);
-      } else {
-         sort = alpha;
-      }
-
-      if (sort || !creatorProps.isEmpty() || propOrder != null) {
-         props = this._sortBeanProperties(props, creatorProps, propOrder, sort);
-      }
-
-      return props;
-   }
-
-   protected void processViews(SerializationConfig config, BeanSerializerBuilder builder) {
-      List<BeanPropertyWriter> props = builder.getProperties();
-      boolean includeByDefault = config.isEnabled(SerializationConfig.Feature.DEFAULT_VIEW_INCLUSION);
-      int propCount = props.size();
-      int viewsFound = 0;
-      BeanPropertyWriter[] filtered = new BeanPropertyWriter[propCount];
-
-      for(int i = 0; i < propCount; ++i) {
-         BeanPropertyWriter bpw = (BeanPropertyWriter)props.get(i);
-         Class<?>[] views = bpw.getViews();
-         if (views == null) {
-            if (includeByDefault) {
-               filtered[i] = bpw;
+            props.add(_constructWriter(config, typeBind, pb, staticTyping, en.getKey(), en.getValue()));
+        }
+        // and then add member properties
+        for (Map.Entry<String,AnnotatedMethod> en : methodsByProp.entrySet()) {
+            // [JACKSON-235]: suppress writing of back references
+            AnnotationIntrospector.ReferenceProperty prop = intr.findReferenceType(en.getValue());
+            if (prop != null && prop.isBackReference()) {
+                continue;
             }
-         } else {
-            ++viewsFound;
-            filtered[i] = this.constructFilteredBeanWriter(bpw, views);
-         }
-      }
+            props.add(_constructWriter(config, typeBind, pb, staticTyping, en.getKey(), en.getValue()));
+        }
+        return props;
+    }
 
-      if (!includeByDefault || viewsFound != 0) {
-         builder.setFilteredProperties(filtered);
-      }
-   }
+    /*
+    /**********************************************************
+    /* Overridable non-public methods for manipulating bean properties
+    /**********************************************************
+     */
+    
+    /**
+     * Overridable method that can filter out properties. Default implementation
+     * checks annotations class may have.
+     */
+    protected List<BeanPropertyWriter> filterBeanProperties(SerializationConfig config,
+            BasicBeanDescription beanDesc, List<BeanPropertyWriter> props)
+    {
+        AnnotationIntrospector intr = config.getAnnotationIntrospector();
+        AnnotatedClass ac = beanDesc.getClassInfo();
+        String[] ignored = intr.findPropertiesToIgnore(ac);
+        if (ignored != null && ignored.length > 0) {
+            HashSet<String> ignoredSet = ArrayBuilders.arrayToSet(ignored);
+            Iterator<BeanPropertyWriter> it = props.iterator();
+            while (it.hasNext()) {
+                if (ignoredSet.contains(it.next().getName())) {
+                    it.remove();
+                }
+            }
+        }
+        return props;
+    }
 
-   protected <T extends AnnotatedMember> void removeIgnorableTypes(SerializationConfig config, BasicBeanDescription beanDesc, Map<String, T> props) {
-      if (!props.isEmpty()) {
-         AnnotationIntrospector intr = config.getAnnotationIntrospector();
-         Iterator<Entry<String, T>> it = props.entrySet().iterator();
-         HashMap ignores = new HashMap();
+    /**
+     * Overridable method that will impose given partial ordering on
+     * list of discovered propertied. Method can be overridden to
+     * provide custom ordering of properties, beyond configurability
+     * offered by annotations (whic allow alphabetic ordering, as
+     * well as explicit ordering by providing array of property names).
+     *<p>
+     * By default Creator properties will be ordered before other
+     * properties. Explicit custom ordering will override this implicit
+     * default ordering.
+     */
+    protected List<BeanPropertyWriter> sortBeanProperties(SerializationConfig config,
+            BasicBeanDescription beanDesc, List<BeanPropertyWriter> props)
+    {
+        // Ok: so far so good. But do we need to (re)order these somehow?
+        /* Yes; first, for [JACKSON-90] (explicit ordering and/or alphabetic)
+         * and then for [JACKSON-170] (implicitly order creator properties before others)
+         */
+        List<String> creatorProps = beanDesc.findCreatorPropertyNames();
+        // Then how about explicit ordering?
+        AnnotationIntrospector intr = config.getAnnotationIntrospector();
+        AnnotatedClass ac = beanDesc.getClassInfo();
+        String[] propOrder = intr.findSerializationPropertyOrder(ac);
+        Boolean alpha = intr.findSerializationSortAlphabetically(ac);
+        boolean sort;
+        
+        if (alpha == null) {
+            sort = config.isEnabled(SerializationConfig.Feature.SORT_PROPERTIES_ALPHABETICALLY);
+        } else {
+            sort = alpha.booleanValue();
+        }
+        if (sort || !creatorProps.isEmpty() || propOrder != null) {
+            props = _sortBeanProperties(props, creatorProps, propOrder, sort);
+        }
+        return props;
+    }
 
-         while(it.hasNext()) {
-            Entry<String, T> entry = (Entry)it.next();
-            Class<?> type = ((AnnotatedMember)entry.getValue()).getRawType();
-            Boolean result = (Boolean)ignores.get(type);
+    /**
+     * Method called to handle view information for constructed serializer,
+     * based on bean property writers.
+     *<p>
+     * Note that this method is designed to be overridden by sub-classes
+     * if they want to provide custom view handling. As such it is not
+     * considered an internal implementation detail, and will be supported
+     * as part of API going forward.
+     *<p>
+     * NOTE: signature of this method changed in 1.7, due to other significant
+     * changes (esp. use of builder for serializer construction).
+     */
+    protected void processViews(SerializationConfig config, BeanSerializerBuilder builder)
+    {
+        // [JACKSON-232]: whether non-annotated fields are included by default or not is configurable
+        List<BeanPropertyWriter> props = builder.getProperties();
+        boolean includeByDefault = config.isEnabled(SerializationConfig.Feature.DEFAULT_VIEW_INCLUSION);
+        final int propCount = props.size();
+        int viewsFound = 0;
+        BeanPropertyWriter[] filtered = new BeanPropertyWriter[propCount];
+        // Simple: view information is stored within individual writers, need to combine:
+        for (int i = 0; i < propCount; ++i) {
+            BeanPropertyWriter bpw = props.get(i);
+            Class<?>[] views = bpw.getViews();
+            if (views == null) { // no view info? include or exclude by default?
+                if (includeByDefault) {
+                    filtered[i] = bpw;
+                }
+            } else {
+                ++viewsFound;
+                filtered[i] = constructFilteredBeanWriter(bpw, views);
+            }
+        }
+        // minor optimization: if no view info, include-by-default, can leave out filtering info altogether:
+        if (includeByDefault && viewsFound == 0) {
+            return;
+        }
+        builder.setFilteredProperties(filtered);
+    }
+
+    /**
+     * Method that will apply by-type limitations (as per [JACKSON-429]);
+     * by default this is based on {@link org.codehaus.jackson.annotate.JsonIgnoreType} annotation but
+     * can be supplied by module-provided introspectors too.
+     */
+    protected <T extends AnnotatedMember> void removeIgnorableTypes(SerializationConfig config, BasicBeanDescription beanDesc,
+            Map<String, T> props)
+    {
+        if (props.isEmpty()) {
+            return;
+        }
+        AnnotationIntrospector intr = config.getAnnotationIntrospector();
+        Iterator<Map.Entry<String,T>> it = props.entrySet().iterator();
+        HashMap<Class<?>,Boolean> ignores = new HashMap<Class<?>,Boolean>();
+        while (it.hasNext()) {
+            Map.Entry<String, T> entry = it.next();
+            Class<?> type = entry.getValue().getRawType();
+            Boolean result = ignores.get(type);
             if (result == null) {
-               BasicBeanDescription desc = (BasicBeanDescription)config.introspectClassAnnotations(type);
-               AnnotatedClass ac = desc.getClassInfo();
-               result = intr.isIgnorableType(ac);
-               if (result == null) {
-                  result = Boolean.FALSE;
-               }
-
-               ignores.put(type, result);
+                BasicBeanDescription desc = config.introspectClassAnnotations(type);
+                AnnotatedClass ac = desc.getClassInfo();
+                result = intr.isIgnorableType(ac);
+                // default to false, non-ignorable
+                if (result == null) {
+                    result = Boolean.FALSE;
+                }
+                ignores.put(type, result);
             }
-
-            if (result) {
-               it.remove();
+            // lotsa work, and yes, it is ignorable type, so:
+            if (result.booleanValue()) {
+                it.remove();
             }
-         }
+        }
+    }
+    
+    /*
+    /**********************************************************
+    /* Internal helper methods
+    /**********************************************************
+     */
 
-      }
-   }
+    /**
+     * Secondary helper method for constructing {@link BeanPropertyWriter} for
+     * given member (field or method).
+     */
+    protected BeanPropertyWriter _constructWriter(SerializationConfig config, TypeBindings typeContext,
+            PropertyBuilder pb, boolean staticTyping, String name, AnnotatedMember accessor)
+        throws JsonMappingException
+    {
+        if (config.isEnabled(SerializationConfig.Feature.CAN_OVERRIDE_ACCESS_MODIFIERS)) {
+            accessor.fixAccess();
+        }
+        JavaType type = accessor.getType(typeContext);
+        BeanProperty.Std property = new BeanProperty.Std(name, type, pb.getClassAnnotations(), accessor);
 
-   protected BeanPropertyWriter _constructWriter(SerializationConfig config, TypeBindings typeContext, PropertyBuilder pb, boolean staticTyping, String name, AnnotatedMember accessor) throws JsonMappingException {
-      if (config.isEnabled(SerializationConfig.Feature.CAN_OVERRIDE_ACCESS_MODIFIERS)) {
-         accessor.fixAccess();
-      }
+        // Does member specify a serializer? If so, let's use it.
+        JsonSerializer<Object> annotatedSerializer = findSerializerFromAnnotation(config, accessor, property);
+        // And how about polymorphic typing? First special to cover JAXB per-field settings:
+        TypeSerializer contentTypeSer = null;
+        if (ClassUtil.isCollectionMapOrArray(type.getRawClass())) {
+            contentTypeSer = findPropertyContentTypeSerializer(type, config, accessor, property);
+        }
 
-      JavaType type = accessor.getType(typeContext);
-      BeanProperty.Std property = new BeanProperty.Std(name, type, pb.getClassAnnotations(), accessor);
-      JsonSerializer<Object> annotatedSerializer = this.findSerializerFromAnnotation(config, accessor, property);
-      TypeSerializer contentTypeSer = null;
-      if (ClassUtil.isCollectionMapOrArray(type.getRawClass())) {
-         contentTypeSer = this.findPropertyContentTypeSerializer(type, config, accessor, property);
-      }
+        // and if not JAXB collection/array with annotations, maybe regular type info?
+        TypeSerializer typeSer = findPropertyTypeSerializer(type, config, accessor, property);
+        BeanPropertyWriter pbw = pb.buildWriter(name, type, annotatedSerializer,
+                        typeSer, contentTypeSer, accessor, staticTyping);
+        // how about views? (1.4+)
+        AnnotationIntrospector intr = config.getAnnotationIntrospector();
+        pbw.setViews(intr.findSerializationViews(accessor));
+        return pbw;
+    }
+    
+    /**
+     * Helper method that will sort given List of properties according
+     * to defined criteria (usually detected by annotations)
+     */
+    protected List<BeanPropertyWriter> _sortBeanProperties(List<BeanPropertyWriter> props,
+            List<String> creatorProps, String[] propertyOrder, boolean sort)
+    {
+        int size = props.size();
+        Map<String,BeanPropertyWriter> all;
+        // Need to (re)sort alphabetically?
+        if (sort) {
+            all = new TreeMap<String,BeanPropertyWriter>();
+        } else {
+            all = new LinkedHashMap<String,BeanPropertyWriter>(size*2);
+        }
 
-      TypeSerializer typeSer = this.findPropertyTypeSerializer(type, config, accessor, property);
-      BeanPropertyWriter pbw = pb.buildWriter(name, type, annotatedSerializer, typeSer, contentTypeSer, accessor, staticTyping);
-      AnnotationIntrospector intr = config.getAnnotationIntrospector();
-      pbw.setViews(intr.findSerializationViews(accessor));
-      return pbw;
-   }
-
-   protected List<BeanPropertyWriter> _sortBeanProperties(List<BeanPropertyWriter> props, List<String> creatorProps, String[] propertyOrder, boolean sort) {
-      int size = props.size();
-      Object all;
-      if (sort) {
-         all = new TreeMap();
-      } else {
-         all = new LinkedHashMap(size * 2);
-      }
-
-      Iterator i$ = props.iterator();
-
-      while(i$.hasNext()) {
-         BeanPropertyWriter w = (BeanPropertyWriter)i$.next();
-         ((Map)all).put(w.getName(), w);
-      }
-
-      Map<String, BeanPropertyWriter> ordered = new LinkedHashMap(size * 2);
-      if (propertyOrder != null) {
-         String[] arr$ = propertyOrder;
-         int len$ = propertyOrder.length;
-
-         for(int i$ = 0; i$ < len$; ++i$) {
-            String name = arr$[i$];
-            BeanPropertyWriter w = (BeanPropertyWriter)((Map)all).get(name);
+        for (BeanPropertyWriter w : props) {
+            all.put(w.getName(), w);
+        }
+        Map<String,BeanPropertyWriter> ordered = new LinkedHashMap<String,BeanPropertyWriter>(size*2);
+        // Ok: primarily by explicit order
+        if (propertyOrder != null) {
+            for (String name : propertyOrder) {
+                BeanPropertyWriter w = all.get(name);
+                if (w != null) {
+                    ordered.put(name, w);
+                }
+            }
+        }
+        // And secondly by sorting Creator properties before other unordered properties
+        for (String name : creatorProps) {
+            BeanPropertyWriter w = all.get(name);
             if (w != null) {
-               ordered.put(name, w);
+                ordered.put(name, w);
             }
-         }
-      }
-
-      Iterator i$ = creatorProps.iterator();
-
-      while(i$.hasNext()) {
-         String name = (String)i$.next();
-         BeanPropertyWriter w = (BeanPropertyWriter)((Map)all).get(name);
-         if (w != null) {
-            ordered.put(name, w);
-         }
-      }
-
-      ordered.putAll((Map)all);
-      return new ArrayList(ordered.values());
-   }
-
-   public static class ConfigImpl extends SerializerFactory.Config {
-      protected static final Serializers[] NO_SERIALIZERS = new Serializers[0];
-      protected static final BeanSerializerModifier[] NO_MODIFIERS = new BeanSerializerModifier[0];
-      protected final Serializers[] _additionalSerializers;
-      protected final Serializers[] _additionalKeySerializers;
-      protected final BeanSerializerModifier[] _modifiers;
-
-      public ConfigImpl() {
-         this((Serializers[])null, (Serializers[])null, (BeanSerializerModifier[])null);
-      }
-
-      protected ConfigImpl(Serializers[] allAdditionalSerializers, Serializers[] allAdditionalKeySerializers, BeanSerializerModifier[] modifiers) {
-         this._additionalSerializers = allAdditionalSerializers == null ? NO_SERIALIZERS : allAdditionalSerializers;
-         this._additionalKeySerializers = allAdditionalKeySerializers == null ? NO_SERIALIZERS : allAdditionalKeySerializers;
-         this._modifiers = modifiers == null ? NO_MODIFIERS : modifiers;
-      }
-
-      public SerializerFactory.Config withAdditionalSerializers(Serializers additional) {
-         if (additional == null) {
-            throw new IllegalArgumentException("Can not pass null Serializers");
-         } else {
-            Serializers[] all = (Serializers[])ArrayBuilders.insertInListNoDup(this._additionalSerializers, additional);
-            return new BeanSerializerFactory.ConfigImpl(all, this._additionalKeySerializers, this._modifiers);
-         }
-      }
-
-      public SerializerFactory.Config withAdditionalKeySerializers(Serializers additional) {
-         if (additional == null) {
-            throw new IllegalArgumentException("Can not pass null Serializers");
-         } else {
-            Serializers[] all = (Serializers[])ArrayBuilders.insertInListNoDup(this._additionalKeySerializers, additional);
-            return new BeanSerializerFactory.ConfigImpl(this._additionalSerializers, all, this._modifiers);
-         }
-      }
-
-      public SerializerFactory.Config withSerializerModifier(BeanSerializerModifier modifier) {
-         if (modifier == null) {
-            throw new IllegalArgumentException("Can not pass null modifier");
-         } else {
-            BeanSerializerModifier[] modifiers = (BeanSerializerModifier[])ArrayBuilders.insertInListNoDup(this._modifiers, modifier);
-            return new BeanSerializerFactory.ConfigImpl(this._additionalSerializers, this._additionalKeySerializers, modifiers);
-         }
-      }
-
-      public boolean hasSerializers() {
-         return this._additionalSerializers.length > 0;
-      }
-
-      public boolean hasKeySerializers() {
-         return this._additionalKeySerializers.length > 0;
-      }
-
-      public boolean hasSerializerModifiers() {
-         return this._modifiers.length > 0;
-      }
-
-      public Iterable<Serializers> serializers() {
-         return ArrayBuilders.arrayAsIterable(this._additionalSerializers);
-      }
-
-      public Iterable<Serializers> keySerializers() {
-         return ArrayBuilders.arrayAsIterable(this._additionalKeySerializers);
-      }
-
-      public Iterable<BeanSerializerModifier> serializerModifiers() {
-         return ArrayBuilders.arrayAsIterable(this._modifiers);
-      }
-   }
+        }
+        // And finally whatever is left (trying to put again will not change ordering)
+        ordered.putAll(all);
+        return new ArrayList<BeanPropertyWriter>(ordered.values());
+    }
 }

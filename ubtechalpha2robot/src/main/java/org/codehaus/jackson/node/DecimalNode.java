@@ -3,82 +3,94 @@ package org.codehaus.jackson.node;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.JsonParser;
-import org.codehaus.jackson.JsonProcessingException;
-import org.codehaus.jackson.JsonToken;
+
+import org.codehaus.jackson.*;
 import org.codehaus.jackson.map.SerializerProvider;
 
-public final class DecimalNode extends NumericNode {
-   protected final BigDecimal _value;
+/**
+ * Numeric node that contains values that do not fit in simple
+ * integer (int, long) or floating point (double) values.
+ */
+public final class DecimalNode
+    extends NumericNode
+{
+    final protected BigDecimal _value;
 
-   public DecimalNode(BigDecimal v) {
-      this._value = v;
-   }
+    /* 
+    /**********************************************************
+    /* Construction
+    /**********************************************************
+     */
 
-   public static DecimalNode valueOf(BigDecimal d) {
-      return new DecimalNode(d);
-   }
+    public DecimalNode(BigDecimal v) { _value = v; }
 
-   public JsonToken asToken() {
-      return JsonToken.VALUE_NUMBER_FLOAT;
-   }
+    public static DecimalNode valueOf(BigDecimal d) { return new DecimalNode(d); }
 
-   public JsonParser.NumberType getNumberType() {
-      return JsonParser.NumberType.BIG_DECIMAL;
-   }
+    /* 
+    /**********************************************************
+    /* BaseJsonNode extended API
+    /**********************************************************
+     */
 
-   public boolean isFloatingPointNumber() {
-      return true;
-   }
+    @Override public JsonToken asToken() { return JsonToken.VALUE_NUMBER_FLOAT; }
 
-   public boolean isBigDecimal() {
-      return true;
-   }
+    @Override
+    public JsonParser.NumberType getNumberType() { return JsonParser.NumberType.BIG_DECIMAL; }
 
-   public Number getNumberValue() {
-      return this._value;
-   }
+    /* 
+    /**********************************************************
+    /* Overrridden JsonNode methods
+    /**********************************************************
+     */
 
-   public int getIntValue() {
-      return this._value.intValue();
-   }
+    @Override
+    public boolean isFloatingPointNumber() { return true; }
+    
+    @Override
+    public boolean isBigDecimal() { return true; }
+    
+    @Override
+    public Number getNumberValue() { return _value; }
 
-   public long getLongValue() {
-      return this._value.longValue();
-   }
+    @Override
+    public int getIntValue() { return _value.intValue(); }
 
-   public BigInteger getBigIntegerValue() {
-      return this._value.toBigInteger();
-   }
+    @Override
+    public long getLongValue() { return _value.longValue(); }
 
-   public double getDoubleValue() {
-      return this._value.doubleValue();
-   }
 
-   public BigDecimal getDecimalValue() {
-      return this._value;
-   }
+    @Override
+    public BigInteger getBigIntegerValue() { return _value.toBigInteger(); }
 
-   public String getValueAsText() {
-      return this._value.toString();
-   }
+    @Override
+    public double getDoubleValue() { return _value.doubleValue(); }
 
-   public final void serialize(JsonGenerator jg, SerializerProvider provider) throws IOException, JsonProcessingException {
-      jg.writeNumber(this._value);
-   }
+    @Override
+    public BigDecimal getDecimalValue() { return _value; }
 
-   public boolean equals(Object o) {
-      if (o == this) {
-         return true;
-      } else if (o == null) {
-         return false;
-      } else {
-         return o.getClass() != this.getClass() ? false : ((DecimalNode)o)._value.equals(this._value);
-      }
-   }
+    @Override
+    public String getValueAsText() {
+        return _value.toString();
+    }
 
-   public int hashCode() {
-      return this._value.hashCode();
-   }
+    @Override
+    public final void serialize(JsonGenerator jg, SerializerProvider provider)
+        throws IOException, JsonProcessingException
+    {
+        jg.writeNumber(_value);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o == this) return true;
+        if (o == null) return false;
+        if (o.getClass() != getClass()) { // final class, can do this
+            return false;
+        }
+        return ((DecimalNode) o)._value.equals(_value);
+    }
+
+    @Override
+    public int hashCode() { return _value.hashCode(); }
 }

@@ -1,119 +1,178 @@
 package org.codehaus.jackson.impl;
 
-import org.codehaus.jackson.JsonStreamContext;
+import org.codehaus.jackson.*;
 
-public class JsonWriteContext extends JsonStreamContext {
-   public static final int STATUS_OK_AS_IS = 0;
-   public static final int STATUS_OK_AFTER_COMMA = 1;
-   public static final int STATUS_OK_AFTER_COLON = 2;
-   public static final int STATUS_OK_AFTER_SPACE = 3;
-   public static final int STATUS_EXPECT_VALUE = 4;
-   public static final int STATUS_EXPECT_NAME = 5;
-   protected final JsonWriteContext _parent;
-   protected String _currentName;
-   protected JsonWriteContext _child = null;
+/**
+ * Extension of {@link JsonStreamContext}, which implements
+ * core methods needed, and also exposes
+ * more complete API to generator implementation classes.
+ */
+public class JsonWriteContext
+    extends JsonStreamContext
+{
+    // // // Return values for writeValue()
 
-   protected JsonWriteContext(int type, JsonWriteContext parent) {
-      this._type = type;
-      this._parent = parent;
-      this._index = -1;
-   }
+    public final static int STATUS_OK_AS_IS = 0;
+    public final static int STATUS_OK_AFTER_COMMA = 1;
+    public final static int STATUS_OK_AFTER_COLON = 2;
+    public final static int STATUS_OK_AFTER_SPACE = 3; // in root context
+    public final static int STATUS_EXPECT_VALUE = 4;
+    public final static int STATUS_EXPECT_NAME = 5;
 
-   public static JsonWriteContext createRootContext() {
-      return new JsonWriteContext(0, (JsonWriteContext)null);
-   }
+    protected final JsonWriteContext _parent;
 
-   private final JsonWriteContext reset(int type) {
-      this._type = type;
-      this._index = -1;
-      this._currentName = null;
-      return this;
-   }
+    /**
+     * Name of the field of which value is to be parsed; only
+     * used for OBJECT contexts
+     */
+    protected String _currentName;
+    
+    /*
+    /**********************************************************
+    /* Simple instance reuse slots; speed up things
+    /* a bit (10-15%) for docs with lots of small
+    /* arrays/objects
+    /**********************************************************
+     */
 
-   public final JsonWriteContext createChildArrayContext() {
-      JsonWriteContext ctxt = this._child;
-      if (ctxt == null) {
-         this._child = ctxt = new JsonWriteContext(1, this);
-         return ctxt;
-      } else {
-         return ctxt.reset(1);
-      }
-   }
+    protected JsonWriteContext _child = null;
 
-   public final JsonWriteContext createChildObjectContext() {
-      JsonWriteContext ctxt = this._child;
-      if (ctxt == null) {
-         this._child = ctxt = new JsonWriteContext(2, this);
-         return ctxt;
-      } else {
-         return ctxt.reset(2);
-      }
-   }
+    /*
+    /**********************************************************
+    /* Life-cycle
+    /**********************************************************
+     */
 
-   public final JsonWriteContext getParent() {
-      return this._parent;
-   }
+    protected JsonWriteContext(int type, JsonWriteContext parent)
+    {
+        super();
+        _type = type;
+        _parent = parent;
+        _index = -1;
+    }
+    
+    // // // Factory methods
 
-   public final String getCurrentName() {
-      return this._currentName;
-   }
+    public static JsonWriteContext createRootContext()
+    {
+        return new JsonWriteContext(TYPE_ROOT, null);
+    }
 
-   public final int writeFieldName(String name) {
-      if (this._type == 2) {
-         if (this._currentName != null) {
-            return 4;
-         } else {
-            this._currentName = name;
-            return this._index < 0 ? 0 : 1;
-         }
-      } else {
-         return 4;
-      }
-   }
+    private final JsonWriteContext reset(int type) {
+        _type = type;
+        _index = -1;
+        _currentName = null;
+        return this;
+    }
+    
+    public final JsonWriteContext createChildArrayContext()
+    {
+        JsonWriteContext ctxt = _child;
+        if (ctxt == null) {
+            _child = ctxt = new JsonWriteContext(TYPE_ARRAY, this);
+            return ctxt;
+        }
+        return ctxt.reset(TYPE_ARRAY);
+    }
 
-   public final int writeValue() {
-      if (this._type == 2) {
-         if (this._currentName == null) {
-            return 5;
-         } else {
-            this._currentName = null;
-            ++this._index;
-            return 2;
-         }
-      } else if (this._type == 1) {
-         int ix = this._index++;
-         return ix < 0 ? 0 : 1;
-      } else {
-         ++this._index;
-         return this._index == 0 ? 0 : 3;
-      }
-   }
+    public final JsonWriteContext createChildObjectContext()
+    {
+        JsonWriteContext ctxt = _child;
+        if (ctxt == null) {
+            _child = ctxt = new JsonWriteContext(TYPE_OBJECT, this);
+            return ctxt;
+        }
+        return ctxt.reset(TYPE_OBJECT);
+    }
 
-   protected final void appendDesc(StringBuilder sb) {
-      if (this._type == 2) {
-         sb.append('{');
-         if (this._currentName != null) {
-            sb.append('"');
-            sb.append(this._currentName);
-            sb.append('"');
-         } else {
-            sb.append('?');
-         }
+    // // // Shared API
 
-         sb.append(']');
-      } else if (this._type == 1) {
-         sb.append('[');
-         sb.append(this.getCurrentIndex());
-         sb.append(']');
-      } else {
-         sb.append("/");
-      }
+    @Override
+    public final JsonWriteContext getParent() { return _parent; }
 
-   }
+    @Override
+    public final String getCurrentName() { return _currentName; }
+    
+    // // // API sub-classes are to implement
 
-   public final String toString() {
-      StringBuilder sb = new StringBuilder(64);
-      this.appendDesc(sb);
-      return sb.toString();
-   }
+    /**
+     * Method that writer is to call before it writes a field name.
+     *
+     * @return Index of the field entry (0-based)
+     */
+    public final int writeFieldName(String name)
+    {
+        if (_type == TYPE_OBJECT) {
+            if (_currentName != null) { // just wrote a name...
+                return STATUS_EXPECT_VALUE;
+            }
+            _currentName = name;
+            return (_index < 0) ? STATUS_OK_AS_IS : STATUS_OK_AFTER_COMMA;
+        }
+        return STATUS_EXPECT_VALUE;
+    }
+    
+    public final int writeValue()
+    {
+        // Most likely, object:
+        if (_type == TYPE_OBJECT) {
+            if (_currentName == null) {
+                return STATUS_EXPECT_NAME;
+            }
+            _currentName = null;
+            ++_index;
+            return STATUS_OK_AFTER_COLON;
+        }
+
+        // Ok, array?
+        if (_type == TYPE_ARRAY) {
+            int ix = _index;
+            ++_index;
+            return (ix < 0) ? STATUS_OK_AS_IS : STATUS_OK_AFTER_COMMA;
+        }
+        
+        // Nope, root context
+        // No commas within root context, but need space
+        ++_index;
+        return (_index == 0) ? STATUS_OK_AS_IS : STATUS_OK_AFTER_SPACE;
+    }
+
+    // // // Internally used abstract methods
+
+    protected final void appendDesc(StringBuilder sb)
+    {
+        if (_type == TYPE_OBJECT) {
+            sb.append('{');
+            if (_currentName != null) {
+                sb.append('"');
+                // !!! TODO: Name chars should be escaped?
+                sb.append(_currentName);
+                sb.append('"');
+            } else {
+                sb.append('?');
+            }
+            sb.append(']');
+        } else if (_type == TYPE_ARRAY) {
+            sb.append('[');
+            sb.append(getCurrentIndex());
+            sb.append(']');
+        } else {
+            // nah, ROOT:
+            sb.append("/");
+        }
+    }
+
+    // // // Overridden standard methods
+
+    /**
+     * Overridden to provide developer writeable "JsonPath" representation
+     * of the context.
+     */
+    @Override
+    public final String toString()
+    {
+        StringBuilder sb = new StringBuilder(64);
+        appendDesc(sb);
+        return sb.toString();
+    }
 }

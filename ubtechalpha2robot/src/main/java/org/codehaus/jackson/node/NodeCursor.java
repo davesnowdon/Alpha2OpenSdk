@@ -1,179 +1,222 @@
 package org.codehaus.jackson.node;
 
-import java.util.Iterator;
-import java.util.Map.Entry;
-import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.JsonStreamContext;
-import org.codehaus.jackson.JsonToken;
+import java.util.*;
 
-abstract class NodeCursor extends JsonStreamContext {
-   final NodeCursor _parent;
+import org.codehaus.jackson.*;
 
-   public NodeCursor(int contextType, NodeCursor p) {
-      this._type = contextType;
-      this._index = -1;
-      this._parent = p;
-   }
+/**
+ * Helper class used by {@link TreeTraversingParser} to keep track
+ * of current location within traversed JSON tree.
+ */
+abstract class NodeCursor
+    extends JsonStreamContext
+{
+    /**
+     * Parent cursor of this cursor, if any; null for root
+     * cursors.
+     */
+    final NodeCursor _parent;
 
-   public final NodeCursor getParent() {
-      return this._parent;
-   }
+    public NodeCursor(int contextType, NodeCursor p)
+    {
+        super();
+        _type = contextType;
+        _index = -1;
+        _parent = p;
+    }
 
-   public abstract String getCurrentName();
+    /*
+    /**********************************************************
+    /* JsonStreamContext impl
+    /**********************************************************
+     */
 
-   public abstract JsonToken nextToken();
+    // note: co-variant return type
+    @Override
+    public final NodeCursor getParent() { return _parent; }
 
-   public abstract JsonToken nextValue();
+    @Override
+    public abstract String getCurrentName();
 
-   public abstract JsonToken endToken();
+    /*
+    /**********************************************************
+    /* Extended API
+    /**********************************************************
+     */
 
-   public abstract JsonNode currentNode();
+    public abstract JsonToken nextToken();
+    public abstract JsonToken nextValue();
+    public abstract JsonToken endToken();
 
-   public abstract boolean currentHasChildren();
+    public abstract JsonNode currentNode();
+    public abstract boolean currentHasChildren();
 
-   public final NodeCursor iterateChildren() {
-      JsonNode n = this.currentNode();
-      if (n == null) {
-         throw new IllegalStateException("No current node");
-      } else if (n.isArray()) {
-         return new NodeCursor.Array(n, this);
-      } else if (n.isObject()) {
-         return new NodeCursor.Object(n, this);
-      } else {
-         throw new IllegalStateException("Current node of type " + n.getClass().getName());
-      }
-   }
+    /**
+     * Method called to create a new context for iterating all
+     * contents of the current structured value (JSON array or object)
+     */
+    public final NodeCursor iterateChildren() {
+        JsonNode n = currentNode();
+        if (n == null) throw new IllegalStateException("No current node");
+        if (n.isArray()) { // false since we have already returned START_ARRAY
+            return new Array(n, this);
+        }
+        if (n.isObject()) {
+            return new Object(n, this);
+        }
+        throw new IllegalStateException("Current node of type "+n.getClass().getName());
+    }
 
-   protected static final class Object extends NodeCursor {
-      Iterator<Entry<String, JsonNode>> _contents;
-      Entry<String, JsonNode> _current;
-      boolean _needEntry;
+    /*
+    /**********************************************************
+    /* Concrete implementations
+    /**********************************************************
+     */
 
-      public Object(JsonNode n, NodeCursor p) {
-         super(2, p);
-         this._contents = ((ObjectNode)n).getFields();
-         this._needEntry = true;
-      }
+    /**
+     * Context matching root-level value nodes (i.e. anything other
+     * than JSON Object and Array).
+     * Note that context is NOT created for leaf values.
+     */
+    protected final static class RootValue
+        extends NodeCursor
+    {
+        JsonNode _node;
 
-      public String getCurrentName() {
-         return this._current == null ? null : (String)this._current.getKey();
-      }
+        protected boolean _done = false;
 
-      public JsonToken nextToken() {
-         if (this._needEntry) {
-            if (!this._contents.hasNext()) {
-               this._current = null;
-               return null;
-            } else {
-               this._needEntry = false;
-               this._current = (Entry)this._contents.next();
-               return JsonToken.FIELD_NAME;
+        public RootValue(JsonNode n, NodeCursor p) {
+            super(JsonStreamContext.TYPE_ROOT, p);
+            _node = n;
+        }
+
+        @Override
+        public String getCurrentName() { return null; }
+
+        @Override
+        public JsonToken nextToken() {
+            if (!_done) {
+                _done = true;
+                return _node.asToken();
             }
-         } else {
-            this._needEntry = true;
-            return ((JsonNode)this._current.getValue()).asToken();
-         }
-      }
-
-      public JsonToken nextValue() {
-         JsonToken t = this.nextToken();
-         if (t == JsonToken.FIELD_NAME) {
-            t = this.nextToken();
-         }
-
-         return t;
-      }
-
-      public JsonToken endToken() {
-         return JsonToken.END_OBJECT;
-      }
-
-      public JsonNode currentNode() {
-         return this._current == null ? null : (JsonNode)this._current.getValue();
-      }
-
-      public boolean currentHasChildren() {
-         return ((ContainerNode)this.currentNode()).size() > 0;
-      }
-   }
-
-   protected static final class Array extends NodeCursor {
-      Iterator<JsonNode> _contents;
-      JsonNode _currentNode;
-
-      public Array(JsonNode n, NodeCursor p) {
-         super(1, p);
-         this._contents = n.getElements();
-      }
-
-      public String getCurrentName() {
-         return null;
-      }
-
-      public JsonToken nextToken() {
-         if (!this._contents.hasNext()) {
-            this._currentNode = null;
+            _node = null;
             return null;
-         } else {
-            this._currentNode = (JsonNode)this._contents.next();
-            return this._currentNode.asToken();
-         }
-      }
+        }
+        
+        @Override
+        public JsonToken nextValue() { return nextToken(); }
+        @Override
+        public JsonToken endToken() { return null; }
+        @Override
+        public JsonNode currentNode() { return _node; }
+        @Override
+        public boolean currentHasChildren() { return false; }
+    }
 
-      public JsonToken nextValue() {
-         return this.nextToken();
-      }
+    /**
+     * Cursor used for traversing non-empty JSON Array nodes
+     */
+    protected final static class Array
+        extends NodeCursor
+    {
+        Iterator<JsonNode> _contents;
 
-      public JsonToken endToken() {
-         return JsonToken.END_ARRAY;
-      }
+        JsonNode _currentNode;
 
-      public JsonNode currentNode() {
-         return this._currentNode;
-      }
+        public Array(JsonNode n, NodeCursor p) {
+            super(JsonStreamContext.TYPE_ARRAY, p);
+            _contents = n.getElements();
+        }
 
-      public boolean currentHasChildren() {
-         return ((ContainerNode)this.currentNode()).size() > 0;
-      }
-   }
+        @Override
+        public String getCurrentName() { return null; }
 
-   protected static final class RootValue extends NodeCursor {
-      JsonNode _node;
-      protected boolean _done = false;
+        @Override
+        public JsonToken nextToken()
+        {
+            if (!_contents.hasNext()) {
+                _currentNode = null;
+                return null;
+            }
+            _currentNode = _contents.next();
+            return _currentNode.asToken();
+        }
 
-      public RootValue(JsonNode n, NodeCursor p) {
-         super(0, p);
-         this._node = n;
-      }
+        @Override
+        public JsonToken nextValue() { return nextToken(); }
+        @Override
+        public JsonToken endToken() { return JsonToken.END_ARRAY; }
 
-      public String getCurrentName() {
-         return null;
-      }
+        @Override
+        public JsonNode currentNode() { return _currentNode; }
+        @Override
+        public boolean currentHasChildren() {
+            // note: ONLY to be called for container nodes
+            return ((ContainerNode) currentNode()).size() > 0;
+        }
+    }
 
-      public JsonToken nextToken() {
-         if (!this._done) {
-            this._done = true;
-            return this._node.asToken();
-         } else {
-            this._node = null;
-            return null;
-         }
-      }
+    /**
+     * Cursor used for traversing non-empty JSON Object nodes
+     */
+    protected final static class Object
+        extends NodeCursor
+    {
+        Iterator<Map.Entry<String, JsonNode>> _contents;
+        Map.Entry<String, JsonNode> _current;
 
-      public JsonToken nextValue() {
-         return this.nextToken();
-      }
+        boolean _needEntry;
+        
+        public Object(JsonNode n, NodeCursor p)
+        {
+            super(JsonStreamContext.TYPE_OBJECT, p);
+            _contents = ((ObjectNode) n).getFields();
+            _needEntry = true;
+        }
 
-      public JsonToken endToken() {
-         return null;
-      }
+        @Override
+        public String getCurrentName() {
+            return (_current == null) ? null : _current.getKey();
+        }
 
-      public JsonNode currentNode() {
-         return this._node;
-      }
+        @Override
+        public JsonToken nextToken()
+        {
+            // Need a new entry?
+            if (_needEntry) {
+                if (!_contents.hasNext()) {
+                    _current = null;
+                    return null;
+                }
+                _needEntry = false;
+                _current = _contents.next();
+                return JsonToken.FIELD_NAME;
+            }
+            _needEntry = true;
+            return _current.getValue().asToken();
+        }
 
-      public boolean currentHasChildren() {
-         return false;
-      }
-   }
+        @Override
+        public JsonToken nextValue()
+        {
+            JsonToken t = nextToken();
+            if (t == JsonToken.FIELD_NAME) {
+                t = nextToken();
+            }
+            return t;
+        }
+
+        @Override
+        public JsonToken endToken() { return JsonToken.END_OBJECT; }
+
+        @Override
+        public JsonNode currentNode() {
+            return (_current == null) ? null : _current.getValue();
+        }
+        @Override
+        public boolean currentHasChildren() {
+            // note: ONLY to be called for container nodes
+            return ((ContainerNode) currentNode()).size() > 0;
+        }
+    }
 }

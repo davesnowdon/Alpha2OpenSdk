@@ -3,46 +3,80 @@ package org.codehaus.jackson.schema;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonValue;
-import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
+import org.codehaus.jackson.node.JsonNodeFactory;
 
-public class JsonSchema {
-   private final ObjectNode schema;
+/**
+ * A {@link org.codehaus.jackson.JsonNode} that represents a JSON-Schema instance.
+ *
+ * @author Ryan Heaton
+ * @see <a href="http://json-schema.org/">JSON Schema</a>
+ */
+public class JsonSchema
+{
+    private final ObjectNode schema;
 
-   @JsonCreator
-   public JsonSchema(ObjectNode schema) {
-      this.schema = schema;
-   }
+    /**
+     * Main constructor for schema instances.
+     *<p>
+     * This is the creator constructor used by Jackson itself when
+     * deserializing instances. It is so-called delegating creator, 
+     * meaning that its argument will be bound by Jackson before
+     * constructor gets called.
+     */
+    @JsonCreator
+    public JsonSchema(ObjectNode schema)
+    {
+        this.schema = schema;
+    }
 
-   @JsonValue
-   public ObjectNode getSchemaNode() {
-      return this.schema;
-   }
+    /**
+     * Method for accessing root JSON object of the contained schema.
+     *<p>
+     * Note: this method is specified with {@link JsonValue} annotation
+     * to represent serialization to use; same as if explicitly
+     * serializing returned object.
+     *
+     * @return Root node of the schema tree
+     */
+    @JsonValue
+    public ObjectNode getSchemaNode()
+    {
+        return schema;
+    }
 
-   public String toString() {
-      return this.schema.toString();
-   }
+    @Override
+    public String toString()
+    {
+        return this.schema.toString();
+    }
 
-   public boolean equals(Object o) {
-      if (o == this) {
-         return true;
-      } else if (o == null) {
-         return false;
-      } else if (!(o instanceof JsonSchema)) {
-         return false;
-      } else {
-         JsonSchema other = (JsonSchema)o;
-         if (this.schema == null) {
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o == this) return true;
+        if (o == null) return false;
+        if (!(o instanceof JsonSchema)) return false;
+
+        JsonSchema other = (JsonSchema) o;
+        if (schema == null) {
             return other.schema == null;
-         } else {
-            return this.schema.equals(other.schema);
-         }
-      }
-   }
+        }
+        return schema.equals(other.schema);
+    }
 
-   public static JsonNode getDefaultSchemaNode() {
-      ObjectNode objectNode = JsonNodeFactory.instance.objectNode();
-      objectNode.put("type", "any");
-      return objectNode;
-   }
+    /**
+     * Get the default schema node.
+     *
+     * @return The default schema node.
+     */
+    public static JsonNode getDefaultSchemaNode()
+    {
+        ObjectNode objectNode = JsonNodeFactory.instance.objectNode();
+        objectNode.put("type", "any");
+        // "required" is false by default, no need to include
+        //objectNode.put("required", false);
+        return objectNode;
+    }
+
 }

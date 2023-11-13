@@ -3,86 +3,104 @@ package org.codehaus.jackson.node;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.JsonParser;
-import org.codehaus.jackson.JsonProcessingException;
-import org.codehaus.jackson.JsonToken;
+
+import org.codehaus.jackson.*;
 import org.codehaus.jackson.io.NumberOutput;
 import org.codehaus.jackson.map.SerializerProvider;
 
-public final class DoubleNode extends NumericNode {
-   protected final double _value;
+/**
+ * Numeric node that contains 64-bit ("double precision")
+ * floating point values simple 32-bit integer values.
+ */
+public final class DoubleNode
+    extends NumericNode
+{
+    protected final double _value;
 
-   public DoubleNode(double v) {
-      this._value = v;
-   }
+    /* 
+    /**********************************************************
+    /* Construction
+    /**********************************************************
+     */
 
-   public static DoubleNode valueOf(double v) {
-      return new DoubleNode(v);
-   }
+    public DoubleNode(double v) { _value = v; }
 
-   public JsonToken asToken() {
-      return JsonToken.VALUE_NUMBER_FLOAT;
-   }
+    public static DoubleNode valueOf(double v) { return new DoubleNode(v); }
 
-   public JsonParser.NumberType getNumberType() {
-      return JsonParser.NumberType.DOUBLE;
-   }
+    /* 
+    /**********************************************************
+    /* BaseJsonNode extended API
+    /**********************************************************
+     */
 
-   public boolean isFloatingPointNumber() {
-      return true;
-   }
+    @Override public JsonToken asToken() { return JsonToken.VALUE_NUMBER_FLOAT; }
 
-   public boolean isDouble() {
-      return true;
-   }
+    @Override
+    public JsonParser.NumberType getNumberType() { return JsonParser.NumberType.DOUBLE; }
 
-   public Number getNumberValue() {
-      return this._value;
-   }
+    /* 
+    /**********************************************************
+    /* Overrridden JsonNode methods
+    /**********************************************************
+     */
 
-   public int getIntValue() {
-      return (int)this._value;
-   }
+    @Override
+    public boolean isFloatingPointNumber() { return true; }
 
-   public long getLongValue() {
-      return (long)this._value;
-   }
+    @Override
+    public boolean isDouble() { return true; }
 
-   public double getDoubleValue() {
-      return this._value;
-   }
+    @Override
+    public Number getNumberValue() {
+        return Double.valueOf(_value);
+    }
 
-   public BigDecimal getDecimalValue() {
-      return BigDecimal.valueOf(this._value);
-   }
+    @Override
+        public int getIntValue() { return (int) _value; }
 
-   public BigInteger getBigIntegerValue() {
-      return this.getDecimalValue().toBigInteger();
-   }
+    @Override
+        public long getLongValue() { return (long) _value; }
 
-   public String getValueAsText() {
-      return NumberOutput.toString(this._value);
-   }
+    @Override
+        public double getDoubleValue() { return _value; }
 
-   public final void serialize(JsonGenerator jg, SerializerProvider provider) throws IOException, JsonProcessingException {
-      jg.writeNumber(this._value);
-   }
+    @Override
+        public BigDecimal getDecimalValue() { return BigDecimal.valueOf(_value); }
 
-   public boolean equals(Object o) {
-      if (o == this) {
-         return true;
-      } else if (o == null) {
-         return false;
-      } else if (o.getClass() != this.getClass()) {
-         return false;
-      } else {
-         return ((DoubleNode)o)._value == this._value;
-      }
-   }
+    @Override
+    public BigInteger getBigIntegerValue() {
+        return getDecimalValue().toBigInteger();
+    }
 
-   public int hashCode() {
-      long l = Double.doubleToLongBits(this._value);
-      return (int)l ^ (int)(l >> 32);
-   }
+    @Override
+    public String getValueAsText() {
+        return NumberOutput.toString(_value);
+    }
+
+    @Override
+    public final void serialize(JsonGenerator jg, SerializerProvider provider)
+        throws IOException, JsonProcessingException
+    {
+        jg.writeNumber(_value);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o == this) return true;
+        if (o == null) return false;
+        if (o.getClass() != getClass()) { // final class, can do this
+            return false;
+        }
+        return ((DoubleNode) o)._value == _value;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        // same as hashCode Double.class uses
+        long l = Double.doubleToLongBits(_value);
+        return ((int) l) ^ (int) (l >> 32);
+
+    }
 }

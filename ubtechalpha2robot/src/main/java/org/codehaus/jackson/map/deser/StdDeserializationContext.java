@@ -3,17 +3,12 @@ package org.codehaus.jackson.map.deser;
 import java.io.IOException;
 import java.text.DateFormat;
 import java.text.ParseException;
-import java.util.Calendar;
-import java.util.Date;
+import java.util.*;
+
 import org.codehaus.jackson.JsonParser;
 import org.codehaus.jackson.JsonProcessingException;
 import org.codehaus.jackson.JsonToken;
-import org.codehaus.jackson.map.DeserializationConfig;
-import org.codehaus.jackson.map.DeserializationContext;
-import org.codehaus.jackson.map.DeserializationProblemHandler;
-import org.codehaus.jackson.map.DeserializerProvider;
-import org.codehaus.jackson.map.JsonDeserializer;
-import org.codehaus.jackson.map.JsonMappingException;
+import org.codehaus.jackson.map.*;
 import org.codehaus.jackson.map.exc.UnrecognizedPropertyException;
 import org.codehaus.jackson.map.util.ArrayBuilders;
 import org.codehaus.jackson.map.util.ClassUtil;
@@ -21,159 +16,290 @@ import org.codehaus.jackson.map.util.LinkedNode;
 import org.codehaus.jackson.map.util.ObjectBuffer;
 import org.codehaus.jackson.type.JavaType;
 
-public class StdDeserializationContext extends DeserializationContext {
-   static final int MAX_ERROR_STR_LEN = 500;
-   protected JsonParser _parser;
-   protected final DeserializerProvider _deserProvider;
-   protected ArrayBuilders _arrayBuilders;
-   protected ObjectBuffer _objectBuffer;
-   protected DateFormat _dateFormat;
+/**
+ * Default implementation of {@link DeserializationContext}.
+ */
+public class StdDeserializationContext
+    extends DeserializationContext
+{
+    /**
+     * Let's limit length of error messages, for cases where underlying data
+     * may be very large -- no point in spamming logs with megs of meaningless
+     * data.
+     */
+    final static int MAX_ERROR_STR_LEN = 500;
 
-   public StdDeserializationContext(DeserializationConfig config, JsonParser jp, DeserializerProvider prov) {
-      super(config);
-      this._parser = jp;
-      this._deserProvider = prov;
-   }
+    // // // Configuration
 
-   public DeserializerProvider getDeserializerProvider() {
-      return this._deserProvider;
-   }
+    /**
+     * Currently active parser used for deserialization.
+     * May be different from the outermost parser
+     * when content is buffered.
+     */
+    protected JsonParser _parser;
 
-   public JsonParser getParser() {
-      return this._parser;
-   }
+    /**
+     * @since 1.5
+     */
+    protected final DeserializerProvider _deserProvider;
 
-   public final ObjectBuffer leaseObjectBuffer() {
-      ObjectBuffer buf = this._objectBuffer;
-      if (buf == null) {
-         buf = new ObjectBuffer();
-      } else {
-         this._objectBuffer = null;
-      }
+    // // // Helper object recycling
 
-      return buf;
-   }
+    protected ArrayBuilders _arrayBuilders;
 
-   public final void returnObjectBuffer(ObjectBuffer buf) {
-      if (this._objectBuffer == null || buf.initialCapacity() >= this._objectBuffer.initialCapacity()) {
-         this._objectBuffer = buf;
-      }
+    protected ObjectBuffer _objectBuffer;
 
-   }
+    protected DateFormat _dateFormat;
 
-   public final ArrayBuilders getArrayBuilders() {
-      if (this._arrayBuilders == null) {
-         this._arrayBuilders = new ArrayBuilders();
-      }
+    /*
+    /**********************************************************
+    /* Life-cycle
+    /**********************************************************
+     */
 
-      return this._arrayBuilders;
-   }
+    public StdDeserializationContext(DeserializationConfig config, JsonParser jp,
+            DeserializerProvider prov)
+    {
+    	super(config);
+        _parser = jp;
+        _deserProvider = prov;
+    }
 
-   public Date parseDate(String dateStr) throws IllegalArgumentException {
-      try {
-         return this.getDateFormat().parse(dateStr);
-      } catch (ParseException var3) {
-         throw new IllegalArgumentException(var3.getMessage());
-      }
-   }
+    /*
+    /**********************************************************
+    /* Public API, accessors
+    /**********************************************************
+     */
 
-   public Calendar constructCalendar(Date d) {
-      Calendar c = Calendar.getInstance();
-      c.setTime(d);
-      return c;
-   }
+    @Override
+    public DeserializerProvider getDeserializerProvider() {
+        return _deserProvider;
+    }
 
-   public boolean handleUnknownProperty(JsonParser jp, JsonDeserializer<?> deser, Object instanceOrClass, String propName) throws IOException, JsonProcessingException {
-      LinkedNode<DeserializationProblemHandler> h = this._config.getProblemHandlers();
-      if (h != null) {
-         JsonParser oldParser = this._parser;
-         this._parser = jp;
+    /**
+     * Method for accessing the currently active parser.
+     * May be different from the outermost parser
+     * when content is buffered.
+     *<p>
+     * Use of this method is discouraged: if code has direct access
+     * to the active parser, that should be used instead.
+     */
+    @Override
+    public JsonParser getParser() { return _parser; }
 
-         try {
-            while(h != null) {
-               if (((DeserializationProblemHandler)h.value()).handleUnknownProperty(this, deser, instanceOrClass, propName)) {
-                  boolean var7 = true;
-                  return var7;
-               }
+    /*
+    /**********************************************************
+    /* Public API, helper object recycling
+    /**********************************************************
+     */
 
-               h = h.next();
+    @Override
+    public final ObjectBuffer leaseObjectBuffer()
+    {
+        ObjectBuffer buf = _objectBuffer;
+        if (buf == null) {
+            buf = new ObjectBuffer();
+        } else {
+            _objectBuffer = null;
+        }
+        return buf;
+    }
+
+    @Override
+    public final void returnObjectBuffer(ObjectBuffer buf)
+    {
+        /* Already have a reusable buffer? Let's retain bigger one
+         * (or if equal, favor newer one, shorter life-cycle)
+         */
+        if (_objectBuffer == null
+            || buf.initialCapacity() >= _objectBuffer.initialCapacity()) {
+            _objectBuffer = buf;
+        }
+    }
+
+    @Override
+    public final ArrayBuilders getArrayBuilders()
+    {
+        if (_arrayBuilders == null) {
+            _arrayBuilders = new ArrayBuilders();
+        }
+        return _arrayBuilders;
+    }
+
+    /*
+    /**********************************************************
+    /* Parsing methods that may use reusable/recyclable objects
+    /**********************************************************
+     */
+
+    @Override
+    public Date parseDate(String dateStr)
+        throws IllegalArgumentException
+    {
+        try {
+            return getDateFormat().parse(dateStr);
+        } catch (ParseException pex) {
+            throw new IllegalArgumentException(pex.getMessage());
+        }
+    }
+
+    @Override
+    public Calendar constructCalendar(Date d)
+    {
+        /* 08-Jan-2008, tatu: not optimal, but should work for the
+         *   most part; let's revise as needed.
+         */
+        Calendar c = Calendar.getInstance();
+        c.setTime(d);
+        return c;
+    }
+    /*
+    /**********************************************************
+    /* Public API, problem handling, reporting
+    /**********************************************************
+     */
+
+    /**
+     * Method deserializers can call to inform configured {@link DeserializationProblemHandler}s
+     * of an unrecognized property.
+     * 
+     * @since 1.5
+     */
+    @Override
+    public boolean handleUnknownProperty(JsonParser jp, JsonDeserializer<?> deser, Object instanceOrClass, String propName)
+        throws IOException, JsonProcessingException
+    {
+        LinkedNode<DeserializationProblemHandler> h = _config.getProblemHandlers();
+        if (h != null) {
+            /* 04-Jan-2009, tatu: Ugh. Need to mess with currently active parser
+             *   since parser is not explicitly passed to handler... that was a mistake
+             */
+            JsonParser oldParser = _parser;
+            _parser = jp;
+            try {
+                while (h != null) {
+                    // Can bail out if it's handled
+                    if (h.value().handleUnknownProperty(this, deser, instanceOrClass, propName)) {
+                        return true;
+                    }
+                    h = h.next();
+                }
+            } finally {
+                _parser = oldParser;
             }
+        }
+        return false;
+    }
 
-            return false;
-         } finally {
-            this._parser = oldParser;
-         }
-      } else {
-         return false;
-      }
-   }
+    @Override
+    public JsonMappingException mappingException(Class<?> targetClass)
+    {
+        String clsName = _calcName(targetClass);
+        return JsonMappingException.from(_parser, "Can not deserialize instance of "+clsName+" out of "+_parser.getCurrentToken()+" token");
+    }
+    
+    @Override
+    public JsonMappingException instantiationException(Class<?> instClass, Throwable t)
+    {
+        return JsonMappingException.from(_parser,
+                "Can not construct instance of "+instClass.getName()+", problem: "+t.getMessage(),
+                t);
+    }
 
-   public JsonMappingException mappingException(Class<?> targetClass) {
-      String clsName = this._calcName(targetClass);
-      return JsonMappingException.from(this._parser, "Can not deserialize instance of " + clsName + " out of " + this._parser.getCurrentToken() + " token");
-   }
+    @Override
+    public JsonMappingException instantiationException(Class<?> instClass, String msg)
+    {
+        return JsonMappingException.from(_parser, "Can not construct instance of "+instClass.getName()+", problem: "+msg);
+    }
+    
+    /**
+     * Method that will construct an exception suitable for throwing when
+     * some String values are acceptable, but the one encountered is not
+     */
+    @Override
+	public JsonMappingException weirdStringException(Class<?> instClass, String msg)
+    {
+        return JsonMappingException.from(_parser, "Can not construct instance of "+instClass.getName()+" from String value '"+_valueDesc()+"': "+msg);
+    }
 
-   public JsonMappingException instantiationException(Class<?> instClass, Throwable t) {
-      return JsonMappingException.from(this._parser, "Can not construct instance of " + instClass.getName() + ", problem: " + t.getMessage(), t);
-   }
+    @Override
+    public JsonMappingException weirdNumberException(Class<?> instClass, String msg)
+    {
+        return JsonMappingException.from(_parser, "Can not construct instance of "+instClass.getName()+" from number value ("+_valueDesc()+"): "+msg);
+    }
 
-   public JsonMappingException instantiationException(Class<?> instClass, String msg) {
-      return JsonMappingException.from(this._parser, "Can not construct instance of " + instClass.getName() + ", problem: " + msg);
-   }
+    @Override
+    public JsonMappingException weirdKeyException(Class<?> keyClass, String keyValue, String msg)
+    {
+        return JsonMappingException.from(_parser, "Can not construct Map key of type "+keyClass.getName()+" from String \""+_desc(keyValue)+"\": "+msg);
+    }
 
-   public JsonMappingException weirdStringException(Class<?> instClass, String msg) {
-      return JsonMappingException.from(this._parser, "Can not construct instance of " + instClass.getName() + " from String value '" + this._valueDesc() + "': " + msg);
-   }
+    @Override
+    public JsonMappingException wrongTokenException(JsonParser jp, JsonToken expToken, String msg)
+    {
+        return JsonMappingException.from(jp, "Unexpected token ("+jp.getCurrentToken()+"), expected "+expToken+": "+msg);
+    }
+    
+    @Override
+    public JsonMappingException unknownFieldException(Object instanceOrClass, String fieldName)
+    {
+        return UnrecognizedPropertyException.from(_parser, instanceOrClass, fieldName);
+    }
 
-   public JsonMappingException weirdNumberException(Class<?> instClass, String msg) {
-      return JsonMappingException.from(this._parser, "Can not construct instance of " + instClass.getName() + " from number value (" + this._valueDesc() + "): " + msg);
-   }
+    @Override
+    public JsonMappingException unknownTypeException(JavaType type, String id)
+    {
+        return JsonMappingException.from(_parser, "Could not resolve type id '"+id+"' into a subtype of "+type);
+    }
 
-   public JsonMappingException weirdKeyException(Class<?> keyClass, String keyValue, String msg) {
-      return JsonMappingException.from(this._parser, "Can not construct Map key of type " + keyClass.getName() + " from String \"" + this._desc(keyValue) + "\": " + msg);
-   }
+    /*
+    /**********************************************************
+    /* Overridable internal methods
+    /**********************************************************
+     */
 
-   public JsonMappingException wrongTokenException(JsonParser jp, JsonToken expToken, String msg) {
-      return JsonMappingException.from(jp, "Unexpected token (" + jp.getCurrentToken() + "), expected " + expToken + ": " + msg);
-   }
+    protected DateFormat getDateFormat()
+    {
+        if (_dateFormat == null) {
+            // must create a clone since Formats are not thread-safe:
+            _dateFormat = (DateFormat)_config.getDateFormat().clone();
+        }
+        return _dateFormat;
+    }
 
-   public JsonMappingException unknownFieldException(Object instanceOrClass, String fieldName) {
-      return UnrecognizedPropertyException.from(this._parser, instanceOrClass, fieldName);
-   }
+    protected String determineClassName(Object instance)
+    {
+        return ClassUtil.getClassDescription(instance);
+    }
+    
+    /*
+    /**********************************************************
+    /* Other internal methods
+    /**********************************************************
+     */
 
-   public JsonMappingException unknownTypeException(JavaType type, String id) {
-      return JsonMappingException.from(this._parser, "Could not resolve type id '" + id + "' into a subtype of " + type);
-   }
-
-   protected DateFormat getDateFormat() {
-      if (this._dateFormat == null) {
-         this._dateFormat = (DateFormat)this._config.getDateFormat().clone();
-      }
-
-      return this._dateFormat;
-   }
-
-   protected String determineClassName(Object instance) {
-      return ClassUtil.getClassDescription(instance);
-   }
-
-   protected String _calcName(Class<?> cls) {
-      return cls.isArray() ? this._calcName(cls.getComponentType()) + "[]" : cls.getName();
-   }
-
-   protected String _valueDesc() {
-      try {
-         return this._desc(this._parser.getText());
-      } catch (Exception var2) {
-         return "[N/A]";
-      }
-   }
-
-   protected String _desc(String desc) {
-      if (desc.length() > 500) {
-         desc = desc.substring(0, 500) + "]...[" + desc.substring(desc.length() - 500);
-      }
-
-      return desc;
-   }
+    protected String _calcName(Class<?> cls)
+    {
+        if (cls.isArray()) {
+            return _calcName(cls.getComponentType())+"[]";
+        }
+        return cls.getName();
+    }
+    
+    protected String _valueDesc()
+    {
+        try {
+            return _desc(_parser.getText());
+        } catch (Exception e) {
+            return "[N/A]";
+        }
+    }
+    protected String _desc(String desc)
+    {
+        // !!! should we quote it? (in case there are control chars, linefeeds)
+        if (desc.length() > MAX_ERROR_STR_LEN) {
+            desc = desc.substring(0, MAX_ERROR_STR_LEN) + "]...[" + desc.substring(desc.length() - MAX_ERROR_STR_LEN);
+        }
+        return desc;
+    }
 }

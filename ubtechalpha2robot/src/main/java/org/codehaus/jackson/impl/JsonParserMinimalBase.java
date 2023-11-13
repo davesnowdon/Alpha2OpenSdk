@@ -1,267 +1,403 @@
 package org.codehaus.jackson.impl;
 
 import java.io.IOException;
-import org.codehaus.jackson.Base64Variant;
-import org.codehaus.jackson.JsonParseException;
-import org.codehaus.jackson.JsonParser;
-import org.codehaus.jackson.JsonProcessingException;
-import org.codehaus.jackson.JsonStreamContext;
-import org.codehaus.jackson.JsonToken;
+
+import org.codehaus.jackson.*;
+import org.codehaus.jackson.JsonParser.Feature;
 import org.codehaus.jackson.io.NumberInput;
 
-public abstract class JsonParserMinimalBase extends JsonParser {
-   protected static final int INT_TAB = 9;
-   protected static final int INT_LF = 10;
-   protected static final int INT_CR = 13;
-   protected static final int INT_SPACE = 32;
-   protected static final int INT_LBRACKET = 91;
-   protected static final int INT_RBRACKET = 93;
-   protected static final int INT_LCURLY = 123;
-   protected static final int INT_RCURLY = 125;
-   protected static final int INT_QUOTE = 34;
-   protected static final int INT_BACKSLASH = 92;
-   protected static final int INT_SLASH = 47;
-   protected static final int INT_COLON = 58;
-   protected static final int INT_COMMA = 44;
-   protected static final int INT_ASTERISK = 42;
-   protected static final int INT_APOSTROPHE = 39;
-   protected static final int INT_b = 98;
-   protected static final int INT_f = 102;
-   protected static final int INT_n = 110;
-   protected static final int INT_r = 114;
-   protected static final int INT_t = 116;
-   protected static final int INT_u = 117;
+/**
+ * Intermediate base class used by all Jackson {@link JsonParser}
+ * implementations, but does not add any additional fields that depend
+ * on particular method of obtaining input.
+ * 
+ * @since 1.6
+ *
+ * @author Tatu Saloranta
+ */
+public abstract class JsonParserMinimalBase
+    extends JsonParser
+{
+    // Control chars:
+    protected final static int INT_TAB = '\t';
+    protected final static int INT_LF = '\n';
+    protected final static int INT_CR = '\r';
+    protected final static int INT_SPACE = 0x0020;
 
-   protected JsonParserMinimalBase() {
-   }
+    // Markup
+    protected final static int INT_LBRACKET = '[';
+    protected final static int INT_RBRACKET = ']';
+    protected final static int INT_LCURLY = '{';
+    protected final static int INT_RCURLY = '}';
+    protected final static int INT_QUOTE = '"';
+    protected final static int INT_BACKSLASH = '\\';
+    protected final static int INT_SLASH = '/';
+    protected final static int INT_COLON = ':';
+    protected final static int INT_COMMA = ',';
+    protected final static int INT_ASTERISK = '*';
+    protected final static int INT_APOSTROPHE = '\'';
 
-   protected JsonParserMinimalBase(int features) {
-      super(features);
-   }
+    // Letters we need
+    protected final static int INT_b = 'b';
+    protected final static int INT_f = 'f';
+    protected final static int INT_n = 'n';
+    protected final static int INT_r = 'r';
+    protected final static int INT_t = 't';
+    protected final static int INT_u = 'u';
 
-   public abstract JsonToken nextToken() throws IOException, JsonParseException;
+    /*
+    /**********************************************************
+    /* Life-cycle
+    /**********************************************************
+     */
 
-   public JsonParser skipChildren() throws IOException, JsonParseException {
-      if (this._currToken != JsonToken.START_OBJECT && this._currToken != JsonToken.START_ARRAY) {
-         return this;
-      } else {
-         int open = 1;
+    protected JsonParserMinimalBase() { }
+    protected JsonParserMinimalBase(int features) {
+        super(features);
+    }
 
-         while(true) {
-            JsonToken t = this.nextToken();
+    /*
+    /**********************************************************
+    /* Configuration overrides if any
+    /**********************************************************
+     */
+
+    // from base class:
+
+    //public void enableFeature(Feature f)
+    //public void disableFeature(Feature f)
+    //public void setFeature(Feature f, boolean state)
+    //public boolean isFeatureEnabled(Feature f)
+
+    /*
+    /**********************************************************
+    /* JsonParser impl
+    /**********************************************************
+     */
+
+    @Override
+    public abstract JsonToken nextToken() throws IOException, JsonParseException;
+
+    //public final JsonToken nextValue()
+
+    @Override
+    public JsonParser skipChildren() throws IOException, JsonParseException
+    {
+        if (_currToken != JsonToken.START_OBJECT
+            && _currToken != JsonToken.START_ARRAY) {
+            return this;
+        }
+        int open = 1;
+
+        /* Since proper matching of start/end markers is handled
+         * by nextToken(), we'll just count nesting levels here
+         */
+        while (true) {
+            JsonToken t = nextToken();
             if (t == null) {
-               this._handleEOF();
-               return this;
+                _handleEOF();
+                /* given constraints, above should never return;
+                 * however, FindBugs doesn't know about it and
+                 * complains... so let's add dummy break here
+                 */
+                return this;
             }
-
-            switch(t) {
+            switch (t) {
             case START_OBJECT:
             case START_ARRAY:
-               ++open;
-               break;
+                ++open;
+                break;
             case END_OBJECT:
             case END_ARRAY:
-               --open;
-               if (open == 0) {
-                  return this;
-               }
+                if (--open == 0) {
+                    return this;
+                }
+                break;
             }
-         }
-      }
-   }
+        }
+    }
 
-   protected abstract void _handleEOF() throws JsonParseException;
+    /**
+     * Method sub-classes need to implement
+     */
+    protected abstract void _handleEOF() throws JsonParseException;
 
-   public abstract String getCurrentName() throws IOException, JsonParseException;
+    //public JsonToken getCurrentToken()
 
-   public abstract void close() throws IOException;
+    //public boolean hasCurrentToken()
 
-   public abstract boolean isClosed();
+    @Override
+    public abstract String getCurrentName() throws IOException, JsonParseException;
+    
+    @Override
+    public abstract void close() throws IOException;
 
-   public abstract JsonStreamContext getParsingContext();
+    @Override
+    public abstract boolean isClosed();
 
-   public abstract String getText() throws IOException, JsonParseException;
+    @Override
+    public abstract JsonStreamContext getParsingContext();
 
-   public abstract char[] getTextCharacters() throws IOException, JsonParseException;
+//    public abstract JsonLocation getTokenLocation();
 
-   public abstract boolean hasTextCharacters();
+//   public abstract JsonLocation getCurrentLocation();
+    
+    /*
+    /**********************************************************
+    /* Public API, access to token information, text
+    /**********************************************************
+     */
 
-   public abstract int getTextLength() throws IOException, JsonParseException;
+    @Override
+    public abstract String getText() throws IOException, JsonParseException;
 
-   public abstract int getTextOffset() throws IOException, JsonParseException;
+    @Override
+    public abstract char[] getTextCharacters() throws IOException, JsonParseException;
 
-   public abstract byte[] getBinaryValue(Base64Variant var1) throws IOException, JsonParseException;
+    @Override
+    public abstract boolean hasTextCharacters();
 
-   public boolean getValueAsBoolean(boolean defaultValue) throws IOException, JsonParseException {
-      if (this._currToken != null) {
-         switch(this._currToken) {
-         case VALUE_NUMBER_INT:
-            return this.getIntValue() != 0;
-         case VALUE_TRUE:
-            return true;
-         case VALUE_FALSE:
-         case VALUE_NULL:
-            return false;
-         case VALUE_EMBEDDED_OBJECT:
-            Object value = this.getEmbeddedObject();
-            if (value instanceof Boolean) {
-               return (Boolean)value;
+    @Override
+    public abstract int getTextLength() throws IOException, JsonParseException;
+
+    @Override
+    public abstract int getTextOffset() throws IOException, JsonParseException;  
+
+    /*
+    /**********************************************************
+    /* Public API, access to token information, binary
+    /**********************************************************
+     */
+
+    @Override
+    public abstract byte[] getBinaryValue(Base64Variant b64variant)
+        throws IOException, JsonParseException;
+
+    /*
+    /**********************************************************
+    /* Public API, access with conversion/coercion
+    /**********************************************************
+     */
+
+    @Override
+    public boolean getValueAsBoolean(boolean defaultValue) throws IOException, JsonParseException
+    {
+        if (_currToken != null) {
+            switch (_currToken) {
+            case VALUE_NUMBER_INT:
+                return getIntValue() != 0;
+            case VALUE_TRUE:
+                return true;
+            case VALUE_FALSE:
+            case VALUE_NULL:
+                return false;
+            case VALUE_EMBEDDED_OBJECT:
+                {
+                    Object value = this.getEmbeddedObject();
+                    if (value instanceof Boolean) {
+                        return ((Boolean) value).booleanValue();
+                    }
+                }
+            case VALUE_STRING:
+                String str = getText().trim();
+                if ("true".equals(str)) {
+                    return true;
+                }
+                break;
             }
-         case VALUE_STRING:
-            String str = this.getText().trim();
-            if ("true".equals(str)) {
-               return true;
+        }
+        return defaultValue;
+    }
+    
+    @Override
+    public int getValueAsInt(int defaultValue) throws IOException, JsonParseException
+    {
+        if (_currToken != null) {
+            switch (_currToken) {
+            case VALUE_NUMBER_INT:
+            case VALUE_NUMBER_FLOAT:
+                return getIntValue();
+            case VALUE_TRUE:
+                return 1;
+            case VALUE_FALSE:
+            case VALUE_NULL:
+                return 0;
+            case VALUE_STRING:
+                return NumberInput.parseAsInt(getText(), defaultValue);
+            case VALUE_EMBEDDED_OBJECT:
+                {
+                    Object value = this.getEmbeddedObject();
+                    if (value instanceof Number) {
+                        return ((Number) value).intValue();
+                    }
+                }
             }
-         }
-      }
-
-      return defaultValue;
-   }
-
-   public int getValueAsInt(int defaultValue) throws IOException, JsonParseException {
-      if (this._currToken != null) {
-         switch(this._currToken) {
-         case VALUE_NUMBER_INT:
-         case VALUE_NUMBER_FLOAT:
-            return this.getIntValue();
-         case VALUE_TRUE:
-            return 1;
-         case VALUE_FALSE:
-         case VALUE_NULL:
-            return 0;
-         case VALUE_EMBEDDED_OBJECT:
-            Object value = this.getEmbeddedObject();
-            if (value instanceof Number) {
-               return ((Number)value).intValue();
+        }
+        return defaultValue;
+    }
+    
+    @Override
+    public long getValueAsLong(long defaultValue) throws IOException, JsonParseException
+    {
+        if (_currToken != null) {
+            switch (_currToken) {
+            case VALUE_NUMBER_INT:
+            case VALUE_NUMBER_FLOAT:
+                return getLongValue();
+            case VALUE_TRUE:
+                return 1;
+            case VALUE_FALSE:
+            case VALUE_NULL:
+                return 0;
+            case VALUE_STRING:
+                return NumberInput.parseAsLong(getText(), defaultValue);
+            case VALUE_EMBEDDED_OBJECT:
+                {
+                    Object value = this.getEmbeddedObject();
+                    if (value instanceof Number) {
+                        return ((Number) value).longValue();
+                    }
+                }
             }
-            break;
-         case VALUE_STRING:
-            return NumberInput.parseAsInt(this.getText(), defaultValue);
-         }
-      }
+        }
+        return defaultValue;
+    }
 
-      return defaultValue;
-   }
-
-   public long getValueAsLong(long defaultValue) throws IOException, JsonParseException {
-      if (this._currToken != null) {
-         switch(this._currToken) {
-         case VALUE_NUMBER_INT:
-         case VALUE_NUMBER_FLOAT:
-            return this.getLongValue();
-         case VALUE_TRUE:
-            return 1L;
-         case VALUE_FALSE:
-         case VALUE_NULL:
-            return 0L;
-         case VALUE_EMBEDDED_OBJECT:
-            Object value = this.getEmbeddedObject();
-            if (value instanceof Number) {
-               return ((Number)value).longValue();
+    @Override
+    public double getValueAsDouble(double defaultValue) throws IOException, JsonParseException
+    {
+        if (_currToken != null) {
+            switch (_currToken) {
+            case VALUE_NUMBER_INT:
+            case VALUE_NUMBER_FLOAT:
+                return getDoubleValue();
+            case VALUE_TRUE:
+                return 1;
+            case VALUE_FALSE:
+            case VALUE_NULL:
+                return 0;
+            case VALUE_STRING:
+                return NumberInput.parseAsDouble(getText(), defaultValue);
+            case VALUE_EMBEDDED_OBJECT:
+                {
+                    Object value = this.getEmbeddedObject();
+                    if (value instanceof Number) {
+                        return ((Number) value).doubleValue();
+                    }
+                }
             }
-            break;
-         case VALUE_STRING:
-            return NumberInput.parseAsLong(this.getText(), defaultValue);
-         }
-      }
+        }
+        return defaultValue;
+    }
 
-      return defaultValue;
-   }
+    /*
+    /**********************************************************
+    /* Error reporting
+    /**********************************************************
+     */
 
-   public double getValueAsDouble(double defaultValue) throws IOException, JsonParseException {
-      if (this._currToken != null) {
-         switch(this._currToken) {
-         case VALUE_NUMBER_INT:
-         case VALUE_NUMBER_FLOAT:
-            return this.getDoubleValue();
-         case VALUE_TRUE:
-            return 1.0D;
-         case VALUE_FALSE:
-         case VALUE_NULL:
-            return 0.0D;
-         case VALUE_EMBEDDED_OBJECT:
-            Object value = this.getEmbeddedObject();
-            if (value instanceof Number) {
-               return ((Number)value).doubleValue();
-            }
-            break;
-         case VALUE_STRING:
-            return NumberInput.parseAsDouble(this.getText(), defaultValue);
-         }
-      }
+    protected void _reportUnexpectedChar(int ch, String comment)
+        throws JsonParseException
+    {
+        String msg = "Unexpected character ("+_getCharDesc(ch)+")";
+        if (comment != null) {
+            msg += ": "+comment;
+        }
+        _reportError(msg);
+    }
 
-      return defaultValue;
-   }
+    protected void _reportInvalidEOF()
+        throws JsonParseException
+    {
+        _reportInvalidEOF(" in "+_currToken);
+    }
 
-   protected void _reportUnexpectedChar(int ch, String comment) throws JsonParseException {
-      String msg = "Unexpected character (" + _getCharDesc(ch) + ")";
-      if (comment != null) {
-         msg = msg + ": " + comment;
-      }
+    protected void _reportInvalidEOF(String msg)
+        throws JsonParseException
+    {
+        _reportError("Unexpected end-of-input"+msg);
+    }
 
-      this._reportError(msg);
-   }
+    protected void _reportInvalidEOFInValue() throws JsonParseException
+    {
+        _reportInvalidEOF(" in a value");
+    }
+    
+    protected void _throwInvalidSpace(int i)
+        throws JsonParseException
+    {
+        char c = (char) i;
+        String msg = "Illegal character ("+_getCharDesc(c)+"): only regular white space (\\r, \\n, \\t) is allowed between tokens";
+        _reportError(msg);
+    }
 
-   protected void _reportInvalidEOF() throws JsonParseException {
-      this._reportInvalidEOF(" in " + this._currToken);
-   }
+    /**
+     * Method called to report a problem with unquoted control character.
+     * Note: starting with version 1.4, it is possible to suppress
+     * exception by enabling {@link Feature#ALLOW_UNQUOTED_CONTROL_CHARS}.
+     */
+    protected void _throwUnquotedSpace(int i, String ctxtDesc)
+        throws JsonParseException
+    {
+        // JACKSON-208; possible to allow unquoted control chars:
+        if (!isEnabled(Feature.ALLOW_UNQUOTED_CONTROL_CHARS) || i >= INT_SPACE) {
+            char c = (char) i;
+            String msg = "Illegal unquoted character ("+_getCharDesc(c)+"): has to be escaped using backslash to be included in "+ctxtDesc;
+            _reportError(msg);
+        }
+    }
 
-   protected void _reportInvalidEOF(String msg) throws JsonParseException {
-      this._reportError("Unexpected end-of-input" + msg);
-   }
+    protected char _handleUnrecognizedCharacterEscape(char ch) throws JsonProcessingException
+    {
+        // as per [JACKSON-300]
+        if (isEnabled(Feature.ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER)) {
+            return ch;
+        }
+        // and [JACKSON-548]
+        if (ch == '\'' && isEnabled(Feature.ALLOW_SINGLE_QUOTES)) {
+            return ch;
+        }
+        _reportError("Unrecognized character escape "+_getCharDesc(ch));
+        return ch;
+    }
+    
+    /*
+    /**********************************************************
+    /* Error reporting, generic
+    /**********************************************************
+     */
 
-   protected void _reportInvalidEOFInValue() throws JsonParseException {
-      this._reportInvalidEOF(" in a value");
-   }
+    protected final static String _getCharDesc(int ch)
+    {
+        char c = (char) ch;
+        if (Character.isISOControl(c)) {
+            return "(CTRL-CHAR, code "+ch+")";
+        }
+        if (ch > 255) {
+            return "'"+c+"' (code "+ch+" / 0x"+Integer.toHexString(ch)+")";
+        }
+        return "'"+c+"' (code "+ch+")";
+    }
 
-   protected void _throwInvalidSpace(int i) throws JsonParseException {
-      char c = (char)i;
-      String msg = "Illegal character (" + _getCharDesc(c) + "): only regular white space (\\r, \\n, \\t) is allowed between tokens";
-      this._reportError(msg);
-   }
+    protected final void _reportError(String msg)
+        throws JsonParseException
+    {
+        throw _constructError(msg);
+    }
 
-   protected void _throwUnquotedSpace(int i, String ctxtDesc) throws JsonParseException {
-      if (!this.isEnabled(JsonParser.Feature.ALLOW_UNQUOTED_CONTROL_CHARS) || i >= 32) {
-         char c = (char)i;
-         String msg = "Illegal unquoted character (" + _getCharDesc(c) + "): has to be escaped using backslash to be included in " + ctxtDesc;
-         this._reportError(msg);
-      }
+    protected final void _wrapError(String msg, Throwable t)
+        throws JsonParseException
+    {
+        throw _constructError(msg, t);
+    }
 
-   }
+    protected final void _throwInternal()
+    {
+        throw new RuntimeException("Internal error: this code path should never get executed");
+    }
 
-   protected char _handleUnrecognizedCharacterEscape(char ch) throws JsonProcessingException {
-      if (this.isEnabled(JsonParser.Feature.ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER)) {
-         return ch;
-      } else if (ch == '\'' && this.isEnabled(JsonParser.Feature.ALLOW_SINGLE_QUOTES)) {
-         return ch;
-      } else {
-         this._reportError("Unrecognized character escape " + _getCharDesc(ch));
-         return ch;
-      }
-   }
-
-   protected static final String _getCharDesc(int ch) {
-      char c = (char)ch;
-      if (Character.isISOControl(c)) {
-         return "(CTRL-CHAR, code " + ch + ")";
-      } else {
-         return ch > 255 ? "'" + c + "' (code " + ch + " / 0x" + Integer.toHexString(ch) + ")" : "'" + c + "' (code " + ch + ")";
-      }
-   }
-
-   protected final void _reportError(String msg) throws JsonParseException {
-      throw this._constructError(msg);
-   }
-
-   protected final void _wrapError(String msg, Throwable t) throws JsonParseException {
-      throw this._constructError(msg, t);
-   }
-
-   protected final void _throwInternal() {
-      throw new RuntimeException("Internal error: this code path should never get executed");
-   }
-
-   protected final JsonParseException _constructError(String msg, Throwable t) {
-      return new JsonParseException(msg, this.getCurrentLocation(), t);
-   }
+    protected final JsonParseException _constructError(String msg, Throwable t)
+    {
+        return new JsonParseException(msg, getCurrentLocation(), t);
+    }
 }

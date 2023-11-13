@@ -3,89 +3,97 @@ package org.codehaus.jackson.node;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.JsonParser;
-import org.codehaus.jackson.JsonProcessingException;
-import org.codehaus.jackson.JsonToken;
+
+import org.codehaus.jackson.*;
 import org.codehaus.jackson.io.NumberOutput;
 import org.codehaus.jackson.map.SerializerProvider;
 
-public final class LongNode extends NumericNode {
-   final long _value;
+/**
+ * Numeric node that contains simple 64-bit integer values.
+ */
+public final class LongNode
+    extends NumericNode
+{
+    final long _value;
 
-   public LongNode(long v) {
-      this._value = v;
-   }
+    /* 
+    ************************************************
+    * Construction
+    ************************************************
+    */
 
-   public static LongNode valueOf(long l) {
-      return new LongNode(l);
-   }
+    public LongNode(long v) { _value = v; }
 
-   public JsonToken asToken() {
-      return JsonToken.VALUE_NUMBER_INT;
-   }
+    public static LongNode valueOf(long l) { return new LongNode(l); }
 
-   public JsonParser.NumberType getNumberType() {
-      return JsonParser.NumberType.LONG;
-   }
+    /* 
+    ************************************************
+    * Overrridden JsonNode methods
+    ************************************************
+    */
 
-   public boolean isIntegralNumber() {
-      return true;
-   }
+    @Override public JsonToken asToken() { return JsonToken.VALUE_NUMBER_INT; }
 
-   public boolean isLong() {
-      return true;
-   }
+    @Override
+    public JsonParser.NumberType getNumberType() { return JsonParser.NumberType.LONG; }
 
-   public Number getNumberValue() {
-      return this._value;
-   }
 
-   public int getIntValue() {
-      return (int)this._value;
-   }
+    @Override
+    public boolean isIntegralNumber() { return true; }
 
-   public long getLongValue() {
-      return this._value;
-   }
+    @Override
+    public boolean isLong() { return true; }
 
-   public double getDoubleValue() {
-      return (double)this._value;
-   }
+    @Override
+    public Number getNumberValue() {
+        return Long.valueOf(_value);
+    }
 
-   public BigDecimal getDecimalValue() {
-      return BigDecimal.valueOf(this._value);
-   }
+    @Override
+    public int getIntValue() { return (int) _value; }
 
-   public BigInteger getBigIntegerValue() {
-      return BigInteger.valueOf(this._value);
-   }
+    @Override
+    public long getLongValue() { return _value; }
 
-   public String getValueAsText() {
-      return NumberOutput.toString(this._value);
-   }
+    @Override
+    public double getDoubleValue() { return (double) _value; }
 
-   public boolean getValueAsBoolean(boolean defaultValue) {
-      return this._value != 0L;
-   }
+    @Override
+    public BigDecimal getDecimalValue() { return BigDecimal.valueOf(_value); }
 
-   public final void serialize(JsonGenerator jg, SerializerProvider provider) throws IOException, JsonProcessingException {
-      jg.writeNumber(this._value);
-   }
+    @Override
+    public BigInteger getBigIntegerValue() { return BigInteger.valueOf(_value); }
 
-   public boolean equals(Object o) {
-      if (o == this) {
-         return true;
-      } else if (o == null) {
-         return false;
-      } else if (o.getClass() != this.getClass()) {
-         return false;
-      } else {
-         return ((LongNode)o)._value == this._value;
-      }
-   }
+    @Override
+    public String getValueAsText() {
+        return NumberOutput.toString(_value);
+    }
 
-   public int hashCode() {
-      return (int)this._value ^ (int)(this._value >> 32);
-   }
+    @Override
+    public boolean getValueAsBoolean(boolean defaultValue) {
+        return _value != 0;
+    }
+    
+    @Override
+    public final void serialize(JsonGenerator jg, SerializerProvider provider)
+        throws IOException, JsonProcessingException
+    {
+        jg.writeNumber(_value);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o == this) return true;
+        if (o == null) return false;
+        if (o.getClass() != getClass()) { // final class, can do this
+            return false;
+        }
+        return ((LongNode) o)._value == _value;
+    }
+
+    @Override
+    public int hashCode() {
+        return ((int) _value) ^ (int) (_value >> 32);
+    }
 }

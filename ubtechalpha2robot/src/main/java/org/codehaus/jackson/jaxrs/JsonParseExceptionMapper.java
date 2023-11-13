@@ -1,17 +1,20 @@
 package org.codehaus.jackson.jaxrs;
 
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
-import javax.ws.rs.ext.ExceptionMapper;
-import javax.ws.rs.ext.Provider;
 import org.codehaus.jackson.JsonParseException;
 
+import javax.ws.rs.core.Response;
+import javax.ws.rs.ext.ExceptionMapper;
+import javax.ws.rs.ext.Provider;
+
+/**
+ * Implementation of {@link ExceptionMapper} to send down a "400 Bad Request"
+ * in the event unparsable JSON is received.
+ */
 @Provider
 public class JsonParseExceptionMapper implements ExceptionMapper<JsonParseException> {
-   public JsonParseExceptionMapper() {
-   }
-
-   public Response toResponse(JsonParseException exception) {
-      return Response.status(Status.BAD_REQUEST).entity(exception.getMessage()).type("text/plain").build();
-   }
+    // uncomment when baseline is 1.6
+    //@Override
+    public Response toResponse(JsonParseException exception) {
+        return Response.status(Response.Status.BAD_REQUEST).entity(exception.getMessage()).type("text/plain").build();
+    }
 }

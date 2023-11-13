@@ -1,172 +1,236 @@
 package org.codehaus.jackson.map.type;
 
-import java.util.Collection;
-import java.util.Map;
+/*
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
+*/
+
+import java.util.*;
+
 import org.codehaus.jackson.type.JavaType;
 
-public final class SimpleType extends TypeBase {
-   protected final JavaType[] _typeParameters;
-   protected final String[] _typeNames;
+/**
+ * Simple types are defined as anything other than one of recognized
+ * container types (arrays, Collections, Maps). For our needs we
+ * need not know anything further, since we have no way of dealing
+ * with generic types other than Collections and Maps.
+ */
+public final class SimpleType
+    extends TypeBase
+{
+    /**
+     * Generic type arguments for this type.
+     */
+    protected final JavaType[] _typeParameters;
 
-   protected SimpleType(Class<?> cls) {
-      this(cls, (String[])null, (JavaType[])null);
-   }
+    /**
+     * Names of generic type arguments for this type; will
+     * match values in {@link #_typeParameters}
+     */
+    protected final String[] _typeNames;
+    
+    /*
+    /**********************************************************
+    /* Life-cycle
+    /**********************************************************
+     */
 
-   protected SimpleType(Class<?> cls, String[] typeNames, JavaType[] typeParams) {
-      super(cls, 0);
-      if (typeNames != null && typeNames.length != 0) {
-         this._typeNames = typeNames;
-         this._typeParameters = typeParams;
-      } else {
-         this._typeNames = null;
-         this._typeParameters = null;
-      }
+    protected SimpleType(Class<?> cls) {
+        this(cls, null, null);
+    }
 
-   }
+    protected SimpleType(Class<?> cls, String[] typeNames, JavaType[] typeParams)
+    {
+        super(cls, 0);
+        if (typeNames == null || typeNames.length == 0) {
+            _typeNames = null;
+            _typeParameters = null;
+        } else {
+            _typeNames = typeNames;
+            _typeParameters = typeParams;
+        }
+    }
 
-   public static SimpleType constructUnsafe(Class<?> raw) {
-      return new SimpleType(raw, (String[])null, (JavaType[])null);
-   }
+    /**
+     * Method used by core Jackson classes: NOT to be used by application code.
+     *<p>
+     * NOTE: public only because it is called by <code>ObjectMapper</code> which is
+     * not in same package
+     */
+    public static SimpleType constructUnsafe(Class<?> raw) {
+        return new SimpleType(raw, null, null);
+    }
+    
+    @Override
+    protected JavaType _narrow(Class<?> subclass)
+    {
+        // Should we check that there is a sub-class relationship?
+        return new SimpleType(subclass, _typeNames, _typeParameters);
+    }
 
-   protected JavaType _narrow(Class<?> subclass) {
-      return new SimpleType(subclass, this._typeNames, this._typeParameters);
-   }
+    @Override
+    public JavaType narrowContentsBy(Class<?> subclass)
+    {
+        // should never get called
+        throw new IllegalArgumentException("Internal error: SimpleType.narrowContentsBy() should never be called");
+    }
 
-   public JavaType narrowContentsBy(Class<?> subclass) {
-      throw new IllegalArgumentException("Internal error: SimpleType.narrowContentsBy() should never be called");
-   }
+    @Override
+    public JavaType widenContentsBy(Class<?> subclass)
+    {
+        // should never get called
+        throw new IllegalArgumentException("Internal error: SimpleType.widenContentsBy() should never be called");
+    }
+    
+    public static SimpleType construct(Class<?> cls)
+    {
+        /* Let's add sanity checks, just to ensure no
+         * Map/Collection entries are constructed
+         */
+        if (Map.class.isAssignableFrom(cls)) {
+            throw new IllegalArgumentException("Can not construct SimpleType for a Map (class: "+cls.getName()+")");
+        }
+        if (Collection.class.isAssignableFrom(cls)) {
+            throw new IllegalArgumentException("Can not construct SimpleType for a Collection (class: "+cls.getName()+")");
+        }
+        // ... and while we are at it, not array types either
+        if (cls.isArray()) {
+            throw new IllegalArgumentException("Can not construct SimpleType for an array (class: "+cls.getName()+")");
+        }
+        return new SimpleType(cls);
+    }
 
-   public JavaType widenContentsBy(Class<?> subclass) {
-      throw new IllegalArgumentException("Internal error: SimpleType.widenContentsBy() should never be called");
-   }
+    // Since 1.7:
+    @Override
+    public SimpleType withTypeHandler(Object h)
+    {
+        SimpleType newInstance = new SimpleType(_class, _typeNames, _typeParameters);
+        newInstance._typeHandler = h;
+        return newInstance;
+    }
 
-   public static SimpleType construct(Class<?> cls) {
-      if (Map.class.isAssignableFrom(cls)) {
-         throw new IllegalArgumentException("Can not construct SimpleType for a Map (class: " + cls.getName() + ")");
-      } else if (Collection.class.isAssignableFrom(cls)) {
-         throw new IllegalArgumentException("Can not construct SimpleType for a Collection (class: " + cls.getName() + ")");
-      } else if (cls.isArray()) {
-         throw new IllegalArgumentException("Can not construct SimpleType for an array (class: " + cls.getName() + ")");
-      } else {
-         return new SimpleType(cls);
-      }
-   }
-
-   public SimpleType withTypeHandler(Object h) {
-      SimpleType newInstance = new SimpleType(this._class, this._typeNames, this._typeParameters);
-      newInstance._typeHandler = h;
-      return newInstance;
-   }
-
-   public JavaType withContentTypeHandler(Object h) {
-      throw new IllegalArgumentException("Simple types have no content types; can not call withContenTypeHandler()");
-   }
-
-   protected String buildCanonicalName() {
-      StringBuilder sb = new StringBuilder();
-      sb.append(this._class.getName());
-      if (this._typeParameters != null && this._typeParameters.length > 0) {
-         sb.append('<');
-         boolean first = true;
-         JavaType[] arr$ = this._typeParameters;
-         int len$ = arr$.length;
-
-         for(int i$ = 0; i$ < len$; ++i$) {
-            JavaType t = arr$[i$];
-            if (first) {
-               first = false;
-            } else {
-               sb.append(',');
+    // Since 1.7:
+    @Override
+    public JavaType withContentTypeHandler(Object h)
+    {
+        // no content type, so:
+        throw new IllegalArgumentException("Simple types have no content types; can not call withContenTypeHandler()");
+    }
+    
+    @Override
+    protected String buildCanonicalName()
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.append(_class.getName());
+        if (_typeParameters != null && _typeParameters.length > 0) {
+            sb.append('<');
+            boolean first = true;
+            for (JavaType t : _typeParameters) {
+                if (first) {
+                    first = false;
+                } else {
+                    sb.append(',');
+                }
+                sb.append(t.toCanonical());
             }
+            sb.append('>');
+        }
+        return sb.toString();
+    }
+    
+    /*
+    /**********************************************************
+    /* Public API
+    /**********************************************************
+     */
 
-            sb.append(t.toCanonical());
-         }
+    @Override
+    public boolean isContainerType() { return false; }
+    
+    @Override
+    public int containedTypeCount() {
+        return (_typeParameters == null) ? 0 : _typeParameters.length;
+    }
 
-         sb.append('>');
-      }
+    @Override
+    public JavaType containedType(int index)
+    {
+        if (index < 0 || _typeParameters == null || index >= _typeParameters.length) {
+            return null;
+        }
+        return _typeParameters[index];
+    }
 
-      return sb.toString();
-   }
-
-   public boolean isContainerType() {
-      return false;
-   }
-
-   public int containedTypeCount() {
-      return this._typeParameters == null ? 0 : this._typeParameters.length;
-   }
-
-   public JavaType containedType(int index) {
-      return index >= 0 && this._typeParameters != null && index < this._typeParameters.length ? this._typeParameters[index] : null;
-   }
-
-   public String containedTypeName(int index) {
-      return index >= 0 && this._typeNames != null && index < this._typeNames.length ? this._typeNames[index] : null;
-   }
-
-   public StringBuilder getErasedSignature(StringBuilder sb) {
-      return _classSignature(this._class, sb, true);
-   }
-
-   public StringBuilder getGenericSignature(StringBuilder sb) {
-      _classSignature(this._class, sb, false);
-      if (this._typeParameters != null) {
-         sb.append('<');
-         JavaType[] arr$ = this._typeParameters;
-         int len$ = arr$.length;
-
-         for(int i$ = 0; i$ < len$; ++i$) {
-            JavaType param = arr$[i$];
-            sb = param.getGenericSignature(sb);
-         }
-
-         sb.append('>');
-      }
-
-      sb.append(';');
-      return sb;
-   }
-
-   public String toString() {
-      StringBuilder sb = new StringBuilder(40);
-      sb.append("[simple type, class ").append(this.buildCanonicalName()).append(']');
-      return sb.toString();
-   }
-
-   public boolean equals(Object o) {
-      if (o == this) {
-         return true;
-      } else if (o == null) {
-         return false;
-      } else if (o.getClass() != this.getClass()) {
-         return false;
-      } else {
-         SimpleType other = (SimpleType)o;
-         if (other._class != this._class) {
-            return false;
-         } else {
-            JavaType[] p1 = this._typeParameters;
-            JavaType[] p2 = other._typeParameters;
-            if (p1 != null) {
-               if (p2 == null) {
-                  return false;
-               } else if (p1.length != p2.length) {
-                  return false;
-               } else {
-                  int i = 0;
-
-                  for(int len = p1.length; i < len; ++i) {
-                     if (!p1[i].equals(p2[i])) {
-                        return false;
-                     }
-                  }
-
-                  return true;
-               }
-            } else {
-               return p2 == null || p2.length == 0;
+    @Override
+    public String containedTypeName(int index)
+    {
+        if (index < 0 || _typeNames == null || index >= _typeNames.length) {
+            return null;
+        }
+        return _typeNames[index];
+    }
+    
+    @Override
+    public StringBuilder getErasedSignature(StringBuilder sb) {
+        return _classSignature(_class, sb, true);
+    }
+    
+    @Override
+    public StringBuilder getGenericSignature(StringBuilder sb)
+    {
+        _classSignature(_class, sb, false);
+        if (_typeParameters != null) {
+            sb.append('<');
+            for (JavaType param : _typeParameters) {
+                sb = param.getGenericSignature(sb);
             }
-         }
-      }
-   }
+            sb.append('>');
+        }
+        sb.append(';');
+        return sb;
+    }
+    
+    /*
+    /**********************************************************
+    /* Standard methods
+    /**********************************************************
+     */
+
+    @Override
+    public String toString()
+    {
+        StringBuilder sb = new StringBuilder(40);
+        sb.append("[simple type, class ").append(buildCanonicalName()).append(']');
+        return sb.toString();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o == this) return true;
+        if (o == null) return false;
+        if (o.getClass() != getClass()) return false;
+
+        SimpleType other = (SimpleType) o;
+
+        // Classes must be identical... 
+        if (other._class != this._class) return false;
+
+        // And finally, generic bindings, if any
+        JavaType[] p1 = _typeParameters;
+        JavaType[] p2 = other._typeParameters;
+        if (p1 == null) {
+            return (p2 == null) || p2.length == 0;
+        }
+        if (p2 == null) return false;
+
+        if (p1.length != p2.length) return false;
+        for (int i = 0, len = p1.length; i < len; ++i) {
+            if (!p1[i].equals(p2[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
 }

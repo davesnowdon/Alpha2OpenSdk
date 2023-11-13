@@ -3,898 +3,1279 @@ package org.codehaus.jackson.map.deser;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.util.Calendar;
-import java.util.Date;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+
 import org.codehaus.jackson.Base64Variants;
-import org.codehaus.jackson.JsonParser;
 import org.codehaus.jackson.JsonProcessingException;
+import org.codehaus.jackson.JsonParser;
 import org.codehaus.jackson.JsonToken;
 import org.codehaus.jackson.io.NumberInput;
-import org.codehaus.jackson.map.BeanProperty;
-import org.codehaus.jackson.map.DeserializationConfig;
-import org.codehaus.jackson.map.DeserializationContext;
-import org.codehaus.jackson.map.DeserializerProvider;
-import org.codehaus.jackson.map.JsonDeserializer;
-import org.codehaus.jackson.map.JsonMappingException;
-import org.codehaus.jackson.map.ResolvableDeserializer;
-import org.codehaus.jackson.map.TypeDeserializer;
+import org.codehaus.jackson.map.*;
 import org.codehaus.jackson.map.annotate.JacksonStdImpl;
 import org.codehaus.jackson.type.JavaType;
 import org.codehaus.jackson.util.TokenBuffer;
 
-public abstract class StdDeserializer<T> extends JsonDeserializer<T> {
-   protected final Class<?> _valueClass;
+/**
+ * Base class for common deserializers. Contains shared
+ * base functionality for dealing with primitive values, such
+ * as (re)parsing from String.
+ */
+public abstract class StdDeserializer<T>
+    extends JsonDeserializer<T>
+{
+    /**
+     * Type of values this deserializer handles: sometimes
+     * exact types, other time most specific supertype of
+     * types deserializer handles (which may be as generic
+     * as {@link Object} in some case)
+     */
+    final protected Class<?> _valueClass;
 
-   protected StdDeserializer(Class<?> vc) {
-      this._valueClass = vc;
-   }
+    protected StdDeserializer(Class<?> vc) {
+        _valueClass = vc;
+    }
 
-   protected StdDeserializer(JavaType valueType) {
-      this._valueClass = valueType == null ? null : valueType.getRawClass();
-   }
+    /**
+     * @since 1.7
+     */
+    protected StdDeserializer(JavaType valueType) {
+        _valueClass = (valueType == null) ? null : valueType.getRawClass();
+    }
+    
+    /*
+    /**********************************************************
+    /* Extended API
+    /**********************************************************
+     */
 
-   public Class<?> getValueClass() {
-      return this._valueClass;
-   }
+    public Class<?> getValueClass() { return _valueClass; }
 
-   public JavaType getValueType() {
-      return null;
-   }
+    /**
+     * Exact structured type deserializer handles, if known.
+     *<p>
+     * Default implementation just returns null.
+     */
+    public JavaType getValueType() { return null; }
 
-   protected boolean isDefaultSerializer(JsonDeserializer<?> deserializer) {
-      return deserializer != null && deserializer.getClass().getAnnotation(JacksonStdImpl.class) != null;
-   }
+    /**
+     * Method that can be called to determine if given deserializer is the default
+     * deserializer Jackson uses; as opposed to a custom deserializer installed by
+     * a module or calling application. Determination is done using
+     * {@link JacksonStdImpl} annotation on deserializer class.
+     * 
+     * @since 1.7
+     */
+    protected boolean isDefaultSerializer(JsonDeserializer<?> deserializer)
+    {
+        return (deserializer != null && deserializer.getClass().getAnnotation(JacksonStdImpl.class) != null);
+    }
+    
+    /*
+    /**********************************************************
+    /* Partial JsonDeserializer implementation 
+    /**********************************************************
+     */
+    
+    /**
+     * Base implementation that does not assume specific type
+     * inclusion mechanism. Sub-classes are expected to override
+     * this method if they are to handle type information.
+     */
+    @Override
+    public Object deserializeWithType(JsonParser jp, DeserializationContext ctxt,
+            TypeDeserializer typeDeserializer)
+        throws IOException, JsonProcessingException
+    {
+        return typeDeserializer.deserializeTypedFromAny(jp, ctxt);
+    }
+    
+    /*
+    /**********************************************************
+    /* Helper methods for sub-classes, parsing
+    /**********************************************************
+     */
 
-   public Object deserializeWithType(JsonParser jp, DeserializationContext ctxt, TypeDeserializer typeDeserializer) throws IOException, JsonProcessingException {
-      return typeDeserializer.deserializeTypedFromAny(jp, ctxt);
-   }
-
-   protected final boolean _parseBooleanPrimitive(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-      JsonToken t = jp.getCurrentToken();
-      if (t == JsonToken.VALUE_TRUE) {
-         return true;
-      } else if (t == JsonToken.VALUE_FALSE) {
-         return false;
-      } else if (t == JsonToken.VALUE_NULL) {
-         return false;
-      } else if (t == JsonToken.VALUE_NUMBER_INT) {
-         return jp.getIntValue() != 0;
-      } else if (t == JsonToken.VALUE_STRING) {
-         String text = jp.getText().trim();
-         if ("true".equals(text)) {
+    protected final boolean _parseBooleanPrimitive(JsonParser jp, DeserializationContext ctxt)
+        throws IOException, JsonProcessingException
+    {
+        JsonToken t = jp.getCurrentToken();
+        if (t == JsonToken.VALUE_TRUE) {
             return true;
-         } else if (!"false".equals(text) && text.length() != 0) {
-            throw ctxt.weirdStringException(this._valueClass, "only \"true\" or \"false\" recognized");
-         } else {
-            return Boolean.FALSE;
-         }
-      } else {
-         throw ctxt.mappingException(this._valueClass);
-      }
-   }
+        }
+        if (t == JsonToken.VALUE_FALSE) {
+            return false;
+        }
+        if (t == JsonToken.VALUE_NULL) {
+            return false;
+        }
+        // [JACKSON-78]: should accept ints too, (0 == false, otherwise true)
+        if (t == JsonToken.VALUE_NUMBER_INT) {
+            return (jp.getIntValue() != 0);
+        }
+        // And finally, let's allow Strings to be converted too
+        if (t == JsonToken.VALUE_STRING) {
+            String text = jp.getText().trim();
+            if ("true".equals(text)) {
+                return true;
+            }
+            if ("false".equals(text) || text.length() == 0) {
+                return Boolean.FALSE;
+            }
+            throw ctxt.weirdStringException(_valueClass, "only \"true\" or \"false\" recognized");
+        }
+        // Otherwise, no can do:
+        throw ctxt.mappingException(_valueClass);
+    }
 
-   protected final Boolean _parseBoolean(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-      JsonToken t = jp.getCurrentToken();
-      if (t == JsonToken.VALUE_TRUE) {
-         return Boolean.TRUE;
-      } else if (t == JsonToken.VALUE_FALSE) {
-         return Boolean.FALSE;
-      } else if (t == JsonToken.VALUE_NULL) {
-         return null;
-      } else if (t == JsonToken.VALUE_NUMBER_INT) {
-         return jp.getIntValue() == 0 ? Boolean.FALSE : Boolean.TRUE;
-      } else if (t == JsonToken.VALUE_STRING) {
-         String text = jp.getText().trim();
-         if ("true".equals(text)) {
+    protected final Boolean _parseBoolean(JsonParser jp, DeserializationContext ctxt)
+        throws IOException, JsonProcessingException
+    {
+        JsonToken t = jp.getCurrentToken();
+        if (t == JsonToken.VALUE_TRUE) {
             return Boolean.TRUE;
-         } else if (!"false".equals(text) && text.length() != 0) {
-            throw ctxt.weirdStringException(this._valueClass, "only \"true\" or \"false\" recognized");
-         } else {
+        }
+        if (t == JsonToken.VALUE_FALSE) {
             return Boolean.FALSE;
-         }
-      } else {
-         throw ctxt.mappingException(this._valueClass);
-      }
-   }
-
-   protected final Short _parseShort(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-      JsonToken t = jp.getCurrentToken();
-      if (t == JsonToken.VALUE_NULL) {
-         return null;
-      } else if (t != JsonToken.VALUE_NUMBER_INT && t != JsonToken.VALUE_NUMBER_FLOAT) {
-         int value = this._parseIntPrimitive(jp, ctxt);
-         if (value >= -32768 && value <= 32767) {
-            return (short)value;
-         } else {
-            throw ctxt.weirdStringException(this._valueClass, "overflow, value can not be represented as 16-bit value");
-         }
-      } else {
-         return jp.getShortValue();
-      }
-   }
-
-   protected final short _parseShortPrimitive(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-      int value = this._parseIntPrimitive(jp, ctxt);
-      if (value >= -32768 && value <= 32767) {
-         return (short)value;
-      } else {
-         throw ctxt.weirdStringException(this._valueClass, "overflow, value can not be represented as 16-bit value");
-      }
-   }
-
-   protected final int _parseIntPrimitive(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-      JsonToken t = jp.getCurrentToken();
-      if (t != JsonToken.VALUE_NUMBER_INT && t != JsonToken.VALUE_NUMBER_FLOAT) {
-         if (t == JsonToken.VALUE_STRING) {
+        }
+        if (t == JsonToken.VALUE_NULL) {
+            return null;
+        }
+        // [JACKSON-78]: should accept ints too, (0 == false, otherwise true)
+        if (t == JsonToken.VALUE_NUMBER_INT) {
+            return (jp.getIntValue() == 0) ? Boolean.FALSE : Boolean.TRUE; 
+        }
+        // And finally, let's allow Strings to be converted too
+        if (t == JsonToken.VALUE_STRING) {
             String text = jp.getText().trim();
-
-            try {
-               int len = text.length();
-               if (len > 9) {
-                  long l = Long.parseLong(text);
-                  if (l >= -2147483648L && l <= 2147483647L) {
-                     return (int)l;
-                  } else {
-                     throw ctxt.weirdStringException(this._valueClass, "Overflow: numeric value (" + text + ") out of range of int (" + -2147483648 + " - " + 2147483647 + ")");
-                  }
-               } else {
-                  return len == 0 ? 0 : NumberInput.parseInt(text);
-               }
-            } catch (IllegalArgumentException var8) {
-               throw ctxt.weirdStringException(this._valueClass, "not a valid int value");
+            if ("true".equals(text)) {
+                return Boolean.TRUE;
             }
-         } else if (t == JsonToken.VALUE_NULL) {
+            if ("false".equals(text) || text.length() == 0) {
+                return Boolean.FALSE;
+            }
+            throw ctxt.weirdStringException(_valueClass, "only \"true\" or \"false\" recognized");
+        }
+        // Otherwise, no can do:
+        throw ctxt.mappingException(_valueClass);
+    }
+    
+    protected final Short _parseShort(JsonParser jp, DeserializationContext ctxt)
+        throws IOException, JsonProcessingException
+    {
+        JsonToken t = jp.getCurrentToken();
+        if (t == JsonToken.VALUE_NULL) {
+            return null;
+        }
+        if (t == JsonToken.VALUE_NUMBER_INT || t == JsonToken.VALUE_NUMBER_FLOAT) { // coercing should work too
+            return jp.getShortValue();
+        }
+        int value = _parseIntPrimitive(jp, ctxt);
+        // So far so good: but does it fit?
+        if (value < Short.MIN_VALUE || value > Short.MAX_VALUE) {
+            throw ctxt.weirdStringException(_valueClass, "overflow, value can not be represented as 16-bit value");
+        }
+        return (short) value;
+    }
+
+    protected final short _parseShortPrimitive(JsonParser jp, DeserializationContext ctxt)
+        throws IOException, JsonProcessingException
+    {
+        int value = _parseIntPrimitive(jp, ctxt);
+        // So far so good: but does it fit?
+        if (value < Short.MIN_VALUE || value > Short.MAX_VALUE) {
+            throw ctxt.weirdStringException(_valueClass, "overflow, value can not be represented as 16-bit value");
+        }
+        return (short) value;
+    }
+    
+    protected final int _parseIntPrimitive(JsonParser jp, DeserializationContext ctxt)
+        throws IOException, JsonProcessingException
+    {
+        JsonToken t = jp.getCurrentToken();
+
+        // Int works as is, coercing fine as well
+        if (t == JsonToken.VALUE_NUMBER_INT || t == JsonToken.VALUE_NUMBER_FLOAT) { // coercing should work too
+            return jp.getIntValue();
+        }
+        if (t == JsonToken.VALUE_STRING) { // let's do implicit re-parse
+            /* 31-Dec-2009, tatus: Should improve handling of overflow
+             *   values... but this'll have to do for now
+             */
+            String text = jp.getText().trim();
+            try {
+                int len = text.length();
+                if (len > 9) {
+                    long l = Long.parseLong(text);
+                    if (l < Integer.MIN_VALUE || l > Integer.MAX_VALUE) {
+                        throw ctxt.weirdStringException(_valueClass,
+                            "Overflow: numeric value ("+text+") out of range of int ("+Integer.MIN_VALUE+" - "+Integer.MAX_VALUE+")");
+                    }
+                    return (int) l;
+                }
+                if (len == 0) {
+                    return 0;
+                }
+                return NumberInput.parseInt(text);
+            } catch (IllegalArgumentException iae) {
+                throw ctxt.weirdStringException(_valueClass, "not a valid int value");
+            }
+        }
+        if (t == JsonToken.VALUE_NULL) {
             return 0;
-         } else {
-            throw ctxt.mappingException(this._valueClass);
-         }
-      } else {
-         return jp.getIntValue();
-      }
-   }
+        }
+        // Otherwise, no can do:
+        throw ctxt.mappingException(_valueClass);
+    }
 
-   protected final Integer _parseInteger(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-      JsonToken t = jp.getCurrentToken();
-      if (t != JsonToken.VALUE_NUMBER_INT && t != JsonToken.VALUE_NUMBER_FLOAT) {
-         if (t == JsonToken.VALUE_STRING) {
+    protected final Integer _parseInteger(JsonParser jp, DeserializationContext ctxt)
+        throws IOException, JsonProcessingException
+    {
+        JsonToken t = jp.getCurrentToken();
+        if (t == JsonToken.VALUE_NUMBER_INT || t == JsonToken.VALUE_NUMBER_FLOAT) { // coercing should work too
+            return Integer.valueOf(jp.getIntValue());
+        }
+        if (t == JsonToken.VALUE_STRING) { // let's do implicit re-parse
             String text = jp.getText().trim();
-
             try {
-               int len = text.length();
-               if (len > 9) {
-                  long l = Long.parseLong(text);
-                  if (l >= -2147483648L && l <= 2147483647L) {
-                     return (int)l;
-                  } else {
-                     throw ctxt.weirdStringException(this._valueClass, "Overflow: numeric value (" + text + ") out of range of Integer (" + -2147483648 + " - " + 2147483647 + ")");
-                  }
-               } else {
-                  return len == 0 ? null : NumberInput.parseInt(text);
-               }
-            } catch (IllegalArgumentException var8) {
-               throw ctxt.weirdStringException(this._valueClass, "not a valid Integer value");
+                int len = text.length();
+                if (len > 9) {
+                    long l = Long.parseLong(text);
+                    if (l < Integer.MIN_VALUE || l > Integer.MAX_VALUE) {
+                        throw ctxt.weirdStringException(_valueClass,
+                            "Overflow: numeric value ("+text+") out of range of Integer ("+Integer.MIN_VALUE+" - "+Integer.MAX_VALUE+")");
+                    }
+                    return Integer.valueOf((int) l);
+                }
+                if (len == 0) {
+                    return null;
+                }
+                return Integer.valueOf(NumberInput.parseInt(text));
+            } catch (IllegalArgumentException iae) {
+                throw ctxt.weirdStringException(_valueClass, "not a valid Integer value");
             }
-         } else if (t == JsonToken.VALUE_NULL) {
+        }
+        if (t == JsonToken.VALUE_NULL) {
             return null;
-         } else {
-            throw ctxt.mappingException(this._valueClass);
-         }
-      } else {
-         return jp.getIntValue();
-      }
-   }
+        }
+        // Otherwise, no can do:
+        throw ctxt.mappingException(_valueClass);
+    }
 
-   protected final Long _parseLong(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-      JsonToken t = jp.getCurrentToken();
-      if (t != JsonToken.VALUE_NUMBER_INT && t != JsonToken.VALUE_NUMBER_FLOAT) {
-         if (t == JsonToken.VALUE_STRING) {
+    protected final Long _parseLong(JsonParser jp, DeserializationContext ctxt)
+        throws IOException, JsonProcessingException
+    {
+        JsonToken t = jp.getCurrentToken();
+    
+        // it should be ok to coerce (although may fail, too)
+        if (t == JsonToken.VALUE_NUMBER_INT || t == JsonToken.VALUE_NUMBER_FLOAT) {
+            return jp.getLongValue();
+        }
+        // let's allow Strings to be converted too
+        if (t == JsonToken.VALUE_STRING) {
+            // !!! 05-Jan-2009, tatu: Should we try to limit value space, JDK is too lenient?
             String text = jp.getText().trim();
             if (text.length() == 0) {
-               return null;
-            } else {
-               try {
-                  return NumberInput.parseLong(text);
-               } catch (IllegalArgumentException var6) {
-                  throw ctxt.weirdStringException(this._valueClass, "not a valid Long value");
-               }
+                return null;
             }
-         } else if (t == JsonToken.VALUE_NULL) {
+            try {
+                return Long.valueOf(NumberInput.parseLong(text));
+            } catch (IllegalArgumentException iae) { }
+            throw ctxt.weirdStringException(_valueClass, "not a valid Long value");
+        }
+        if (t == JsonToken.VALUE_NULL) {
             return null;
-         } else {
-            throw ctxt.mappingException(this._valueClass);
-         }
-      } else {
-         return jp.getLongValue();
-      }
-   }
+        }
+        // Otherwise, no can do:
+        throw ctxt.mappingException(_valueClass);
+    }
 
-   protected final long _parseLongPrimitive(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-      JsonToken t = jp.getCurrentToken();
-      if (t != JsonToken.VALUE_NUMBER_INT && t != JsonToken.VALUE_NUMBER_FLOAT) {
-         if (t == JsonToken.VALUE_STRING) {
+    protected final long _parseLongPrimitive(JsonParser jp, DeserializationContext ctxt)
+        throws IOException, JsonProcessingException
+    {
+        JsonToken t = jp.getCurrentToken();
+        if (t == JsonToken.VALUE_NUMBER_INT || t == JsonToken.VALUE_NUMBER_FLOAT) {
+            return jp.getLongValue();
+        }
+        if (t == JsonToken.VALUE_STRING) {
             String text = jp.getText().trim();
             if (text.length() == 0) {
-               return 0L;
-            } else {
-               try {
-                  return NumberInput.parseLong(text);
-               } catch (IllegalArgumentException var6) {
-                  throw ctxt.weirdStringException(this._valueClass, "not a valid long value");
-               }
+                return 0L;
             }
-         } else if (t == JsonToken.VALUE_NULL) {
+            try {
+                return NumberInput.parseLong(text);
+            } catch (IllegalArgumentException iae) { }
+            throw ctxt.weirdStringException(_valueClass, "not a valid long value");
+        }
+        if (t == JsonToken.VALUE_NULL) {
             return 0L;
-         } else {
-            throw ctxt.mappingException(this._valueClass);
-         }
-      } else {
-         return jp.getLongValue();
-      }
-   }
-
-   protected final Float _parseFloat(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-      JsonToken t = jp.getCurrentToken();
-      if (t != JsonToken.VALUE_NUMBER_INT && t != JsonToken.VALUE_NUMBER_FLOAT) {
-         if (t == JsonToken.VALUE_STRING) {
+        }
+        throw ctxt.mappingException(_valueClass);
+    }
+    
+    protected final Float _parseFloat(JsonParser jp, DeserializationContext ctxt)
+        throws IOException, JsonProcessingException
+    {
+        // We accept couple of different types; obvious ones first:
+        JsonToken t = jp.getCurrentToken();
+        
+        if (t == JsonToken.VALUE_NUMBER_INT || t == JsonToken.VALUE_NUMBER_FLOAT) { // coercing should work too
+            return jp.getFloatValue();
+        }
+        // And finally, let's allow Strings to be converted too
+        if (t == JsonToken.VALUE_STRING) {
             String text = jp.getText().trim();
             if (text.length() == 0) {
-               return null;
-            } else {
-               switch(text.charAt(0)) {
-               case '-':
-                  if (!"-Infinity".equals(text) && !"-INF".equals(text)) {
-                     break;
-                  }
-
-                  return -1.0F / 0.0;
-               case 'I':
-                  if ("Infinity".equals(text) || "INF".equals(text)) {
-                     return 1.0F / 0.0;
-                  }
-                  break;
-               case 'N':
-                  if ("NaN".equals(text)) {
-                     return 0.0F / 0.0;
-                  }
-               }
-
-               try {
-                  return Float.parseFloat(text);
-               } catch (IllegalArgumentException var6) {
-                  throw ctxt.weirdStringException(this._valueClass, "not a valid Float value");
-               }
+                return null;
             }
-         } else if (t == JsonToken.VALUE_NULL) {
-            return null;
-         } else {
-            throw ctxt.mappingException(this._valueClass);
-         }
-      } else {
-         return jp.getFloatValue();
-      }
-   }
-
-   protected final float _parseFloatPrimitive(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-      JsonToken t = jp.getCurrentToken();
-      if (t != JsonToken.VALUE_NUMBER_INT && t != JsonToken.VALUE_NUMBER_FLOAT) {
-         if (t == JsonToken.VALUE_STRING) {
-            String text = jp.getText().trim();
-            if (text.length() == 0) {
-               return 0.0F;
-            } else {
-               switch(text.charAt(0)) {
-               case '-':
-                  if (!"-Infinity".equals(text) && !"-INF".equals(text)) {
-                     break;
-                  }
-
-                  return -1.0F / 0.0;
-               case 'I':
-                  if ("Infinity".equals(text) || "INF".equals(text)) {
-                     return 1.0F / 0.0;
-                  }
-                  break;
-               case 'N':
-                  if ("NaN".equals(text)) {
-                     return 0.0F / 0.0;
-                  }
-               }
-
-               try {
-                  return Float.parseFloat(text);
-               } catch (IllegalArgumentException var6) {
-                  throw ctxt.weirdStringException(this._valueClass, "not a valid float value");
-               }
+            switch (text.charAt(0)) {
+            case 'I':
+                if ("Infinity".equals(text) || "INF".equals(text)) {
+                    return Float.POSITIVE_INFINITY;
+                }
+                break;
+            case 'N':
+                if ("NaN".equals(text)) {
+                    return Float.NaN;
+                }
+                break;
+            case '-':
+                if ("-Infinity".equals(text) || "-INF".equals(text)) {
+                    return Float.NEGATIVE_INFINITY;
+                }
+                break;
             }
-         } else if (t == JsonToken.VALUE_NULL) {
-            return 0.0F;
-         } else {
-            throw ctxt.mappingException(this._valueClass);
-         }
-      } else {
-         return jp.getFloatValue();
-      }
-   }
-
-   protected final Double _parseDouble(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-      JsonToken t = jp.getCurrentToken();
-      if (t != JsonToken.VALUE_NUMBER_INT && t != JsonToken.VALUE_NUMBER_FLOAT) {
-         if (t == JsonToken.VALUE_STRING) {
-            String text = jp.getText().trim();
-            if (text.length() == 0) {
-               return null;
-            } else {
-               switch(text.charAt(0)) {
-               case '-':
-                  if (!"-Infinity".equals(text) && !"-INF".equals(text)) {
-                     break;
-                  }
-
-                  return -1.0D / 0.0;
-               case 'I':
-                  if ("Infinity".equals(text) || "INF".equals(text)) {
-                     return 1.0D / 0.0;
-                  }
-                  break;
-               case 'N':
-                  if ("NaN".equals(text)) {
-                     return 0.0D / 0.0;
-                  }
-               }
-
-               try {
-                  return parseDouble(text);
-               } catch (IllegalArgumentException var6) {
-                  throw ctxt.weirdStringException(this._valueClass, "not a valid Double value");
-               }
-            }
-         } else if (t == JsonToken.VALUE_NULL) {
-            return null;
-         } else {
-            throw ctxt.mappingException(this._valueClass);
-         }
-      } else {
-         return jp.getDoubleValue();
-      }
-   }
-
-   protected final double _parseDoublePrimitive(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-      JsonToken t = jp.getCurrentToken();
-      if (t != JsonToken.VALUE_NUMBER_INT && t != JsonToken.VALUE_NUMBER_FLOAT) {
-         if (t == JsonToken.VALUE_STRING) {
-            String text = jp.getText().trim();
-            if (text.length() == 0) {
-               return 0.0D;
-            } else {
-               switch(text.charAt(0)) {
-               case '-':
-                  if (!"-Infinity".equals(text) && !"-INF".equals(text)) {
-                     break;
-                  }
-
-                  return -1.0D / 0.0;
-               case 'I':
-                  if ("Infinity".equals(text) || "INF".equals(text)) {
-                     return 1.0D / 0.0;
-                  }
-                  break;
-               case 'N':
-                  if ("NaN".equals(text)) {
-                     return 0.0D / 0.0;
-                  }
-               }
-
-               try {
-                  return parseDouble(text);
-               } catch (IllegalArgumentException var6) {
-                  throw ctxt.weirdStringException(this._valueClass, "not a valid double value");
-               }
-            }
-         } else if (t == JsonToken.VALUE_NULL) {
-            return 0.0D;
-         } else {
-            throw ctxt.mappingException(this._valueClass);
-         }
-      } else {
-         return jp.getDoubleValue();
-      }
-   }
-
-   protected Date _parseDate(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-      JsonToken t = jp.getCurrentToken();
-
-      try {
-         if (t == JsonToken.VALUE_NUMBER_INT) {
-            return new Date(jp.getLongValue());
-         } else if (t == JsonToken.VALUE_STRING) {
-            String str = jp.getText().trim();
-            return str.length() == 0 ? null : ctxt.parseDate(str);
-         } else {
-            throw ctxt.mappingException(this._valueClass);
-         }
-      } catch (IllegalArgumentException var5) {
-         throw ctxt.weirdStringException(this._valueClass, "not a valid representation (error: " + var5.getMessage() + ")");
-      }
-   }
-
-   protected static final double parseDouble(String numStr) throws NumberFormatException {
-      return "2.2250738585072012e-308".equals(numStr) ? 2.2250738585072014E-308D : Double.parseDouble(numStr);
-   }
-
-   protected JsonDeserializer<Object> findDeserializer(DeserializationConfig config, DeserializerProvider provider, JavaType type, BeanProperty property) throws JsonMappingException {
-      JsonDeserializer<Object> deser = provider.findValueDeserializer(config, type, property);
-      return deser;
-   }
-
-   protected void handleUnknownProperty(JsonParser jp, DeserializationContext ctxt, Object instanceOrClass, String propName) throws IOException, JsonProcessingException {
-      if (instanceOrClass == null) {
-         instanceOrClass = this.getValueClass();
-      }
-
-      if (!ctxt.handleUnknownProperty(jp, this, instanceOrClass, propName)) {
-         this.reportUnknownProperty(ctxt, instanceOrClass, propName);
-         jp.skipChildren();
-      }
-   }
-
-   protected void reportUnknownProperty(DeserializationContext ctxt, Object instanceOrClass, String fieldName) throws IOException, JsonProcessingException {
-      if (ctxt.isEnabled(DeserializationConfig.Feature.FAIL_ON_UNKNOWN_PROPERTIES)) {
-         throw ctxt.unknownFieldException(instanceOrClass, fieldName);
-      }
-   }
-
-   @JacksonStdImpl
-   public static class TokenBufferDeserializer extends StdScalarDeserializer<TokenBuffer> {
-      public TokenBufferDeserializer() {
-         super(TokenBuffer.class);
-      }
-
-      public TokenBuffer deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         TokenBuffer tb = new TokenBuffer(jp.getCodec());
-         tb.copyCurrentStructure(jp);
-         return tb;
-      }
-   }
-
-   public static class StackTraceElementDeserializer extends StdScalarDeserializer<StackTraceElement> {
-      public StackTraceElementDeserializer() {
-         super(StackTraceElement.class);
-      }
-
-      public StackTraceElement deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         JsonToken t = jp.getCurrentToken();
-         if (t == JsonToken.START_OBJECT) {
-            String className = "";
-            String methodName = "";
-            String fileName = "";
-            int lineNumber = -1;
-
-            while((t = jp.nextValue()) != JsonToken.END_OBJECT) {
-               String propName = jp.getCurrentName();
-               if ("className".equals(propName)) {
-                  className = jp.getText();
-               } else if ("fileName".equals(propName)) {
-                  fileName = jp.getText();
-               } else if ("lineNumber".equals(propName)) {
-                  if (!t.isNumeric()) {
-                     throw JsonMappingException.from(jp, "Non-numeric token (" + t + ") for property 'lineNumber'");
-                  }
-
-                  lineNumber = jp.getIntValue();
-               } else if ("methodName".equals(propName)) {
-                  methodName = jp.getText();
-               } else if (!"nativeMethod".equals(propName)) {
-                  this.handleUnknownProperty(jp, ctxt, this._valueClass, propName);
-               }
-            }
-
-            return new StackTraceElement(className, methodName, fileName, lineNumber);
-         } else {
-            throw ctxt.mappingException(this._valueClass);
-         }
-      }
-   }
-
-   public static class SqlDateDeserializer extends StdScalarDeserializer<java.sql.Date> {
-      public SqlDateDeserializer() {
-         super(java.sql.Date.class);
-      }
-
-      public java.sql.Date deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         Date d = this._parseDate(jp, ctxt);
-         return d == null ? null : new java.sql.Date(d.getTime());
-      }
-   }
-
-   @JacksonStdImpl
-   public static class CalendarDeserializer extends StdScalarDeserializer<Calendar> {
-      Class<? extends Calendar> _calendarClass;
-
-      public CalendarDeserializer() {
-         this((Class)null);
-      }
-
-      public CalendarDeserializer(Class<? extends Calendar> cc) {
-         super(Calendar.class);
-         this._calendarClass = cc;
-      }
-
-      public Calendar deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         Date d = this._parseDate(jp, ctxt);
-         if (d == null) {
-            return null;
-         } else if (this._calendarClass == null) {
-            return ctxt.constructCalendar(d);
-         } else {
             try {
-               Calendar c = (Calendar)this._calendarClass.newInstance();
-               c.setTimeInMillis(d.getTime());
-               return c;
-            } catch (Exception var5) {
-               throw ctxt.instantiationException(this._calendarClass, (Throwable)var5);
-            }
-         }
-      }
-   }
-
-   @JacksonStdImpl
-   public static class BigIntegerDeserializer extends StdScalarDeserializer<BigInteger> {
-      public BigIntegerDeserializer() {
-         super(BigInteger.class);
-      }
-
-      public BigInteger deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         JsonToken t = jp.getCurrentToken();
-         if (t == JsonToken.VALUE_NUMBER_INT) {
-            switch(jp.getNumberType()) {
-            case INT:
-            case LONG:
-               return BigInteger.valueOf(jp.getLongValue());
-            }
-         } else {
-            if (t == JsonToken.VALUE_NUMBER_FLOAT) {
-               return jp.getDecimalValue().toBigInteger();
-            }
-
-            if (t != JsonToken.VALUE_STRING) {
-               throw ctxt.mappingException(this._valueClass);
-            }
-         }
-
-         String text = jp.getText().trim();
-         if (text.length() == 0) {
+                return Float.parseFloat(text);
+            } catch (IllegalArgumentException iae) { }
+            throw ctxt.weirdStringException(_valueClass, "not a valid Float value");
+        }
+        if (t == JsonToken.VALUE_NULL) {
             return null;
-         } else {
-            try {
-               return new BigInteger(text);
-            } catch (IllegalArgumentException var6) {
-               throw ctxt.weirdStringException(this._valueClass, "not a valid representation");
+        }
+        // Otherwise, no can do:
+        throw ctxt.mappingException(_valueClass);
+    }
+
+    protected final float _parseFloatPrimitive(JsonParser jp, DeserializationContext ctxt)
+        throws IOException, JsonProcessingException
+    {
+        JsonToken t = jp.getCurrentToken();
+        
+        if (t == JsonToken.VALUE_NUMBER_INT || t == JsonToken.VALUE_NUMBER_FLOAT) { // coercing should work too
+            return jp.getFloatValue();
+        }
+        if (t == JsonToken.VALUE_STRING) {
+            String text = jp.getText().trim();
+            if (text.length() == 0) {
+                return 0.0f;
             }
-         }
-      }
-   }
+            switch (text.charAt(0)) {
+            case 'I':
+                if ("Infinity".equals(text) || "INF".equals(text)) {
+                    return Float.POSITIVE_INFINITY;
+                }
+                break;
+            case 'N':
+                if ("NaN".equals(text)) {
+                    return Float.NaN;
+                }
+                break;
+            case '-':
+                if ("-Infinity".equals(text) || "-INF".equals(text)) {
+                    return Float.NEGATIVE_INFINITY;
+                }
+                break;
+            }
+            try {
+                return Float.parseFloat(text);
+            } catch (IllegalArgumentException iae) { }
+            throw ctxt.weirdStringException(_valueClass, "not a valid float value");
+        }
+        if (t == JsonToken.VALUE_NULL) {
+            return 0.0f;
+        }
+        // Otherwise, no can do:
+        throw ctxt.mappingException(_valueClass);
+    }
 
-   @JacksonStdImpl
-   public static class BigDecimalDeserializer extends StdScalarDeserializer<BigDecimal> {
-      public BigDecimalDeserializer() {
-         super(BigDecimal.class);
-      }
+    protected final Double _parseDouble(JsonParser jp, DeserializationContext ctxt)
+        throws IOException, JsonProcessingException
+    {
+        JsonToken t = jp.getCurrentToken();
+        
+        if (t == JsonToken.VALUE_NUMBER_INT || t == JsonToken.VALUE_NUMBER_FLOAT) { // coercing should work too
+            return jp.getDoubleValue();
+        }
+        if (t == JsonToken.VALUE_STRING) {
+            String text = jp.getText().trim();
+            if (text.length() == 0) {
+                return null;
+            }
+            switch (text.charAt(0)) {
+            case 'I':
+                if ("Infinity".equals(text) || "INF".equals(text)) {
+                    return Double.POSITIVE_INFINITY;
+                }
+                break;
+            case 'N':
+                if ("NaN".equals(text)) {
+                    return Double.NaN;
+                }
+                break;
+            case '-':
+                if ("-Infinity".equals(text) || "-INF".equals(text)) {
+                    return Double.NEGATIVE_INFINITY;
+                }
+                break;
+            }
+            try {
+                return parseDouble(text);
+            } catch (IllegalArgumentException iae) { }
+            throw ctxt.weirdStringException(_valueClass, "not a valid Double value");
+        }
+        if (t == JsonToken.VALUE_NULL) {
+            return null;
+        }
+            // Otherwise, no can do:
+        throw ctxt.mappingException(_valueClass);
+    }
 
-      public BigDecimal deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         JsonToken t = jp.getCurrentToken();
-         if (t != JsonToken.VALUE_NUMBER_INT && t != JsonToken.VALUE_NUMBER_FLOAT) {
+    protected final double _parseDoublePrimitive(JsonParser jp, DeserializationContext ctxt)
+        throws IOException, JsonProcessingException
+    {
+        // We accept couple of different types; obvious ones first:
+        JsonToken t = jp.getCurrentToken();
+        
+        if (t == JsonToken.VALUE_NUMBER_INT || t == JsonToken.VALUE_NUMBER_FLOAT) { // coercing should work too
+            return jp.getDoubleValue();
+        }
+        // And finally, let's allow Strings to be converted too
+        if (t == JsonToken.VALUE_STRING) {
+            String text = jp.getText().trim();
+            if (text.length() == 0) {
+                return 0.0;
+            }
+            switch (text.charAt(0)) {
+            case 'I':
+                if ("Infinity".equals(text) || "INF".equals(text)) {
+                    return Double.POSITIVE_INFINITY;
+                }
+                break;
+            case 'N':
+                if ("NaN".equals(text)) {
+                    return Double.NaN;
+                }
+                break;
+            case '-':
+                if ("-Infinity".equals(text) || "-INF".equals(text)) {
+                    return Double.NEGATIVE_INFINITY;
+                }
+                break;
+            }
+            try {
+                return parseDouble(text);
+            } catch (IllegalArgumentException iae) { }
+            throw ctxt.weirdStringException(_valueClass, "not a valid double value");
+        }
+        if (t == JsonToken.VALUE_NULL) {
+            return 0.0;
+        }
+            // Otherwise, no can do:
+        throw ctxt.mappingException(_valueClass);
+    }
+
+    
+    protected java.util.Date _parseDate(JsonParser jp, DeserializationContext ctxt)
+        throws IOException, JsonProcessingException
+    {
+        JsonToken t = jp.getCurrentToken();
+        try {
+            if (t == JsonToken.VALUE_NUMBER_INT) {
+                return new java.util.Date(jp.getLongValue());
+            }
             if (t == JsonToken.VALUE_STRING) {
-               String text = jp.getText().trim();
-               if (text.length() == 0) {
-                  return null;
-               } else {
-                  try {
-                     return new BigDecimal(text);
-                  } catch (IllegalArgumentException var6) {
-                     throw ctxt.weirdStringException(this._valueClass, "not a valid representation");
-                  }
-               }
-            } else {
-               throw ctxt.mappingException(this._valueClass);
+                /* As per [JACKSON-203], take empty Strings to mean
+                 * null
+                 */
+                String str = jp.getText().trim();
+                if (str.length() == 0) {
+                    return null;
+                }
+                return ctxt.parseDate(str);
             }
-         } else {
-            return jp.getDecimalValue();
-         }
-      }
-   }
+            throw ctxt.mappingException(_valueClass);
+        } catch (IllegalArgumentException iae) {
+            throw ctxt.weirdStringException(_valueClass, "not a valid representation (error: "+iae.getMessage()+")");
+        }
+    }
 
-   public static class AtomicReferenceDeserializer extends StdScalarDeserializer<AtomicReference<?>> implements ResolvableDeserializer {
-      protected final JavaType _referencedType;
-      protected final BeanProperty _property;
-      protected JsonDeserializer<?> _valueDeserializer;
+    /**
+     * Helper method for encapsulating calls to low-level double value parsing; single place
+     * just because we need a work-around that must be applied to all calls.
+     *<p>
+     * Note: copied from <code>org.codehaus.jackson.io.NumberUtil</code> (to avoid dependency to
+     * version 1.8; except for String constants, but that gets compiled in bytecode here)
+     */
+    protected final static double parseDouble(String numStr) throws NumberFormatException
+    {
+        // [JACKSON-486]: avoid some nasty float representations... but should it be MIN_NORMAL or MIN_VALUE?
+        if (NumberInput.NASTY_SMALL_DOUBLE.equals(numStr)) {
+            return Double.MIN_NORMAL;
+        }
+        return Double.parseDouble(numStr);
+    }
+    
+    /*
+    /****************************************************
+    /* Helper methods for sub-classes, resolving dependencies
+    /****************************************************
+    */
 
-      public AtomicReferenceDeserializer(JavaType referencedType, BeanProperty property) {
-         super(AtomicReference.class);
-         this._referencedType = referencedType;
-         this._property = property;
-      }
+    /**
+     * Helper method used to locate deserializers for properties the
+     * type this deserializer handles contains (usually for properties of
+     * bean types)
+     * 
+     * @param config Active deserialization configuration 
+     * @param provider Deserializer provider to use for actually finding deserializer(s)
+     * @param type Type of property to deserialize
+     * @param property Actual property object (field, method, constuctor parameter) used
+     *     for passing deserialized values; provided so deserializer can be contextualized if necessary (since 1.7)
+     */
+    protected JsonDeserializer<Object> findDeserializer(DeserializationConfig config, DeserializerProvider provider,
+                                                        JavaType type, BeanProperty property)
+        throws JsonMappingException
+    {
+        JsonDeserializer<Object> deser = provider.findValueDeserializer(config, type, property);
+        return deser;
+    }
 
-      public AtomicReference<?> deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         return new AtomicReference(this._valueDeserializer.deserialize(jp, ctxt));
-      }
+    /*
+    /**********************************************************
+    /* Helper methods for sub-classes, problem reporting
+    /**********************************************************
+     */
 
-      public void resolve(DeserializationConfig config, DeserializerProvider provider) throws JsonMappingException {
-         this._valueDeserializer = provider.findValueDeserializer(config, this._referencedType, this._property);
-      }
-   }
+    /**
+     * Method called to deal with a property that did not map to a known
+     * Bean property. Method can deal with the problem as it sees fit (ignore,
+     * throw exception); but if it does return, it has to skip the matching
+     * Json content parser has.
+     *<p>
+     * NOTE: method signature was changed in version 1.5; explicit JsonParser
+     * <b>must</b> be passed since it may be something other than what
+     * context has. Prior versions did not include the first parameter.
+     *
+     * @param jp Parser that points to value of the unknown property
+     * @param ctxt Context for deserialization; allows access to the parser,
+     *    error reporting functionality
+     * @param instanceOrClass Instance that is being populated by this
+     *   deserializer, or if not known, Class that would be instantiated.
+     *   If null, will assume type is what {@link #getValueClass} returns.
+     * @param propName Name of the property that can not be mapped
+     */
+    protected void handleUnknownProperty(JsonParser jp, DeserializationContext ctxt, Object instanceOrClass, String propName)
+        throws IOException, JsonProcessingException
+    {
+        if (instanceOrClass == null) {
+            instanceOrClass = getValueClass();
+        }
+        // Maybe we have configured handler(s) to take care of it?
+        if (ctxt.handleUnknownProperty(jp, this, instanceOrClass, propName)) {
+            return;
+        }
+        // Nope, not handled. Potentially that's a problem...
+        reportUnknownProperty(ctxt, instanceOrClass, propName);
 
-   public static final class AtomicBooleanDeserializer extends StdScalarDeserializer<AtomicBoolean> {
-      public AtomicBooleanDeserializer() {
-         super(AtomicBoolean.class);
-      }
+        /* If we get this far, need to skip now; we point to first token of
+         * value (START_xxx for structured, or the value token for others)
+         */
+        jp.skipChildren();
+    }
+        
+    protected void reportUnknownProperty(DeserializationContext ctxt,
+                                         Object instanceOrClass, String fieldName)
+        throws IOException, JsonProcessingException
+    {
+        // throw exception if that's what we are expected to do
+        if (ctxt.isEnabled(DeserializationConfig.Feature.FAIL_ON_UNKNOWN_PROPERTIES)) {
+            throw ctxt.unknownFieldException(instanceOrClass, fieldName);
+        }
+        // ... or if not, just ignore
+    }
 
-      public AtomicBoolean deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         return new AtomicBoolean(this._parseBooleanPrimitive(jp, ctxt));
-      }
-   }
 
-   @JacksonStdImpl
-   public static final class NumberDeserializer extends StdScalarDeserializer<Number> {
-      public NumberDeserializer() {
-         super(Number.class);
-      }
+    /*
+    /**********************************************************
+    /* Then one intermediate base class for things that have
+    /* both primitive and wrapper types
+    /**********************************************************
+     */
 
-      public Number deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         JsonToken t = jp.getCurrentToken();
-         if (t == JsonToken.VALUE_NUMBER_INT) {
-            return (Number)(ctxt.isEnabled(DeserializationConfig.Feature.USE_BIG_INTEGER_FOR_INTS) ? jp.getBigIntegerValue() : jp.getNumberValue());
-         } else if (t == JsonToken.VALUE_NUMBER_FLOAT) {
-            return (Number)(ctxt.isEnabled(DeserializationConfig.Feature.USE_BIG_DECIMAL_FOR_FLOATS) ? jp.getDecimalValue() : jp.getDoubleValue());
-         } else if (t == JsonToken.VALUE_STRING) {
-            String text = jp.getText().trim();
+    protected abstract static class PrimitiveOrWrapperDeserializer<T>
+        extends StdScalarDeserializer<T>
+    {
+        final T _nullValue;
+        
+        protected PrimitiveOrWrapperDeserializer(Class<T> vc, T nvl)
+        {
+            super(vc);
+            _nullValue = nvl;
+        }
+        
+        @Override
+        public final T getNullValue() {
+            return _nullValue;
+        }
+    }
+    
+    /*
+    /**********************************************************
+    /* First, generic (Object, String, String-like, Class) deserializers
+    /**********************************************************
+     */
 
-            try {
-               if (text.indexOf(46) >= 0) {
-                  return (Number)(ctxt.isEnabled(DeserializationConfig.Feature.USE_BIG_DECIMAL_FOR_FLOATS) ? new BigDecimal(text) : new Double(text));
-               } else if (ctxt.isEnabled(DeserializationConfig.Feature.USE_BIG_INTEGER_FOR_INTS)) {
-                  return new BigInteger(text);
-               } else {
-                  long value = Long.parseLong(text);
-                  return (Number)(value <= 2147483647L && value >= -2147483648L ? (int)value : value);
-               }
-            } catch (IllegalArgumentException var7) {
-               throw ctxt.weirdStringException(this._valueClass, "not a valid number");
+    @JacksonStdImpl
+    public final static class StringDeserializer
+        extends StdScalarDeserializer<String>
+    {
+        public StringDeserializer() { super(String.class); }
+
+        @Override
+        public String deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            JsonToken curr = jp.getCurrentToken();
+            // Usually should just get string value:
+            if (curr == JsonToken.VALUE_STRING) {
+                return jp.getText();
             }
-         } else {
-            throw ctxt.mappingException(this._valueClass);
-         }
-      }
+            // [JACKSON-330]: need to gracefully handle byte[] data, as base64
+            if (curr == JsonToken.VALUE_EMBEDDED_OBJECT) {
+                Object ob = jp.getEmbeddedObject();
+                if (ob == null) {
+                    return null;
+                }
+                if (ob instanceof byte[]) {
+                    return Base64Variants.getDefaultVariant().encode((byte[]) ob, false);
+                }
+                // otherwise, try conversion using toString()...
+                return ob.toString();
+            }
+            // Can deserialize any scalar value, but not markers
+            if (curr.isScalarValue()) {
+                return jp.getText();
+            }
+            throw ctxt.mappingException(_valueClass);
+        }
 
-      public Object deserializeWithType(JsonParser jp, DeserializationContext ctxt, TypeDeserializer typeDeserializer) throws IOException, JsonProcessingException {
-         switch(jp.getCurrentToken()) {
-         case VALUE_NUMBER_INT:
-         case VALUE_NUMBER_FLOAT:
-         case VALUE_STRING:
-            return this.deserialize(jp, ctxt);
-         default:
+        // 1.6: since we can never have type info ("natural type"; String, Boolean, Integer, Double):
+        // (is it an error to even call this version?)
+        @Override
+        public String deserializeWithType(JsonParser jp, DeserializationContext ctxt,
+                TypeDeserializer typeDeserializer)
+            throws IOException, JsonProcessingException
+        {
+            return deserialize(jp, ctxt);
+        }
+    }
+
+    @JacksonStdImpl
+    public final static class ClassDeserializer
+        extends StdScalarDeserializer<Class<?>>
+    {
+        public ClassDeserializer() { super(Class.class); }
+
+        @Override
+            public Class<?> deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            JsonToken curr = jp.getCurrentToken();
+            // Currently will only accept if given simple class name
+            if (curr == JsonToken.VALUE_STRING) {
+                String className = jp.getText();
+                // [JACKSON-597]: support primitive types (and void)
+                if (className.indexOf('.') < 0) {
+                    if ("int".equals(className)) return Integer.TYPE;
+                    if ("long".equals(className)) return Long.TYPE;
+                    if ("float".equals(className)) return Float.TYPE;
+                    if ("double".equals(className)) return Double.TYPE;
+                    if ("boolean".equals(className)) return Boolean.TYPE;
+                    if ("byte".equals(className)) return Byte.TYPE;
+                    if ("char".equals(className)) return Character.TYPE;
+                    if ("short".equals(className)) return Short.TYPE;
+                    if ("void".equals(className)) return Void.TYPE;
+                }
+                try {
+                    return Class.forName(jp.getText());
+                } catch (ClassNotFoundException e) {
+                    throw ctxt.instantiationException(_valueClass, e);
+                }
+            }
+            throw ctxt.mappingException(_valueClass);
+        }
+    }
+
+    /*
+    /**********************************************************
+    /* Then primitive/wrapper types
+    /**********************************************************
+     */
+
+    @JacksonStdImpl
+    public final static class BooleanDeserializer
+        extends PrimitiveOrWrapperDeserializer<Boolean>
+    {
+        public BooleanDeserializer(Class<Boolean> cls, Boolean nvl)
+        {
+            super(cls, nvl);
+        }
+        
+        @Override
+	public Boolean deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            return _parseBoolean(jp, ctxt);
+        }
+
+        // 1.6: since we can never have type info ("natural type"; String, Boolean, Integer, Double):
+        // (is it an error to even call this version?)
+        @Override
+        public Boolean deserializeWithType(JsonParser jp, DeserializationContext ctxt,
+                TypeDeserializer typeDeserializer)
+            throws IOException, JsonProcessingException
+        {
+            return _parseBoolean(jp, ctxt);
+        }
+    }
+
+    @JacksonStdImpl
+    public final static class ByteDeserializer
+        extends PrimitiveOrWrapperDeserializer<Byte>
+    {
+        public ByteDeserializer(Class<Byte> cls, Byte nvl)
+        {
+            super(cls, nvl);
+        }
+
+        @Override
+        public Byte deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            int value = _parseIntPrimitive(jp, ctxt);
+            // So far so good: but does it fit?
+            if (value < Byte.MIN_VALUE || value > Byte.MAX_VALUE) {
+                throw ctxt.weirdStringException(_valueClass, "overflow, value can not be represented as 8-bit value");
+            }
+            return Byte.valueOf((byte) value);
+        }
+    }
+
+    @JacksonStdImpl
+    public final static class ShortDeserializer
+        extends PrimitiveOrWrapperDeserializer<Short>
+    {
+        public ShortDeserializer(Class<Short> cls, Short nvl)
+        {
+            super(cls, nvl);
+        }
+
+        @Override
+        public Short deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            return _parseShort(jp, ctxt);
+        }
+    }
+
+    @JacksonStdImpl
+    public final static class CharacterDeserializer
+        extends PrimitiveOrWrapperDeserializer<Character>
+    {
+        public CharacterDeserializer(Class<Character> cls, Character nvl)
+        {
+            super(cls, nvl);
+        }
+
+        @Override
+        public Character deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            JsonToken t = jp.getCurrentToken();
+            int value;
+
+            if (t == JsonToken.VALUE_NUMBER_INT) { // ok iff ascii value
+                value = jp.getIntValue();
+                if (value >= 0 && value <= 0xFFFF) {
+                    return Character.valueOf((char) value);
+                }
+            } else if (t == JsonToken.VALUE_STRING) { // this is the usual type
+                // But does it have to be exactly one char?
+                String text = jp.getText();
+                if (text.length() == 1) {
+                    return Character.valueOf(text.charAt(0));
+                }
+            }
+            throw ctxt.mappingException(_valueClass);
+        }
+    }
+
+    @JacksonStdImpl
+    public final static class IntegerDeserializer
+        extends PrimitiveOrWrapperDeserializer<Integer>
+    {
+        public IntegerDeserializer(Class<Integer> cls, Integer nvl)
+        {
+            super(cls, nvl);
+        }
+
+        @Override
+        public Integer deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            return _parseInteger(jp, ctxt);
+        }
+
+        // 1.6: since we can never have type info ("natural type"; String, Boolean, Integer, Double):
+        // (is it an error to even call this version?)
+        @Override
+        public Integer deserializeWithType(JsonParser jp, DeserializationContext ctxt,
+                TypeDeserializer typeDeserializer)
+            throws IOException, JsonProcessingException
+        {
+            return _parseInteger(jp, ctxt);
+        }
+    }
+
+    @JacksonStdImpl
+    public final static class LongDeserializer
+        extends PrimitiveOrWrapperDeserializer<Long>
+    {
+        public LongDeserializer(Class<Long> cls, Long nvl)
+        {
+            super(cls, nvl);
+        }
+
+        @Override
+        public Long deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            return _parseLong(jp, ctxt);
+        }
+    }
+
+    @JacksonStdImpl
+    public final static class FloatDeserializer
+        extends PrimitiveOrWrapperDeserializer<Float>
+    {
+        public FloatDeserializer(Class<Float> cls, Float nvl)
+        {
+            super(cls, nvl);
+        }
+
+        @Override
+        public Float deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            /* 22-Jan-2009, tatu: Bounds/range checks would be tricky
+             *   here, so let's not bother even trying...
+             */
+            return _parseFloat(jp, ctxt);
+        }
+    }
+
+    @JacksonStdImpl
+    public final static class DoubleDeserializer
+        extends PrimitiveOrWrapperDeserializer<Double>
+    {
+        public DoubleDeserializer(Class<Double> cls, Double nvl)
+        {
+            super(cls, nvl);
+        }
+
+        @Override
+        public Double deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            return _parseDouble(jp, ctxt);
+        }
+
+        // 1.6: since we can never have type info ("natural type"; String, Boolean, Integer, Double):
+        // (is it an error to even call this version?)
+        @Override
+        public Double deserializeWithType(JsonParser jp, DeserializationContext ctxt,
+                TypeDeserializer typeDeserializer)
+            throws IOException, JsonProcessingException
+        {
+            return _parseDouble(jp, ctxt);
+        }
+    }
+
+    /**
+     * For type <code>Number.class</code>, we can just rely on type
+     * mappings that plain {@link JsonParser#getNumberValue} returns.
+     *<p>
+     * Since 1.5, there is one additional complication: some numeric
+     * types (specifically, int/Integer and double/Double) are "non-typed";
+     * meaning that they will NEVER be output with type information.
+     * But other numeric types may need such type information.
+     * This is why {@link #deserializeWithType} must be overridden.
+     */
+    @JacksonStdImpl
+    public final static class NumberDeserializer
+        extends StdScalarDeserializer<Number>
+    {
+        public NumberDeserializer() { super(Number.class); }
+
+        @Override
+        public Number deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            JsonToken t = jp.getCurrentToken();
+            if (t == JsonToken.VALUE_NUMBER_INT) {
+                if (ctxt.isEnabled(DeserializationConfig.Feature.USE_BIG_INTEGER_FOR_INTS)) {
+                    return jp.getBigIntegerValue();
+                }
+                return jp.getNumberValue();
+            } else if (t == JsonToken.VALUE_NUMBER_FLOAT) {
+                /* [JACKSON-72]: need to allow overriding the behavior
+                 * regarding which type to use
+                 */
+                if (ctxt.isEnabled(DeserializationConfig.Feature.USE_BIG_DECIMAL_FOR_FLOATS)) {
+                    return jp.getDecimalValue();
+                }
+                return Double.valueOf(jp.getDoubleValue());
+            }
+
+            /* Textual values are more difficult... not parsing itself, but figuring
+             * out 'minimal' type to use 
+             */
+            if (t == JsonToken.VALUE_STRING) { // let's do implicit re-parse
+                String text = jp.getText().trim();
+                try {
+                    if (text.indexOf('.') >= 0) { // floating point
+                        // as per [JACKSON-72]:
+                        if (ctxt.isEnabled(DeserializationConfig.Feature.USE_BIG_DECIMAL_FOR_FLOATS)) {
+                            return new BigDecimal(text);
+                        }
+                        return new Double(text);
+                    }
+                    // as per [JACKSON-100]:
+                    if (ctxt.isEnabled(DeserializationConfig.Feature.USE_BIG_INTEGER_FOR_INTS)) {
+                        return new BigInteger(text);
+                    }
+                    long value = Long.parseLong(text);
+                    if (value <= Integer.MAX_VALUE && value >= Integer.MIN_VALUE) {
+                        return Integer.valueOf((int) value);
+                    }
+                    return Long.valueOf(value);
+                } catch (IllegalArgumentException iae) {
+                    throw ctxt.weirdStringException(_valueClass, "not a valid number");
+                }
+            }
+            // Otherwise, no can do:
+            throw ctxt.mappingException(_valueClass);
+        }
+
+        /**
+         * As mentioned in class Javadoc, there is additional complexity in
+         * handling potentially mixed type information here. Because of this,
+         * we must actually check for "raw" integers and doubles first, before
+         * calling type deserializer.
+         */
+        @Override
+        public Object deserializeWithType(JsonParser jp, DeserializationContext ctxt,
+                                          TypeDeserializer typeDeserializer)
+            throws IOException, JsonProcessingException
+        {
+            switch (jp.getCurrentToken()) {
+            case VALUE_NUMBER_INT:
+            case VALUE_NUMBER_FLOAT:
+            case VALUE_STRING:
+                // can not point to type information: hence must be non-typed (int/double)
+                return deserialize(jp, ctxt);
+            }
             return typeDeserializer.deserializeTypedFromScalar(jp, ctxt);
-         }
-      }
-   }
+        }
+    }
 
-   @JacksonStdImpl
-   public static final class DoubleDeserializer extends StdDeserializer.PrimitiveOrWrapperDeserializer<Double> {
-      public DoubleDeserializer(Class<Double> cls, Double nvl) {
-         super(cls, nvl);
-      }
+    /*
+    /**********************************************************
+    /* Atomic types (java.util.concurrent.atomic), [JACKSON-283]
+    /* 
+    /* note: AtomicInteger and AtomicLong work out of the box,
+    /* due to single-arg constructors
+    /**********************************************************
+     */
 
-      public Double deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         return this._parseDouble(jp, ctxt);
-      }
+    public final static class AtomicBooleanDeserializer
+        extends StdScalarDeserializer<AtomicBoolean>
+    {
+        public AtomicBooleanDeserializer() { super(AtomicBoolean.class); }
+        
+        @Override
+        public AtomicBoolean deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            // 16-Dec-2010, tatu: Should we actually convert null to null AtomicBoolean?
+            return new AtomicBoolean(_parseBooleanPrimitive(jp, ctxt));
+        }
+    }
 
-      public Double deserializeWithType(JsonParser jp, DeserializationContext ctxt, TypeDeserializer typeDeserializer) throws IOException, JsonProcessingException {
-         return this._parseDouble(jp, ctxt);
-      }
-   }
+    public static class AtomicReferenceDeserializer
+        extends StdScalarDeserializer<AtomicReference<?>>
+        implements ResolvableDeserializer
+    {
+        /**
+         * Type of value that we reference
+         */
+        protected final JavaType _referencedType;
 
-   @JacksonStdImpl
-   public static final class FloatDeserializer extends StdDeserializer.PrimitiveOrWrapperDeserializer<Float> {
-      public FloatDeserializer(Class<Float> cls, Float nvl) {
-         super(cls, nvl);
-      }
+        protected final BeanProperty _property;
+        
+        protected JsonDeserializer<?> _valueDeserializer;
+        
+        /**
+         * @param referencedType Parameterization of this reference
+         */
+        public AtomicReferenceDeserializer(JavaType referencedType, BeanProperty property)
+        {
+            super(AtomicReference.class);
+            _referencedType = referencedType;
+            _property = property;
+        }
 
-      public Float deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         return this._parseFloat(jp, ctxt);
-      }
-   }
+        @Override
+        public AtomicReference<?> deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            return new AtomicReference<Object>(_valueDeserializer.deserialize(jp, ctxt));
+        }
 
-   @JacksonStdImpl
-   public static final class LongDeserializer extends StdDeserializer.PrimitiveOrWrapperDeserializer<Long> {
-      public LongDeserializer(Class<Long> cls, Long nvl) {
-         super(cls, nvl);
-      }
+        @Override
+        public void resolve(DeserializationConfig config, DeserializerProvider provider)
+            throws JsonMappingException
+        {
+            _valueDeserializer = provider.findValueDeserializer(config, _referencedType, _property);
+        }
+    }
+    
+    /*
+    /**********************************************************
+    /* And then bit more complicated (but non-structured) number
+    /* types
+    /**********************************************************
+     */
 
-      public Long deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         return this._parseLong(jp, ctxt);
-      }
-   }
+    @JacksonStdImpl
+    public static class BigDecimalDeserializer
+        extends StdScalarDeserializer<BigDecimal>
+    {
+        public BigDecimalDeserializer() { super(BigDecimal.class); }
 
-   @JacksonStdImpl
-   public static final class IntegerDeserializer extends StdDeserializer.PrimitiveOrWrapperDeserializer<Integer> {
-      public IntegerDeserializer(Class<Integer> cls, Integer nvl) {
-         super(cls, nvl);
-      }
-
-      public Integer deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         return this._parseInteger(jp, ctxt);
-      }
-
-      public Integer deserializeWithType(JsonParser jp, DeserializationContext ctxt, TypeDeserializer typeDeserializer) throws IOException, JsonProcessingException {
-         return this._parseInteger(jp, ctxt);
-      }
-   }
-
-   @JacksonStdImpl
-   public static final class CharacterDeserializer extends StdDeserializer.PrimitiveOrWrapperDeserializer<Character> {
-      public CharacterDeserializer(Class<Character> cls, Character nvl) {
-         super(cls, nvl);
-      }
-
-      public Character deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         JsonToken t = jp.getCurrentToken();
-         if (t == JsonToken.VALUE_NUMBER_INT) {
-            int value = jp.getIntValue();
-            if (value >= 0 && value <= 65535) {
-               return (char)value;
+        @Override
+	public BigDecimal deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            JsonToken t = jp.getCurrentToken();
+            if (t == JsonToken.VALUE_NUMBER_INT || t == JsonToken.VALUE_NUMBER_FLOAT) {
+                return jp.getDecimalValue();
             }
-         } else if (t == JsonToken.VALUE_STRING) {
-            String text = jp.getText();
-            if (text.length() == 1) {
-               return text.charAt(0);
+            // String is ok too, can easily convert
+            if (t == JsonToken.VALUE_STRING) { // let's do implicit re-parse
+                String text = jp.getText().trim();
+                if (text.length() == 0) {
+                    return null;
+                }
+                try {
+                    return new BigDecimal(text);
+                } catch (IllegalArgumentException iae) {
+                    throw ctxt.weirdStringException(_valueClass, "not a valid representation");
+                }
             }
-         }
+            // Otherwise, no can do:
+            throw ctxt.mappingException(_valueClass);
+        }
+    }
 
-         throw ctxt.mappingException(this._valueClass);
-      }
-   }
+    /**
+     * This is bit trickier to implement efficiently, while avoiding
+     * overflow problems.
+     */
+    @JacksonStdImpl
+    public static class BigIntegerDeserializer
+        extends StdScalarDeserializer<BigInteger>
+    {
+        public BigIntegerDeserializer() { super(BigInteger.class); }
 
-   @JacksonStdImpl
-   public static final class ShortDeserializer extends StdDeserializer.PrimitiveOrWrapperDeserializer<Short> {
-      public ShortDeserializer(Class<Short> cls, Short nvl) {
-         super(cls, nvl);
-      }
+        @Override
+		public BigInteger deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            JsonToken t = jp.getCurrentToken();
+            String text;
 
-      public Short deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         return this._parseShort(jp, ctxt);
-      }
-   }
-
-   @JacksonStdImpl
-   public static final class ByteDeserializer extends StdDeserializer.PrimitiveOrWrapperDeserializer<Byte> {
-      public ByteDeserializer(Class<Byte> cls, Byte nvl) {
-         super(cls, nvl);
-      }
-
-      public Byte deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         int value = this._parseIntPrimitive(jp, ctxt);
-         if (value >= -128 && value <= 127) {
-            return (byte)value;
-         } else {
-            throw ctxt.weirdStringException(this._valueClass, "overflow, value can not be represented as 8-bit value");
-         }
-      }
-   }
-
-   @JacksonStdImpl
-   public static final class BooleanDeserializer extends StdDeserializer.PrimitiveOrWrapperDeserializer<Boolean> {
-      public BooleanDeserializer(Class<Boolean> cls, Boolean nvl) {
-         super(cls, nvl);
-      }
-
-      public Boolean deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         return this._parseBoolean(jp, ctxt);
-      }
-
-      public Boolean deserializeWithType(JsonParser jp, DeserializationContext ctxt, TypeDeserializer typeDeserializer) throws IOException, JsonProcessingException {
-         return this._parseBoolean(jp, ctxt);
-      }
-   }
-
-   @JacksonStdImpl
-   public static final class ClassDeserializer extends StdScalarDeserializer<Class<?>> {
-      public ClassDeserializer() {
-         super(Class.class);
-      }
-
-      public Class<?> deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         JsonToken curr = jp.getCurrentToken();
-         if (curr == JsonToken.VALUE_STRING) {
-            String className = jp.getText();
-            if (className.indexOf(46) < 0) {
-               if ("int".equals(className)) {
-                  return Integer.TYPE;
-               }
-
-               if ("long".equals(className)) {
-                  return Long.TYPE;
-               }
-
-               if ("float".equals(className)) {
-                  return Float.TYPE;
-               }
-
-               if ("double".equals(className)) {
-                  return Double.TYPE;
-               }
-
-               if ("boolean".equals(className)) {
-                  return Boolean.TYPE;
-               }
-
-               if ("byte".equals(className)) {
-                  return Byte.TYPE;
-               }
-
-               if ("char".equals(className)) {
-                  return Character.TYPE;
-               }
-
-               if ("short".equals(className)) {
-                  return Short.TYPE;
-               }
-
-               if ("void".equals(className)) {
-                  return Void.TYPE;
-               }
+            if (t == JsonToken.VALUE_NUMBER_INT) {
+                switch (jp.getNumberType()) {
+                case INT:
+                case LONG:
+                    return BigInteger.valueOf(jp.getLongValue());
+                }
+            } else if (t == JsonToken.VALUE_NUMBER_FLOAT) {
+                /* Whether to fail if there's non-integer part?
+                 * Could do by calling BigDecimal.toBigIntegerExact()
+                 */
+                return jp.getDecimalValue().toBigInteger();
+            } else if (t != JsonToken.VALUE_STRING) { // let's do implicit re-parse
+                // String is ok too, can easily convert; otherwise, no can do:
+                throw ctxt.mappingException(_valueClass);
             }
-
+            text = jp.getText().trim();
+            if (text.length() == 0) {
+                return null;
+            }
             try {
-               return Class.forName(jp.getText());
-            } catch (ClassNotFoundException var6) {
-               throw ctxt.instantiationException(this._valueClass, (Throwable)var6);
+                return new BigInteger(text);
+            } catch (IllegalArgumentException iae) {
+                throw ctxt.weirdStringException(_valueClass, "not a valid representation");
             }
-         } else {
-            throw ctxt.mappingException(this._valueClass);
-         }
-      }
-   }
+        }
+    }
 
-   @JacksonStdImpl
-   public static final class StringDeserializer extends StdScalarDeserializer<String> {
-      public StringDeserializer() {
-         super(String.class);
-      }
+    /*
+    /****************************************************
+    /* Then trickier things: Date/Calendar types
+    /****************************************************
+    */
 
-      public String deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         JsonToken curr = jp.getCurrentToken();
-         if (curr == JsonToken.VALUE_STRING) {
-            return jp.getText();
-         } else if (curr == JsonToken.VALUE_EMBEDDED_OBJECT) {
-            Object ob = jp.getEmbeddedObject();
-            if (ob == null) {
-               return null;
-            } else {
-               return ob instanceof byte[] ? Base64Variants.getDefaultVariant().encode((byte[])((byte[])ob), false) : ob.toString();
+    @JacksonStdImpl
+    public static class CalendarDeserializer
+        extends StdScalarDeserializer<Calendar>
+    {
+        /**
+         * We may know actual expected type; if so, it will be
+         * used for instantiation.
+         */
+        Class<? extends Calendar> _calendarClass;
+        
+        public CalendarDeserializer() { this(null); }
+        public CalendarDeserializer(Class<? extends Calendar> cc) {
+            super(Calendar.class);
+            _calendarClass = cc;
+        }
+
+        @Override
+        public Calendar deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            Date d = _parseDate(jp, ctxt);
+            if (d == null) {
+                return null;
             }
-         } else if (curr.isScalarValue()) {
-            return jp.getText();
-         } else {
-            throw ctxt.mappingException(this._valueClass);
-         }
-      }
+            if (_calendarClass == null) {
+                return ctxt.constructCalendar(d);
+            }
+            try {
+                Calendar c = _calendarClass.newInstance();            
+                c.setTimeInMillis(d.getTime());
+                return c;
+            } catch (Exception e) {
+                throw ctxt.instantiationException(_calendarClass, e);
+            }
+        }
+    }
 
-      public String deserializeWithType(JsonParser jp, DeserializationContext ctxt, TypeDeserializer typeDeserializer) throws IOException, JsonProcessingException {
-         return this.deserialize(jp, ctxt);
-      }
-   }
+    /**
+     * Compared to plain old {@link java.util.Date}, SQL version is easier
+     * to deal with: mostly because it is more limited.
+     */
+    public static class SqlDateDeserializer
+        extends StdScalarDeserializer<java.sql.Date>
+    {
+        public SqlDateDeserializer() { super(java.sql.Date.class); }
 
-   protected abstract static class PrimitiveOrWrapperDeserializer<T> extends StdScalarDeserializer<T> {
-      final T _nullValue;
+        @Override
+        public java.sql.Date deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            Date d = _parseDate(jp, ctxt);
+            return (d == null) ? null : new java.sql.Date(d.getTime());
+        }
+    }
 
-      protected PrimitiveOrWrapperDeserializer(Class<T> vc, T nvl) {
-         super(vc);
-         this._nullValue = nvl;
-      }
+    /*
+    /****************************************************
+    /* And other oddities
+    /****************************************************
+    */
 
-      public final T getNullValue() {
-         return this._nullValue;
-      }
-   }
+    public static class StackTraceElementDeserializer
+        extends StdScalarDeserializer<StackTraceElement>
+    {
+        public StackTraceElementDeserializer() { super(StackTraceElement.class); }
+
+        @Override
+        public StackTraceElement deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            JsonToken t = jp.getCurrentToken();
+            // Must get an Object
+            if (t == JsonToken.START_OBJECT) {
+                String className = "", methodName = "", fileName = "";
+                int lineNumber = -1;
+
+                while ((t = jp.nextValue()) != JsonToken.END_OBJECT) {
+                    String propName = jp.getCurrentName();
+                    if ("className".equals(propName)) {
+                        className = jp.getText();
+                    } else if ("fileName".equals(propName)) {
+                        fileName = jp.getText();
+                    } else if ("lineNumber".equals(propName)) {
+                        if (t.isNumeric()) {
+                            lineNumber = jp.getIntValue();
+                        } else {
+                            throw JsonMappingException.from(jp, "Non-numeric token ("+t+") for property 'lineNumber'");
+                        }
+                    } else if ("methodName".equals(propName)) {
+                        methodName = jp.getText();
+                    } else if ("nativeMethod".equals(propName)) {
+                        // no setter, not passed via constructor: ignore
+                    } else {
+                        handleUnknownProperty(jp, ctxt, _valueClass, propName);
+                    }
+                }
+                return new StackTraceElement(className, methodName, fileName, lineNumber);
+            }
+            throw ctxt.mappingException(_valueClass);
+        }
+    }
+
+    /**
+     * We also want to directly support deserialization of
+     * {@link TokenBuffer}.
+     *<p>
+     * Note that we use scalar deserializer base just because we claim
+     * to be of scalar for type information inclusion purposes; actual
+     * underlying content can be of any (Object, Array, scalar) type.
+     *
+     * @since 1.5
+     */
+    @JacksonStdImpl
+    public static class TokenBufferDeserializer
+        extends StdScalarDeserializer<TokenBuffer>
+    {
+        public TokenBufferDeserializer() { super(TokenBuffer.class); }
+
+        @Override
+        public TokenBuffer deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            TokenBuffer tb = new TokenBuffer(jp.getCodec());
+            // quite simple, given that TokenBuffer is a JsonGenerator:
+            tb.copyCurrentStructure(jp);
+            return tb;
+        }
+    }
 }

@@ -2,8 +2,22 @@ package org.codehaus.jackson.map.util;
 
 import java.lang.annotation.Annotation;
 
-public interface Annotations {
-   <A extends Annotation> A get(Class<A> var1);
+/**
+ * Interface that defines interface for collection of annotations.
+ *<p>
+ * Standard mutable implementation is {@link org.codehaus.jackson.map.introspect.AnnotationMap}
+ * 
+ * @since 1.7
+ */
+public interface Annotations
+{
+    /**
+     * Main access method used to find value for given annotation.
+     */
+    public <A extends Annotation> A get(Class<A> cls);
 
-   int size();
+    /**
+     * Returns number of annotation entries in this collection.
+     */
+    public int size();
 }

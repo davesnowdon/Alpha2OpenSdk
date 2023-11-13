@@ -1,133 +1,223 @@
 package org.codehaus.jackson.map.type;
 
-import java.util.Map;
+import java.util.*;
+
 import org.codehaus.jackson.type.JavaType;
 
-public class MapLikeType extends TypeBase {
-   protected final JavaType _keyType;
-   protected final JavaType _valueType;
+/**
+ * Type that represents Map-like types; things that consist of key/value pairs but that
+ * do not necessarily implement {@link java.util.Map}, but that do not have enough
+ * introspection functionality to allow for some level of generic handling.
+ * This specifically allows framework to check for configuration and annotation
+ * settings used for Map types, and pass these to custom handlers that may be more
+ * familiar with actual type.
+ *
+ * @since 1.8
+ */
+public class MapLikeType extends TypeBase
+{
+    /**
+     * Type of keys of Map.
+     */
+    protected final JavaType _keyType;
 
-   protected MapLikeType(Class<?> mapType, JavaType keyT, JavaType valueT) {
-      super(mapType, keyT.hashCode() ^ valueT.hashCode());
-      this._keyType = keyT;
-      this._valueType = valueT;
-   }
+    /**
+     * Type of values of Map.
+     */
+    protected final JavaType _valueType;
 
-   public static MapLikeType construct(Class<?> rawType, JavaType keyT, JavaType valueT) {
-      return new MapLikeType(rawType, keyT, valueT);
-   }
+    /*
+    /**********************************************************
+    /* Life-cycle
+    /**********************************************************
+     */
 
-   protected JavaType _narrow(Class<?> subclass) {
-      return new MapLikeType(subclass, this._keyType, this._valueType);
-   }
+    protected MapLikeType(Class<?> mapType, JavaType keyT, JavaType valueT)
+    {
+        super(mapType, keyT.hashCode() ^ valueT.hashCode());
+        _keyType = keyT;
+        _valueType = valueT;
+    }
 
-   public JavaType narrowContentsBy(Class<?> contentClass) {
-      return (JavaType)(contentClass == this._valueType.getRawClass() ? this : (new MapLikeType(this._class, this._keyType, this._valueType.narrowBy(contentClass))).copyHandlers(this));
-   }
+    public static MapLikeType construct(Class<?> rawType, JavaType keyT, JavaType valueT)
+    {
+        // nominally component types will be just Object.class
+        return new MapLikeType(rawType, keyT, valueT);
+    }
 
-   public JavaType widenContentsBy(Class<?> contentClass) {
-      return (JavaType)(contentClass == this._valueType.getRawClass() ? this : (new MapLikeType(this._class, this._keyType, this._valueType.widenBy(contentClass))).copyHandlers(this));
-   }
+    @Override
+    protected JavaType _narrow(Class<?> subclass)
+    {
+        return new MapLikeType(subclass, _keyType, _valueType);
+    }
 
-   public JavaType narrowKey(Class<?> keySubclass) {
-      return (JavaType)(keySubclass == this._keyType.getRawClass() ? this : (new MapLikeType(this._class, this._keyType.narrowBy(keySubclass), this._valueType)).copyHandlers(this));
-   }
+    @Override
+    public JavaType narrowContentsBy(Class<?> contentClass)
+    {
+        // Can do a quick check first:
+        if (contentClass == _valueType.getRawClass()) {
+            return this;
+        }
+        return new MapLikeType(_class, _keyType, _valueType.narrowBy(contentClass)).copyHandlers(this);
+    }
 
-   public JavaType widenKey(Class<?> keySubclass) {
-      return (JavaType)(keySubclass == this._keyType.getRawClass() ? this : (new MapLikeType(this._class, this._keyType.widenBy(keySubclass), this._valueType)).copyHandlers(this));
-   }
+    @Override
+    public JavaType widenContentsBy(Class<?> contentClass)
+    {
+        if (contentClass == _valueType.getRawClass()) {
+            return this;
+        }
+        return new MapLikeType(_class, _keyType, _valueType.widenBy(contentClass)).copyHandlers(this);
+    }
+    
+    public JavaType narrowKey(Class<?> keySubclass)
+    {
+        // Can do a quick check first:
+        if (keySubclass == _keyType.getRawClass()) {
+            return this;
+        }
+        return new MapLikeType(_class, _keyType.narrowBy(keySubclass), _valueType).copyHandlers(this);
+    }
 
-   public MapLikeType withTypeHandler(Object h) {
-      MapLikeType newInstance = new MapLikeType(this._class, this._keyType, this._valueType);
-      newInstance._typeHandler = h;
-      return newInstance;
-   }
+    /**
+     * @since 1.8
+     */
+    public JavaType widenKey(Class<?> keySubclass)
+    {
+        // Can do a quick check first:
+        if (keySubclass == _keyType.getRawClass()) {
+            return this;
+        }
+        return new MapLikeType(_class, _keyType.widenBy(keySubclass), _valueType).copyHandlers(this);
+    }
+    
+    // Since 1.7:
+    @Override
+    public MapLikeType withTypeHandler(Object h)
+    {
+        MapLikeType newInstance = new MapLikeType(_class, _keyType, _valueType);
+        newInstance._typeHandler = h;
+        return newInstance;
+    }
 
-   public MapLikeType withContentTypeHandler(Object h) {
-      return new MapLikeType(this._class, this._keyType, this._valueType.withTypeHandler(h));
-   }
+    // Since 1.7:
+    @Override
+    public MapLikeType withContentTypeHandler(Object h)
+    {
+        return new MapLikeType(_class, _keyType, _valueType.withTypeHandler(h));
+    }
+    
+    @Override
+    protected String buildCanonicalName() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(_class.getName());
+        if (_keyType != null) {
+            sb.append('<');
+            sb.append(_keyType.toCanonical());
+            sb.append(',');
+            sb.append(_valueType.toCanonical());
+            sb.append('>');
+        }
+        return sb.toString();
+    }
+ 
+    /*
+    /**********************************************************
+    /* Public API
+    /**********************************************************
+     */
 
-   protected String buildCanonicalName() {
-      StringBuilder sb = new StringBuilder();
-      sb.append(this._class.getName());
-      if (this._keyType != null) {
-         sb.append('<');
-         sb.append(this._keyType.toCanonical());
-         sb.append(',');
-         sb.append(this._valueType.toCanonical());
-         sb.append('>');
-      }
+    @Override
+    public boolean isContainerType() { return true; }
 
-      return sb.toString();
-   }
+    @Override
+    public boolean isMapLikeType() { return true; }
+    
+    @Override
+    public JavaType getKeyType() { return _keyType; }
 
-   public boolean isContainerType() {
-      return true;
-   }
+    @Override
+    public JavaType getContentType() { return _valueType; }
 
-   public boolean isMapLikeType() {
-      return true;
-   }
+    @Override
+    public int containedTypeCount() { return 2; }
+    
+    @Override
+    public JavaType containedType(int index) {
+        if (index == 0) return _keyType;
+        if (index == 1) return _valueType;
+        return null;
+    }
 
-   public JavaType getKeyType() {
-      return this._keyType;
-   }
+    /**
+     * Not sure if we should count on this, but type names
+     * for core interfaces are "K" and "V" respectively.
+     * For now let's assume this should work.
+     */
+    @Override
+    public String containedTypeName(int index) {
+        if (index == 0) return "K";
+        if (index == 1) return "V";
+        return null;
+    }
 
-   public JavaType getContentType() {
-      return this._valueType;
-   }
+    @Override
+    public StringBuilder getErasedSignature(StringBuilder sb) {
+        return _classSignature(_class, sb, true);
+    }
+    
+    @Override
+    public StringBuilder getGenericSignature(StringBuilder sb)
+    {
+        _classSignature(_class, sb, false);
+        sb.append('<');
+        _keyType.getGenericSignature(sb);
+        _valueType.getGenericSignature(sb);
+        sb.append(">;");
+        return sb;
+    }
+ 
+    /*
+    /**********************************************************
+    /* Extended API
+    /**********************************************************
+     */
 
-   public int containedTypeCount() {
-      return 2;
-   }
+    /**
+     * Method that can be used for checking whether this type is a
+     * "real" Collection type; meaning whether it represents a parameterized
+     * subtype of {@link java.util.Collection} or just something that acts
+     * like one.
+     * 
+     * @since 1.8
+     */
+    public boolean isTrueMapType() {
+        return Map.class.isAssignableFrom(_class);
+    }
 
-   public JavaType containedType(int index) {
-      if (index == 0) {
-         return this._keyType;
-      } else {
-         return index == 1 ? this._valueType : null;
-      }
-   }
+    /*
+    /**********************************************************
+    /* Standard methods
+    /**********************************************************
+     */
 
-   public String containedTypeName(int index) {
-      if (index == 0) {
-         return "K";
-      } else {
-         return index == 1 ? "V" : null;
-      }
-   }
+    @Override
+    public String toString()
+    {
+        return "[map-like type; class "+_class.getName()+", "+_keyType+" -> "+_valueType+"]";
+    }
+    
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o == this) return true;
+        if (o == null) return false;
+        if (o.getClass() != getClass()) return false;
 
-   public StringBuilder getErasedSignature(StringBuilder sb) {
-      return _classSignature(this._class, sb, true);
-   }
-
-   public StringBuilder getGenericSignature(StringBuilder sb) {
-      _classSignature(this._class, sb, false);
-      sb.append('<');
-      this._keyType.getGenericSignature(sb);
-      this._valueType.getGenericSignature(sb);
-      sb.append(">;");
-      return sb;
-   }
-
-   public boolean isTrueMapType() {
-      return Map.class.isAssignableFrom(this._class);
-   }
-
-   public String toString() {
-      return "[map-like type; class " + this._class.getName() + ", " + this._keyType + " -> " + this._valueType + "]";
-   }
-
-   public boolean equals(Object o) {
-      if (o == this) {
-         return true;
-      } else if (o == null) {
-         return false;
-      } else if (o.getClass() != this.getClass()) {
-         return false;
-      } else {
-         MapLikeType other = (MapLikeType)o;
-         return this._class == other._class && this._keyType.equals(other._keyType) && this._valueType.equals(other._valueType);
-      }
-   }
+        MapLikeType other = (MapLikeType) o;
+        return (_class == other._class)
+            && _keyType.equals(other._keyType)
+            && _valueType.equals(other._valueType);
+    }
+    
 }

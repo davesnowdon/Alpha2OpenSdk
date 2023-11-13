@@ -4,34 +4,62 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
-import org.codehaus.jackson.map.type.TypeBindings;
+
 import org.codehaus.jackson.type.JavaType;
+import org.codehaus.jackson.map.type.TypeBindings;
 
-public abstract class Annotated {
-   protected Annotated() {
-   }
+/**
+ * Shared base class used for anything on which annotations (included
+ * within a {@link AnnotationMap}).
+ */
+public abstract class Annotated
+{
+    protected Annotated() { }
+    
+    public abstract <A extends Annotation> A getAnnotation(Class<A> acls);
 
-   public abstract <A extends Annotation> A getAnnotation(Class<A> var1);
+    public final <A extends Annotation> boolean hasAnnotation(Class<A> acls)
+    {
+        return getAnnotation(acls) != null;
+    }
 
-   public final <A extends Annotation> boolean hasAnnotation(Class<A> acls) {
-      return this.getAnnotation(acls) != null;
-   }
+    /**
+     * Method that can be used to find actual JDK element that this instance
+     * represents. It is non-null, except for method/constructor parameters
+     * which do not have a JDK counterpart.
+     */
+    public abstract AnnotatedElement getAnnotated();
 
-   public abstract AnnotatedElement getAnnotated();
+    protected abstract int getModifiers();
 
-   protected abstract int getModifiers();
+    public final boolean isPublic() {
+        return Modifier.isPublic(getModifiers());
+    }
 
-   public final boolean isPublic() {
-      return Modifier.isPublic(this.getModifiers());
-   }
+    public abstract String getName();
 
-   public abstract String getName();
+    /**
+     * Full generic type of the annotated element; definition
+     * of what exactly this means depends on sub-class.
+     */
+    public JavaType getType(TypeBindings context) {
+        return context.resolveType(getGenericType());
+    }
 
-   public JavaType getType(TypeBindings context) {
-      return context.resolveType(this.getGenericType());
-   }
+    /**
+     * Full generic type of the annotated element; definition
+     * of what exactly this means depends on sub-class.
+     * 
+     * @since 1.5
+     */
+    public abstract Type getGenericType();
 
-   public abstract Type getGenericType();
-
-   public abstract Class<?> getRawType();
+    /**
+     * "Raw" type (type-erased class) of the annotated element; definition
+     * of what exactly this means depends on sub-class.
+     * 
+     * @since 1.5
+     */
+    public abstract Class<?> getRawType();
 }
+

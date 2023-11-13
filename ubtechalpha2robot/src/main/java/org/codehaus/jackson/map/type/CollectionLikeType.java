@@ -1,108 +1,182 @@
 package org.codehaus.jackson.map.type;
 
 import java.util.Collection;
+
 import org.codehaus.jackson.type.JavaType;
 
-public class CollectionLikeType extends TypeBase {
-   protected final JavaType _elementType;
+/**
+ * Type that represents things that act similar to {@link java.util.Collection};
+ * but may or may not be instances of that interface.
+ * This specifically allows framework to check for configuration and annotation
+ * settings used for Map types, and pass these to custom handlers that may be more
+ * familiar with actual type.
+ *
+ * @since 1.8
+ */
+public class CollectionLikeType extends TypeBase
+{
+    /**
+     * Type of elements in collection
+     */
+    protected final JavaType _elementType;
 
-   protected CollectionLikeType(Class<?> collT, JavaType elemT) {
-      super(collT, elemT.hashCode());
-      this._elementType = elemT;
-   }
+    /*
+    /**********************************************************
+    /* Life-cycle
+    /**********************************************************
+     */
 
-   protected JavaType _narrow(Class<?> subclass) {
-      return new CollectionLikeType(subclass, this._elementType);
-   }
+    protected CollectionLikeType(Class<?> collT, JavaType elemT)
+    {
+        super(collT,  elemT.hashCode());
+        _elementType = elemT;
+    }
 
-   public JavaType narrowContentsBy(Class<?> contentClass) {
-      return (JavaType)(contentClass == this._elementType.getRawClass() ? this : (new CollectionLikeType(this._class, this._elementType.narrowBy(contentClass))).copyHandlers(this));
-   }
+    @Override
+    protected JavaType _narrow(Class<?> subclass) {
+        return new CollectionLikeType(subclass, _elementType);
+    }
 
-   public JavaType widenContentsBy(Class<?> contentClass) {
-      return (JavaType)(contentClass == this._elementType.getRawClass() ? this : (new CollectionLikeType(this._class, this._elementType.widenBy(contentClass))).copyHandlers(this));
-   }
+    @Override
+    public JavaType narrowContentsBy(Class<?> contentClass)
+    {
+        // Can do a quick check first:
+        if (contentClass == _elementType.getRawClass()) {
+            return this;
+        }
+        return new CollectionLikeType(_class, _elementType.narrowBy(contentClass)).copyHandlers(this);
+    }
 
-   public static CollectionLikeType construct(Class<?> rawType, JavaType elemT) {
-      return new CollectionLikeType(rawType, elemT);
-   }
+    @Override
+    public JavaType widenContentsBy(Class<?> contentClass)
+    {
+        // Can do a quick check first:
+        if (contentClass == _elementType.getRawClass()) {
+            return this;
+        }
+        return new CollectionLikeType(_class, _elementType.widenBy(contentClass)).copyHandlers(this);
+    }
+    
+    public static CollectionLikeType construct(Class<?> rawType, JavaType elemT)
+    {
+        // nominally component types will be just Object.class
+        return new CollectionLikeType(rawType, elemT);
+    }
 
-   public CollectionLikeType withTypeHandler(Object h) {
-      CollectionLikeType newInstance = new CollectionLikeType(this._class, this._elementType);
-      newInstance._typeHandler = h;
-      return newInstance;
-   }
+    // Since 1.7:
+    @Override
+    public CollectionLikeType withTypeHandler(Object h)
+    {
+        CollectionLikeType newInstance = new CollectionLikeType(_class, _elementType);
+        newInstance._typeHandler = h;
+        return newInstance;
+    }
 
-   public CollectionLikeType withContentTypeHandler(Object h) {
-      return new CollectionLikeType(this._class, this._elementType.withTypeHandler(h));
-   }
+    // Since 1.7:
+    @Override
+    public CollectionLikeType withContentTypeHandler(Object h)
+    {
+        return new CollectionLikeType(_class, _elementType.withTypeHandler(h));
+    }
+    
+    /*
+    /**********************************************************
+    /* Public API
+    /**********************************************************
+     */
 
-   public boolean isContainerType() {
-      return true;
-   }
+    @Override
+    public boolean isContainerType() { return true; }
 
-   public boolean isCollectionLikeType() {
-      return true;
-   }
+    @Override
+    public boolean isCollectionLikeType() { return true; }
+    
+    @Override
+    public JavaType getContentType() { return _elementType; }
 
-   public JavaType getContentType() {
-      return this._elementType;
-   }
+    @Override
+    public int containedTypeCount() { return 1; }
 
-   public int containedTypeCount() {
-      return 1;
-   }
+    @Override
+    public JavaType containedType(int index) {
+            return (index == 0) ? _elementType : null;
+    }
 
-   public JavaType containedType(int index) {
-      return index == 0 ? this._elementType : null;
-   }
+    /**
+     * Not sure if we should count on this, but type names
+     * for core interfaces use "E" for element type
+     */
+    @Override
+    public String containedTypeName(int index) {
+        if (index == 0) return "E";
+        return null;
+    }
 
-   public String containedTypeName(int index) {
-      return index == 0 ? "E" : null;
-   }
+    @Override
+    public StringBuilder getErasedSignature(StringBuilder sb) {
+        return _classSignature(_class, sb, true);
+    }
+    
+    @Override
+    public StringBuilder getGenericSignature(StringBuilder sb) {
+        _classSignature(_class, sb, false);
+        sb.append('<');
+        _elementType.getGenericSignature(sb);
+        sb.append(">;");
+        return sb;
+    }
+    
+    @Override
+    protected String buildCanonicalName() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(_class.getName());
+        if (_elementType != null) {
+            sb.append('<');
+            sb.append(_elementType.toCanonical());
+            sb.append('>');
+        }
+        return sb.toString();
+    }
 
-   public StringBuilder getErasedSignature(StringBuilder sb) {
-      return _classSignature(this._class, sb, true);
-   }
+    /*
+    /**********************************************************
+    /* Extended API
+    /**********************************************************
+     */
 
-   public StringBuilder getGenericSignature(StringBuilder sb) {
-      _classSignature(this._class, sb, false);
-      sb.append('<');
-      this._elementType.getGenericSignature(sb);
-      sb.append(">;");
-      return sb;
-   }
+    /**
+     * Method that can be used for checking whether this type is a
+     * "real" Collection type; meaning whether it represents a parameterized
+     * subtype of {@link java.util.Collection} or just something that acts
+     * like one.
+     * 
+     * @since 1.8
+     */
+    public boolean isTrueCollectionType() {
+        return Collection.class.isAssignableFrom(_class);
+    }
 
-   protected String buildCanonicalName() {
-      StringBuilder sb = new StringBuilder();
-      sb.append(this._class.getName());
-      if (this._elementType != null) {
-         sb.append('<');
-         sb.append(this._elementType.toCanonical());
-         sb.append('>');
-      }
+    /*
+    /**********************************************************
+    /* Standard methods
+    /**********************************************************
+     */
 
-      return sb.toString();
-   }
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o == this) return true;
+        if (o == null) return false;
+        if (o.getClass() != getClass()) return false;
 
-   public boolean isTrueCollectionType() {
-      return Collection.class.isAssignableFrom(this._class);
-   }
+        CollectionLikeType other = (CollectionLikeType) o;
+        return  (_class == other._class) && _elementType.equals(other._elementType);
+    }
 
-   public boolean equals(Object o) {
-      if (o == this) {
-         return true;
-      } else if (o == null) {
-         return false;
-      } else if (o.getClass() != this.getClass()) {
-         return false;
-      } else {
-         CollectionLikeType other = (CollectionLikeType)o;
-         return this._class == other._class && this._elementType.equals(other._elementType);
-      }
-   }
+    @Override
+    public String toString()
+    {
+        return "[collection-like type; class "+_class.getName()+", contains "+_elementType+"]";
+    }
 
-   public String toString() {
-      return "[collection-like type; class " + this._class.getName() + ", contains " + this._elementType + "]";
-   }
 }

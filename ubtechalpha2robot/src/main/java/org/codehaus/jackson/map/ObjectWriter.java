@@ -1,18 +1,8 @@
 package org.codehaus.jackson.map;
 
-import java.io.Closeable;
-import java.io.File;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.Writer;
-import org.codehaus.jackson.FormatSchema;
-import org.codehaus.jackson.JsonEncoding;
-import org.codehaus.jackson.JsonFactory;
-import org.codehaus.jackson.JsonGenerationException;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.PrettyPrinter;
-import org.codehaus.jackson.Version;
-import org.codehaus.jackson.Versioned;
+import java.io.*;
+
+import org.codehaus.jackson.*;
 import org.codehaus.jackson.io.SegmentedStringWriter;
 import org.codehaus.jackson.map.ser.FilterProvider;
 import org.codehaus.jackson.type.JavaType;
@@ -22,261 +12,514 @@ import org.codehaus.jackson.util.DefaultPrettyPrinter;
 import org.codehaus.jackson.util.MinimalPrettyPrinter;
 import org.codehaus.jackson.util.VersionUtil;
 
-public class ObjectWriter implements Versioned {
-   protected static final PrettyPrinter NULL_PRETTY_PRINTER = new MinimalPrettyPrinter();
-   protected final SerializationConfig _config;
-   protected final SerializerProvider _provider;
-   protected final SerializerFactory _serializerFactory;
-   protected final JsonFactory _jsonFactory;
-   protected final JavaType _rootType;
-   protected final PrettyPrinter _prettyPrinter;
-   protected final FormatSchema _schema;
+/**
+ * Builder object that can be used for per-serialization configuration of
+ * serialization parameters, such as JSON View and root type to use.
+ * (and thus fully thread-safe with no external synchronization);
+ * new instances are constructed for different configurations.
+ * Instances are initially constructed by {@link ObjectMapper} and can be
+ * reused in completely thread-safe manner with no explicit synchronization
+ * 
+ * @author tatu
+ * @since 1.5
+ */
+public class ObjectWriter
+    implements Versioned // since 1.6
+{
+    /**
+     * We need to keep track of explicit disabling of pretty printing;
+     * easiest to do by a token value.
+     */
+    protected final static PrettyPrinter NULL_PRETTY_PRINTER = new MinimalPrettyPrinter();
+    
+    /*
+    /**********************************************************
+    /* Immutable configuration from ObjectMapper
+    /**********************************************************
+     */
 
-   protected ObjectWriter(ObjectMapper mapper, SerializationConfig config, JavaType rootType, PrettyPrinter pp) {
-      this._config = config;
-      this._provider = mapper._serializerProvider;
-      this._serializerFactory = mapper._serializerFactory;
-      this._jsonFactory = mapper._jsonFactory;
-      this._rootType = rootType;
-      this._prettyPrinter = pp;
-      this._schema = null;
-   }
+    /**
+     * General serialization configuration settings
+     */
+    protected final SerializationConfig _config;
+   
+    protected final SerializerProvider _provider;
 
-   protected ObjectWriter(ObjectMapper mapper, SerializationConfig config) {
-      this._config = config;
-      this._provider = mapper._serializerProvider;
-      this._serializerFactory = mapper._serializerFactory;
-      this._jsonFactory = mapper._jsonFactory;
-      this._rootType = null;
-      this._prettyPrinter = null;
-      this._schema = null;
-   }
+    protected final SerializerFactory _serializerFactory;
 
-   protected ObjectWriter(ObjectMapper mapper, SerializationConfig config, FormatSchema s) {
-      this._config = config;
-      this._provider = mapper._serializerProvider;
-      this._serializerFactory = mapper._serializerFactory;
-      this._jsonFactory = mapper._jsonFactory;
-      this._rootType = null;
-      this._prettyPrinter = null;
-      this._schema = s;
-   }
+    /**
+     * Factory used for constructing {@link JsonGenerator}s
+     */
+    protected final JsonFactory _jsonFactory;
+    
+    /*
+    /**********************************************************
+    /* Configuration that can be changed during building
+    /**********************************************************
+     */
 
-   protected ObjectWriter(ObjectWriter base, SerializationConfig config, JavaType rootType, PrettyPrinter pp, FormatSchema s) {
-      this._config = config;
-      this._provider = base._provider;
-      this._serializerFactory = base._serializerFactory;
-      this._jsonFactory = base._jsonFactory;
-      this._rootType = rootType;
-      this._prettyPrinter = pp;
-      this._schema = s;
-   }
+    /**
+     * Specified root serialization type to use; can be same
+     * as runtime type, but usually one of its super types
+     */
+    protected final JavaType _rootType;
 
-   protected ObjectWriter(ObjectWriter base, SerializationConfig config) {
-      this._config = config;
-      this._provider = base._provider;
-      this._serializerFactory = base._serializerFactory;
-      this._jsonFactory = base._jsonFactory;
-      this._schema = base._schema;
-      this._rootType = base._rootType;
-      this._prettyPrinter = base._prettyPrinter;
-   }
+    /**
+     * To allow for dynamic enabling/disabling of pretty printing,
+     * pretty printer can be optionally configured for writer
+     * as well
+     */
+    protected final PrettyPrinter _prettyPrinter;
 
-   public Version version() {
-      return VersionUtil.versionFor(this.getClass());
-   }
+    /**
+     * When using data format that uses a schema, schema is passed
+     * to generator.
+     * 
+     * @since 1.8
+     */
+    protected final FormatSchema _schema;
+    
+    /*
+    /**********************************************************
+    /* Life-cycle, constructors
+    /**********************************************************
+     */
 
-   public ObjectWriter withView(Class<?> view) {
-      return view == this._config.getSerializationView() ? this : new ObjectWriter(this, this._config.withView(view));
-   }
+    /**
+     * Constructor used by {@link ObjectMapper} for initial instantiation
+     */
+    protected ObjectWriter(ObjectMapper mapper, SerializationConfig config,
+            JavaType rootType, PrettyPrinter pp)
+    {
+        _config = config;
 
-   public ObjectWriter withType(JavaType rootType) {
-      return rootType == this._rootType ? this : new ObjectWriter(this, this._config, rootType, this._prettyPrinter, this._schema);
-   }
+        _provider = mapper._serializerProvider;
+        _serializerFactory = mapper._serializerFactory;
+        _jsonFactory = mapper._jsonFactory;
 
-   public ObjectWriter withType(Class<?> rootType) {
-      return this.withType(this._config.constructType(rootType));
-   }
+        _rootType = rootType;
+        _prettyPrinter = pp;
+        _schema = null;
+    }
 
-   public ObjectWriter withType(TypeReference<?> rootType) {
-      return this.withType(this._config.getTypeFactory().constructType(rootType.getType()));
-   }
+    /**
+     * Alternative constructor for initial instantiation.
+     * 
+     * @since 1.7
+     */
+    protected ObjectWriter(ObjectMapper mapper, SerializationConfig config)
+    {
+        _config = config;
 
-   public ObjectWriter withPrettyPrinter(PrettyPrinter pp) {
-      if (pp == this._prettyPrinter) {
-         return this;
-      } else {
-         if (pp == null) {
+        _provider = mapper._serializerProvider;
+        _serializerFactory = mapper._serializerFactory;
+        _jsonFactory = mapper._jsonFactory;
+
+        _rootType = null;
+        _prettyPrinter = null;
+        _schema = null;
+    }
+
+    /**
+     * Alternative constructor for initial instantiation.
+     * 
+     * @since 1.7
+     */
+    protected ObjectWriter(ObjectMapper mapper, SerializationConfig config,
+            FormatSchema s)
+    {
+        _config = config;
+
+        _provider = mapper._serializerProvider;
+        _serializerFactory = mapper._serializerFactory;
+        _jsonFactory = mapper._jsonFactory;
+
+        _rootType = null;
+        _prettyPrinter = null;
+        _schema = s;
+    }
+    
+    /**
+     * Copy constructor used for building variations.
+     */
+    protected ObjectWriter(ObjectWriter base, SerializationConfig config,
+            JavaType rootType, PrettyPrinter pp, FormatSchema s)
+    {
+        _config = config;
+
+        _provider = base._provider;
+        _serializerFactory = base._serializerFactory;
+        _jsonFactory = base._jsonFactory;
+        
+        _rootType = rootType;
+        _prettyPrinter = pp;
+        _schema = s;
+    }
+
+    /**
+     * Copy constructor used for building variations.
+     * 
+     * @since 1.7
+     */
+    protected ObjectWriter(ObjectWriter base, SerializationConfig config)
+    {
+        _config = config;
+
+        _provider = base._provider;
+        _serializerFactory = base._serializerFactory;
+        _jsonFactory = base._jsonFactory;
+        _schema = base._schema;
+        
+        _rootType = base._rootType;
+        _prettyPrinter = base._prettyPrinter;
+    }
+    
+    /**
+     * Method that will return version information stored in and read from jar
+     * that contains this class.
+     * 
+     * @since 1.6
+     */
+    public Version version() {
+        return VersionUtil.versionFor(getClass());
+    }
+    
+    /*
+    /**********************************************************
+    /* Life-cycle, fluent factories
+    /**********************************************************
+     */
+    
+    /**
+     * Method that will construct a new instance that uses specified
+     * serialization view for serialization (with null basically disables
+     * view processing)
+     */
+    public ObjectWriter withView(Class<?> view)
+    {
+        if (view == _config.getSerializationView()) return this;
+        return new ObjectWriter(this, _config.withView(view));
+    }    
+    
+    /**
+     * Method that will construct a new instance that uses specific type
+     * as the root type for serialization, instead of runtime dynamic
+     * type of the root object itself.
+     */
+    public ObjectWriter withType(JavaType rootType)
+    {
+        if (rootType == _rootType) return this;
+        // type is stored here, no need to make a copy of config
+        return new ObjectWriter(this, _config, rootType, _prettyPrinter, _schema);
+    }    
+
+    /**
+     * Method that will construct a new instance that uses specific type
+     * as the root type for serialization, instead of runtime dynamic
+     * type of the root object itself.
+     */
+    public ObjectWriter withType(Class<?> rootType)
+    {
+        return withType(_config.constructType(rootType));
+    }
+
+    /**
+     * @since 1.7
+     */
+    public ObjectWriter withType(TypeReference<?> rootType)
+    {
+        return withType(_config.getTypeFactory().constructType(rootType.getType()));
+    }
+    
+    /**
+     * Method that will construct a new instance that will use specified pretty
+     * printer (or, if null, will not do any pretty-printing)
+     * 
+     * @since 1.6
+     */
+    public ObjectWriter withPrettyPrinter(PrettyPrinter pp)
+    {
+        if (pp == _prettyPrinter) {
+            return this;
+        }
+        // since null would mean "don't care", need to use placeholder to indicate "disable"
+        if (pp == null) {
             pp = NULL_PRETTY_PRINTER;
-         }
+        }
+        return new ObjectWriter(this, _config, _rootType, pp, _schema);
+    }
 
-         return new ObjectWriter(this, this._config, this._rootType, pp, this._schema);
-      }
-   }
+    /**
+     * Method that will construct a new instance that will use the default
+     * pretty printer for serialization.
+     * 
+     * @since 1.6
+     */
+    public ObjectWriter withDefaultPrettyPrinter()
+    {
+        return withPrettyPrinter(new DefaultPrettyPrinter());
+    }
 
-   public ObjectWriter withDefaultPrettyPrinter() {
-      return this.withPrettyPrinter(new DefaultPrettyPrinter());
-   }
+    /**
+     * Method that will construct a new instance that uses specified
+     * provider for resolving filter instances by id.
+     * 
+     * @since 1.7
+     */
+    public ObjectWriter withFilters(FilterProvider filterProvider)
+    {
+        if (filterProvider == _config.getFilterProvider()) { // no change?
+            return this;
+        }
+        return new ObjectWriter(this, _config.withFilters(filterProvider));
+    }
 
-   public ObjectWriter withFilters(FilterProvider filterProvider) {
-      return filterProvider == this._config.getFilterProvider() ? this : new ObjectWriter(this, this._config.withFilters(filterProvider));
-   }
+    /**
+     * @since 1.8
+     */
+    public ObjectWriter withSchema(FormatSchema schema)
+    {
+        if (_schema == schema) {
+            return this;
+        }
+        return new ObjectWriter(this, _config, _rootType, _prettyPrinter, schema);
+    }
+    
+    /*
+    /**********************************************************
+    /* Serialization methods; ones from ObjectCodec first
+    /**********************************************************
+     */
 
-   public ObjectWriter withSchema(FormatSchema schema) {
-      return this._schema == schema ? this : new ObjectWriter(this, this._config, this._rootType, this._prettyPrinter, schema);
-   }
-
-   public void writeValue(JsonGenerator jgen, Object value) throws IOException, JsonGenerationException, JsonMappingException {
-      if (this._config.isEnabled(SerializationConfig.Feature.CLOSE_CLOSEABLE) && value instanceof Closeable) {
-         this._writeCloseableValue(jgen, value, this._config);
-      } else {
-         if (this._rootType == null) {
-            this._provider.serializeValue(this._config, jgen, value, this._serializerFactory);
-         } else {
-            this._provider.serializeValue(this._config, jgen, value, this._rootType, this._serializerFactory);
-         }
-
-         if (this._config.isEnabled(SerializationConfig.Feature.FLUSH_AFTER_WRITE_VALUE)) {
-            jgen.flush();
-         }
-      }
-
-   }
-
-   public void writeValue(File resultFile, Object value) throws IOException, JsonGenerationException, JsonMappingException {
-      this._configAndWriteValue(this._jsonFactory.createJsonGenerator(resultFile, JsonEncoding.UTF8), value);
-   }
-
-   public void writeValue(OutputStream out, Object value) throws IOException, JsonGenerationException, JsonMappingException {
-      this._configAndWriteValue(this._jsonFactory.createJsonGenerator(out, JsonEncoding.UTF8), value);
-   }
-
-   public void writeValue(Writer w, Object value) throws IOException, JsonGenerationException, JsonMappingException {
-      this._configAndWriteValue(this._jsonFactory.createJsonGenerator(w), value);
-   }
-
-   public String writeValueAsString(Object value) throws IOException, JsonGenerationException, JsonMappingException {
-      SegmentedStringWriter sw = new SegmentedStringWriter(this._jsonFactory._getBufferRecycler());
-      this._configAndWriteValue(this._jsonFactory.createJsonGenerator((Writer)sw), value);
-      return sw.getAndClear();
-   }
-
-   public byte[] writeValueAsBytes(Object value) throws IOException, JsonGenerationException, JsonMappingException {
-      ByteArrayBuilder bb = new ByteArrayBuilder(this._jsonFactory._getBufferRecycler());
-      this._configAndWriteValue(this._jsonFactory.createJsonGenerator((OutputStream)bb, JsonEncoding.UTF8), value);
-      byte[] result = bb.toByteArray();
-      bb.release();
-      return result;
-   }
-
-   public boolean canSerialize(Class<?> type) {
-      return this._provider.hasSerializerFor(this._config, type, this._serializerFactory);
-   }
-
-   protected final void _configAndWriteValue(JsonGenerator jgen, Object value) throws IOException, JsonGenerationException, JsonMappingException {
-      if (this._prettyPrinter != null) {
-         PrettyPrinter pp = this._prettyPrinter;
-         jgen.setPrettyPrinter(pp == NULL_PRETTY_PRINTER ? null : pp);
-      } else if (this._config.isEnabled(SerializationConfig.Feature.INDENT_OUTPUT)) {
-         jgen.useDefaultPrettyPrinter();
-      }
-
-      if (this._schema != null) {
-         jgen.setSchema(this._schema);
-      }
-
-      if (this._config.isEnabled(SerializationConfig.Feature.CLOSE_CLOSEABLE) && value instanceof Closeable) {
-         this._configAndWriteCloseable(jgen, value, this._config);
-      } else {
-         boolean closed = false;
-
-         try {
-            if (this._rootType == null) {
-               this._provider.serializeValue(this._config, jgen, value, this._serializerFactory);
+    /**
+     * Method that can be used to serialize any Java value as
+     * JSON output, using provided {@link JsonGenerator}.
+     */
+    public void writeValue(JsonGenerator jgen, Object value)
+        throws IOException, JsonGenerationException, JsonMappingException
+    {
+        if (_config.isEnabled(SerializationConfig.Feature.CLOSE_CLOSEABLE) && (value instanceof Closeable)) {
+            _writeCloseableValue(jgen, value, _config);
+        } else {
+            if (_rootType == null) {
+                _provider.serializeValue(_config, jgen, value, _serializerFactory);
             } else {
-               this._provider.serializeValue(this._config, jgen, value, this._rootType, this._serializerFactory);
+                _provider.serializeValue(_config, jgen, value, _rootType, _serializerFactory);
             }
+            if (_config.isEnabled(SerializationConfig.Feature.FLUSH_AFTER_WRITE_VALUE)) {
+                jgen.flush();
+            }
+        }
+    }
 
+    /*
+    /**********************************************************
+    /* Serialization methods, others
+    /**********************************************************
+     */
+
+    /**
+     * Method that can be used to serialize any Java value as
+     * JSON output, written to File provided.
+     */
+    public void writeValue(File resultFile, Object value)
+        throws IOException, JsonGenerationException, JsonMappingException
+    {
+        _configAndWriteValue(_jsonFactory.createJsonGenerator(resultFile, JsonEncoding.UTF8), value);
+    }
+
+    /**
+     * Method that can be used to serialize any Java value as
+     * JSON output, using output stream provided (using encoding
+     * {@link JsonEncoding#UTF8}).
+     *<p>
+     * Note: method does not close the underlying stream explicitly
+     * here; however, {@link JsonFactory} this mapper uses may choose
+     * to close the stream depending on its settings (by default,
+     * it will try to close it when {@link JsonGenerator} we construct
+     * is closed).
+     */
+    public void writeValue(OutputStream out, Object value)
+        throws IOException, JsonGenerationException, JsonMappingException
+    {
+        _configAndWriteValue(_jsonFactory.createJsonGenerator(out, JsonEncoding.UTF8), value);
+    }
+
+    /**
+     * Method that can be used to serialize any Java value as
+     * JSON output, using Writer provided.
+     *<p>
+     * Note: method does not close the underlying stream explicitly
+     * here; however, {@link JsonFactory} this mapper uses may choose
+     * to close the stream depending on its settings (by default,
+     * it will try to close it when {@link JsonGenerator} we construct
+     * is closed).
+     */
+    public void writeValue(Writer w, Object value)
+        throws IOException, JsonGenerationException, JsonMappingException
+    {
+        _configAndWriteValue(_jsonFactory.createJsonGenerator(w), value);
+    }
+
+    /**
+     * Method that can be used to serialize any Java value as
+     * a String. Functionally equivalent to calling
+     * {@link #writeValue(Writer,Object)} with {@link java.io.StringWriter}
+     * and constructing String, but more efficient.
+     */
+    public String writeValueAsString(Object value)
+        throws IOException, JsonGenerationException, JsonMappingException
+    {        
+        // alas, we have to pull the recycler directly here...
+        SegmentedStringWriter sw = new SegmentedStringWriter(_jsonFactory._getBufferRecycler());
+        _configAndWriteValue(_jsonFactory.createJsonGenerator(sw), value);
+        return sw.getAndClear();
+    }
+    
+    /**
+     * Method that can be used to serialize any Java value as
+     * a byte array. Functionally equivalent to calling
+     * {@link #writeValue(Writer,Object)} with {@link java.io.ByteArrayOutputStream}
+     * and getting bytes, but more efficient.
+     * Encoding used will be UTF-8.
+     */
+    public byte[] writeValueAsBytes(Object value)
+        throws IOException, JsonGenerationException, JsonMappingException
+    {        
+        ByteArrayBuilder bb = new ByteArrayBuilder(_jsonFactory._getBufferRecycler());
+        _configAndWriteValue(_jsonFactory.createJsonGenerator(bb, JsonEncoding.UTF8), value);
+        byte[] result = bb.toByteArray();
+        bb.release();
+        return result;
+    }
+
+    /*
+    /**********************************************************
+    /* Other public methods
+    /**********************************************************
+     */
+
+    public boolean canSerialize(Class<?> type)
+    {
+        return _provider.hasSerializerFor(_config, type, _serializerFactory);
+    }
+
+    /*
+    /**********************************************************
+    /* Internal methods
+    /**********************************************************
+     */
+    
+    /**
+     * Method called to configure the generator as necessary and then
+     * call write functionality
+     */
+    protected final void _configAndWriteValue(JsonGenerator jgen, Object value)
+        throws IOException, JsonGenerationException, JsonMappingException
+    {
+        if (_prettyPrinter != null) {
+            PrettyPrinter pp = _prettyPrinter;
+            jgen.setPrettyPrinter((pp == NULL_PRETTY_PRINTER) ? null : pp);
+        } else if (_config.isEnabled(SerializationConfig.Feature.INDENT_OUTPUT)) {
+            jgen.useDefaultPrettyPrinter();
+        }
+        // [JACKSON-520]: add support for pass-through schema:
+        if (_schema != null) {
+            jgen.setSchema(_schema);
+        }
+        // [JACKSON-282]: consider Closeable
+        if (_config.isEnabled(SerializationConfig.Feature.CLOSE_CLOSEABLE) && (value instanceof Closeable)) {
+            _configAndWriteCloseable(jgen, value, _config);
+            return;
+        }
+        boolean closed = false;
+        try {
+            if (_rootType == null) {
+                _provider.serializeValue(_config, jgen, value, _serializerFactory);
+            } else {
+                _provider.serializeValue(_config, jgen, value, _rootType, _serializerFactory);                
+            }
             closed = true;
             jgen.close();
-         } finally {
+        } finally {
+            /* won't try to close twice; also, must catch exception (so it 
+             * will not mask exception that is pending)
+             */
             if (!closed) {
-               try {
-                  jgen.close();
-               } catch (IOException var10) {
-               }
+                try {
+                    jgen.close();
+                } catch (IOException ioe) { }
             }
+        }
+    }
 
-         }
-
-      }
-   }
-
-   private final void _configAndWriteCloseable(JsonGenerator jgen, Object value, SerializationConfig cfg) throws IOException, JsonGenerationException, JsonMappingException {
-      Closeable toClose = (Closeable)value;
-
-      try {
-         if (this._rootType == null) {
-            this._provider.serializeValue(cfg, jgen, value, this._serializerFactory);
-         } else {
-            this._provider.serializeValue(cfg, jgen, value, this._rootType, this._serializerFactory);
-         }
-
-         if (this._schema != null) {
-            jgen.setSchema(this._schema);
-         }
-
-         JsonGenerator tmpJgen = jgen;
-         jgen = null;
-         tmpJgen.close();
-         Closeable tmpToClose = toClose;
-         toClose = null;
-         tmpToClose.close();
-      } finally {
-         if (jgen != null) {
-            try {
-               jgen.close();
-            } catch (IOException var15) {
+    /**
+     * Helper method used when value to serialize is {@link Closeable} and its <code>close()</code>
+     * method is to be called right after serialization has been called
+     */
+    private final void _configAndWriteCloseable(JsonGenerator jgen, Object value, SerializationConfig cfg)
+        throws IOException, JsonGenerationException, JsonMappingException
+    {
+        Closeable toClose = (Closeable) value;
+        try {
+            if (_rootType == null) {
+                _provider.serializeValue(cfg, jgen, value, _serializerFactory);
+            } else {
+                _provider.serializeValue(cfg, jgen, value, _rootType, _serializerFactory);
             }
-         }
-
-         if (toClose != null) {
-            try {
-               toClose.close();
-            } catch (IOException var14) {
+            // [JACKSON-520]: add support for pass-through schema:
+            if (_schema != null) {
+                jgen.setSchema(_schema);
             }
-         }
-
-      }
-
-   }
-
-   private final void _writeCloseableValue(JsonGenerator jgen, Object value, SerializationConfig cfg) throws IOException, JsonGenerationException, JsonMappingException {
-      Closeable toClose = (Closeable)value;
-
-      try {
-         if (this._rootType == null) {
-            this._provider.serializeValue(cfg, jgen, value, this._serializerFactory);
-         } else {
-            this._provider.serializeValue(cfg, jgen, value, this._rootType, this._serializerFactory);
-         }
-
-         if (this._config.isEnabled(SerializationConfig.Feature.FLUSH_AFTER_WRITE_VALUE)) {
-            jgen.flush();
-         }
-
-         Closeable tmpToClose = toClose;
-         toClose = null;
-         tmpToClose.close();
-      } finally {
-         if (toClose != null) {
-            try {
-               toClose.close();
-            } catch (IOException var11) {
+            JsonGenerator tmpJgen = jgen;
+            jgen = null;
+            tmpJgen.close();
+            Closeable tmpToClose = toClose;
+            toClose = null;
+            tmpToClose.close();
+        } finally {
+            /* Need to close both generator and value, as long as they haven't yet
+             * been closed
+             */
+            if (jgen != null) {
+                try {
+                    jgen.close();
+                } catch (IOException ioe) { }
             }
-         }
-
-      }
-
-   }
+            if (toClose != null) {
+                try {
+                    toClose.close();
+                } catch (IOException ioe) { }
+            }
+        }
+    }
+    
+    /**
+     * Helper method used when value to serialize is {@link Closeable} and its <code>close()</code>
+     * method is to be called right after serialization has been called
+     */
+    private final void _writeCloseableValue(JsonGenerator jgen, Object value, SerializationConfig cfg)
+        throws IOException, JsonGenerationException, JsonMappingException
+    {
+        Closeable toClose = (Closeable) value;
+        try {
+            if (_rootType == null) {
+                _provider.serializeValue(cfg, jgen, value, _serializerFactory);
+            } else {
+                _provider.serializeValue(cfg, jgen, value, _rootType, _serializerFactory);
+            }
+            if (_config.isEnabled(SerializationConfig.Feature.FLUSH_AFTER_WRITE_VALUE)) {
+                jgen.flush();
+            }
+            Closeable tmpToClose = toClose;
+            toClose = null;
+            tmpToClose.close();
+        } finally {
+            if (toClose != null) {
+                try {
+                    toClose.close();
+                } catch (IOException ioe) { }
+            }
+        }
+    }
 }

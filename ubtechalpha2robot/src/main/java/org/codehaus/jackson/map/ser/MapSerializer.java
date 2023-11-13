@@ -2,332 +2,445 @@ package org.codehaus.jackson.map.ser;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Map.Entry;
+import java.util.*;
+
 import org.codehaus.jackson.JsonGenerationException;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.map.BeanProperty;
-import org.codehaus.jackson.map.JsonMappingException;
-import org.codehaus.jackson.map.JsonSerializer;
-import org.codehaus.jackson.map.ResolvableSerializer;
-import org.codehaus.jackson.map.SerializationConfig;
-import org.codehaus.jackson.map.SerializerProvider;
-import org.codehaus.jackson.map.TypeSerializer;
+import org.codehaus.jackson.map.*;
 import org.codehaus.jackson.map.annotate.JacksonStdImpl;
 import org.codehaus.jackson.map.ser.impl.PropertySerializerMap;
 import org.codehaus.jackson.map.type.TypeFactory;
 import org.codehaus.jackson.node.ObjectNode;
 import org.codehaus.jackson.type.JavaType;
 
+/**
+ * Standard serializer implementation for serializing {link java.util.Map} types.
+ *<p>
+ * Note: about the only configurable setting currently is ability to filter out
+ * entries with specified names.
+ */
 @JacksonStdImpl
-public class MapSerializer extends ContainerSerializerBase<Map<?, ?>> implements ResolvableSerializer {
-   protected static final JavaType UNSPECIFIED_TYPE = TypeFactory.unknownType();
-   protected final BeanProperty _property;
-   protected final HashSet<String> _ignoredEntries;
-   protected final boolean _valueTypeIsStatic;
-   protected final JavaType _keyType;
-   protected final JavaType _valueType;
-   protected JsonSerializer<Object> _keySerializer;
-   protected JsonSerializer<Object> _valueSerializer;
-   protected final TypeSerializer _valueTypeSerializer;
-   protected PropertySerializerMap _dynamicValueSerializers;
+public class MapSerializer
+    extends ContainerSerializerBase<Map<?,?>>
+    implements ResolvableSerializer
+{
+    protected final static JavaType UNSPECIFIED_TYPE = TypeFactory.unknownType();
+    
+    /**
+     * Map-valued property being serialized with this instance
+     * 
+     * @since 1.7
+     */
+    protected final BeanProperty _property;
+    
+    /**
+     * Set of entries to omit during serialization, if any
+     */
+    protected final HashSet<String> _ignoredEntries;
 
-   protected MapSerializer() {
-      this((HashSet)null, (JavaType)null, (JavaType)null, false, (TypeSerializer)null, (JsonSerializer)null, (JsonSerializer)null, (BeanProperty)null);
-   }
+    /**
+     * Whether static types should be used for serialization of values
+     * or not (if not, dynamic runtime type is used)
+     */
+    protected final boolean _valueTypeIsStatic;
 
-   /** @deprecated */
-   @Deprecated
-   protected MapSerializer(HashSet<String> ignoredEntries, JavaType valueType, boolean valueTypeIsStatic, TypeSerializer vts) {
-      this(ignoredEntries, UNSPECIFIED_TYPE, valueType, valueTypeIsStatic, vts, (JsonSerializer)null, (JsonSerializer)null, (BeanProperty)null);
-   }
+    /**
+     * Declared type of keys
+     * 
+     * @since 1.7
+     */
+    protected final JavaType _keyType;
 
-   /** @deprecated */
-   @Deprecated
-   protected MapSerializer(HashSet<String> ignoredEntries, JavaType keyType, JavaType valueType, boolean valueTypeIsStatic, TypeSerializer vts, JsonSerializer<Object> keySerializer, BeanProperty property) {
-      this(ignoredEntries, keyType, valueType, valueTypeIsStatic, vts, keySerializer, (JsonSerializer)null, property);
-   }
+    /**
+     * Declared type of contained values
+     */
+    protected final JavaType _valueType;
 
-   protected MapSerializer(HashSet<String> ignoredEntries, JavaType keyType, JavaType valueType, boolean valueTypeIsStatic, TypeSerializer vts, JsonSerializer<Object> keySerializer, JsonSerializer<Object> valueSerializer, BeanProperty property) {
-      super(Map.class, false);
-      this._property = property;
-      this._ignoredEntries = ignoredEntries;
-      this._keyType = keyType;
-      this._valueType = valueType;
-      this._valueTypeIsStatic = valueTypeIsStatic;
-      this._valueTypeSerializer = vts;
-      this._keySerializer = keySerializer;
-      this._valueSerializer = valueSerializer;
-      this._dynamicValueSerializers = PropertySerializerMap.emptyMap();
-   }
+    /**
+     * Key serializer to use, if it can be statically determined
+     * 
+     * @since 1.7
+     */
+    protected JsonSerializer<Object> _keySerializer;
 
-   public ContainerSerializerBase<?> _withValueTypeSerializer(TypeSerializer vts) {
-      MapSerializer ms = new MapSerializer(this._ignoredEntries, this._keyType, this._valueType, this._valueTypeIsStatic, vts, this._keySerializer, this._valueSerializer, this._property);
-      if (this._valueSerializer != null) {
-         ms._valueSerializer = this._valueSerializer;
-      }
+    /**
+     * Value serializer to use, if it can be statically determined
+     * 
+     * @since 1.5
+     */
+    protected JsonSerializer<Object> _valueSerializer;
 
-      return ms;
-   }
+    /**
+     * Type identifier serializer used for values, if any.
+     */
+    protected final TypeSerializer _valueTypeSerializer;
 
-   /** @deprecated */
-   @Deprecated
-   public static MapSerializer construct(String[] ignoredList, JavaType mapType, boolean staticValueType, TypeSerializer vts, BeanProperty property) {
-      return construct(ignoredList, mapType, staticValueType, vts, property, (JsonSerializer)null, (JsonSerializer)null);
-   }
+    /**
+     * If value type can not be statically determined, mapping from
+     * runtime value types to serializers are stored in this object.
+     * 
+     * @since 1.8
+     */
+    protected PropertySerializerMap _dynamicValueSerializers;
+    
+    protected MapSerializer() {
+        this((HashSet<String>)null, null, null, false, null, null, null, null);
+    }
 
-   public static MapSerializer construct(String[] ignoredList, JavaType mapType, boolean staticValueType, TypeSerializer vts, BeanProperty property, JsonSerializer<Object> keySerializer, JsonSerializer<Object> valueSerializer) {
-      HashSet<String> ignoredEntries = toSet(ignoredList);
-      JavaType keyType;
-      JavaType valueType;
-      if (mapType == null) {
-         keyType = valueType = UNSPECIFIED_TYPE;
-      } else {
-         keyType = mapType.getKeyType();
-         valueType = mapType.getContentType();
-      }
+    /**
+     * Legacy constructor (as of 1.7)
+     * 
+     * @deprecated Use variant that takes Key type and property information
+     */
+    @Deprecated
+    protected MapSerializer(HashSet<String> ignoredEntries,
+            JavaType valueType, boolean valueTypeIsStatic,
+            TypeSerializer vts)
+    {
+        this(ignoredEntries, UNSPECIFIED_TYPE, valueType, valueTypeIsStatic, vts, null, null, null);
+    }
 
-      if (!staticValueType) {
-         staticValueType = valueType != null && valueType.isFinal();
-      }
+    /**
+     * Legacy constructor (as of 1.8)
+     * 
+     * @deprecated As of 1.8, use version that takes valueSerializer
+     */
+    @Deprecated
+    protected MapSerializer(HashSet<String> ignoredEntries,
+            JavaType keyType, JavaType valueType, boolean valueTypeIsStatic,
+            TypeSerializer vts, JsonSerializer<Object> keySerializer, BeanProperty property)
+    {
+        this(ignoredEntries, keyType, valueType, valueTypeIsStatic, vts, keySerializer, null, property);
+    }
+    
+    protected MapSerializer(HashSet<String> ignoredEntries,
+            JavaType keyType, JavaType valueType, boolean valueTypeIsStatic,
+            TypeSerializer vts,
+            JsonSerializer<Object> keySerializer, JsonSerializer<Object> valueSerializer, 
+            BeanProperty property)
+    {
+        super(Map.class, false);
+        _property = property;
+        _ignoredEntries = ignoredEntries;
+        _keyType = keyType;
+        _valueType = valueType;
+        _valueTypeIsStatic = valueTypeIsStatic;
+        _valueTypeSerializer = vts;
+        _keySerializer = keySerializer;
+        _valueSerializer = valueSerializer;
+        _dynamicValueSerializers = PropertySerializerMap.emptyMap();
+    }
+    
+    @Override
+    public ContainerSerializerBase<?> _withValueTypeSerializer(TypeSerializer vts)
+    {
+        MapSerializer ms = new MapSerializer(_ignoredEntries, _keyType, _valueType, _valueTypeIsStatic, vts,
+                _keySerializer, _valueSerializer, _property);
+        if (_valueSerializer != null) {
+            ms._valueSerializer = _valueSerializer;
+        }
+        return ms;
+    }
+    
+    /**
+     * Factory method used to construct Map serializers.
+     * 
+     * @param ignoredList Array of entry names that are to be filtered on
+     *    serialization; null if none
+     * @param mapType Declared type information (needed for static typing)
+     * @param staticValueType Whether static typing should be used for the
+     *    Map (which includes its contents)
+     * @param vts Type serializer to use for map entry values, if any
+     * 
+     * @deprecated As of 1.8; use the variant with more arguments
+     */
+    @Deprecated
+    public static MapSerializer construct(String[] ignoredList, JavaType mapType,
+            boolean staticValueType, TypeSerializer vts, BeanProperty property)
+    {
+        return construct(ignoredList, mapType, staticValueType, vts, property, null, null);
+    }
 
-      return new MapSerializer(ignoredEntries, keyType, valueType, staticValueType, vts, keySerializer, valueSerializer, property);
-   }
+    public static MapSerializer construct(String[] ignoredList, JavaType mapType,
+            boolean staticValueType, TypeSerializer vts, BeanProperty property,
+            JsonSerializer<Object> keySerializer, JsonSerializer<Object> valueSerializer)
+    {
+        HashSet<String> ignoredEntries = toSet(ignoredList);
+        JavaType keyType, valueType;
+        
+        if (mapType == null) {
+            keyType = valueType = UNSPECIFIED_TYPE;
+        } else { 
+            keyType = mapType.getKeyType();
+            valueType = mapType.getContentType();
+        }
+        // If value type is final, it's same as forcing static value typing:
+        if (!staticValueType) {
+            staticValueType = (valueType != null && valueType.isFinal());
+        }
+        return new MapSerializer(ignoredEntries, keyType, valueType, staticValueType, vts,
+                keySerializer, valueSerializer, property);
+    }
 
-   private static HashSet<String> toSet(String[] ignoredEntries) {
-      if (ignoredEntries != null && ignoredEntries.length != 0) {
-         HashSet<String> result = new HashSet(ignoredEntries.length);
-         String[] arr$ = ignoredEntries;
-         int len$ = ignoredEntries.length;
-
-         for(int i$ = 0; i$ < len$; ++i$) {
-            String prop = arr$[i$];
+    private static HashSet<String> toSet(String[] ignoredEntries) {
+        if (ignoredEntries == null || ignoredEntries.length == 0) {
+            return null;
+        }
+        HashSet<String> result = new HashSet<String>(ignoredEntries.length);
+        for (String prop : ignoredEntries) {
             result.add(prop);
-         }
+        }
+        return result;
+    }
+    
+    /*
+    /**********************************************************
+    /* JsonSerializer implementation
+    /**********************************************************
+     */
 
-         return result;
-      } else {
-         return null;
-      }
-   }
+    @Override
+    public void serialize(Map<?,?> value, JsonGenerator jgen, SerializerProvider provider)
+        throws IOException, JsonGenerationException
+    {
+        jgen.writeStartObject();
+        if (!value.isEmpty()) {
+            if (_valueSerializer != null) {
+                serializeFieldsUsing(value, jgen, provider, _valueSerializer);
+            } else {
+                serializeFields(value, jgen, provider);
+            }
+        }        
+        jgen.writeEndObject();
+    }
 
-   public void serialize(Map<?, ?> value, JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonGenerationException {
-      jgen.writeStartObject();
-      if (!value.isEmpty()) {
-         if (this._valueSerializer != null) {
-            this.serializeFieldsUsing(value, jgen, provider, this._valueSerializer);
-         } else {
-            this.serializeFields(value, jgen, provider);
-         }
-      }
+    @Override
+    public void serializeWithType(Map<?,?> value, JsonGenerator jgen, SerializerProvider provider,
+            TypeSerializer typeSer)
+        throws IOException, JsonGenerationException
+    {
+        typeSer.writeTypePrefixForObject(value, jgen);
+        if (!value.isEmpty()) {
+            if (_valueSerializer != null) {
+                serializeFieldsUsing(value, jgen, provider, _valueSerializer);
+            } else {
+                serializeFields(value, jgen, provider);
+            }
+        }
+        typeSer.writeTypeSuffixForObject(value, jgen);
+    }
 
-      jgen.writeEndObject();
-   }
+    /*
+    /**********************************************************
+    /* JsonSerializer implementation
+    /**********************************************************
+     */
+    
+    /**
+     * Method called to serialize fields, when the value type is not statically known.
+     */
+    protected void serializeFields(Map<?,?> value, JsonGenerator jgen, SerializerProvider provider)
+        throws IOException, JsonGenerationException
+    {
+        // If value type needs polymorphic type handling, some more work needed:
+        if (_valueTypeSerializer != null) {
+            serializeTypedFields(value, jgen, provider);
+            return;
+        }
+        final JsonSerializer<Object> keySerializer = _keySerializer;
+        
+        final HashSet<String> ignored = _ignoredEntries;
+        final boolean skipNulls = !provider.isEnabled(SerializationConfig.Feature.WRITE_NULL_MAP_VALUES);
 
-   public void serializeWithType(Map<?, ?> value, JsonGenerator jgen, SerializerProvider provider, TypeSerializer typeSer) throws IOException, JsonGenerationException {
-      typeSer.writeTypePrefixForObject(value, jgen);
-      if (!value.isEmpty()) {
-         if (this._valueSerializer != null) {
-            this.serializeFieldsUsing(value, jgen, provider, this._valueSerializer);
-         } else {
-            this.serializeFields(value, jgen, provider);
-         }
-      }
+        PropertySerializerMap serializers = _dynamicValueSerializers;
 
-      typeSer.writeTypeSuffixForObject(value, jgen);
-   }
-
-   protected void serializeFields(Map<?, ?> value, JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonGenerationException {
-      if (this._valueTypeSerializer != null) {
-         this.serializeTypedFields(value, jgen, provider);
-      } else {
-         JsonSerializer<Object> keySerializer = this._keySerializer;
-         HashSet<String> ignored = this._ignoredEntries;
-         boolean skipNulls = !provider.isEnabled(SerializationConfig.Feature.WRITE_NULL_MAP_VALUES);
-         PropertySerializerMap serializers = this._dynamicValueSerializers;
-         Iterator i$ = value.entrySet().iterator();
-
-         while(true) {
-            Object valueElem;
-            Object keyElem;
-            while(true) {
-               if (!i$.hasNext()) {
-                  return;
-               }
-
-               Entry<?, ?> entry = (Entry)i$.next();
-               valueElem = entry.getValue();
-               keyElem = entry.getKey();
-               if (keyElem == null) {
-                  provider.getNullKeySerializer().serialize((Object)null, jgen, provider);
-                  break;
-               }
-
-               if ((!skipNulls || valueElem != null) && (ignored == null || !ignored.contains(keyElem))) {
-                  keySerializer.serialize(keyElem, jgen, provider);
-                  break;
-               }
+        for (Map.Entry<?,?> entry : value.entrySet()) {
+            Object valueElem = entry.getValue();
+            // First, serialize key
+            Object keyElem = entry.getKey();
+            if (keyElem == null) {
+                provider.getNullKeySerializer().serialize(null, jgen, provider);
+            } else {
+                // [JACKSON-314] skip entries with null values?
+                if (skipNulls && valueElem == null) continue;
+                // One twist: is entry ignorable? If so, skip
+                if (ignored != null && ignored.contains(keyElem)) continue;
+                keySerializer.serialize(keyElem, jgen, provider);
             }
 
+            // And then value
             if (valueElem == null) {
-               provider.defaultSerializeNull(jgen);
+                provider.defaultSerializeNull(jgen);
             } else {
-               Class<?> cc = valueElem.getClass();
-               JsonSerializer<Object> serializer = serializers.serializerFor(cc);
-               if (serializer == null) {
-                  if (this._valueType.hasGenericTypes()) {
-                     serializer = this._findAndAddDynamic(serializers, this._valueType.forcedNarrowBy(cc), provider);
-                  } else {
-                     serializer = this._findAndAddDynamic(serializers, cc, provider);
-                  }
-
-                  serializers = this._dynamicValueSerializers;
-               }
-
-               try {
-                  serializer.serialize(valueElem, jgen, provider);
-               } catch (Exception var16) {
-                  String keyDesc = "" + keyElem;
-                  this.wrapAndThrow(provider, var16, value, keyDesc);
-               }
+                Class<?> cc = valueElem.getClass();
+                JsonSerializer<Object> serializer = serializers.serializerFor(cc);
+                if (serializer == null) {
+                    if (_valueType.hasGenericTypes()) {
+                        serializer = _findAndAddDynamic(serializers, _valueType.forcedNarrowBy(cc), provider);
+                    } else {
+                        serializer = _findAndAddDynamic(serializers, cc, provider);
+                    }
+                    serializers = _dynamicValueSerializers;
+                }
+                try {
+                    serializer.serialize(valueElem, jgen, provider);
+                } catch (Exception e) {
+                    // [JACKSON-55] Need to add reference information
+                    String keyDesc = ""+keyElem;
+                    wrapAndThrow(provider, e, value, keyDesc);
+                }
             }
-         }
-      }
-   }
+        }
+    }
 
-   protected void serializeFieldsUsing(Map<?, ?> value, JsonGenerator jgen, SerializerProvider provider, JsonSerializer<Object> ser) throws IOException, JsonGenerationException {
-      JsonSerializer<Object> keySerializer = this._keySerializer;
-      HashSet<String> ignored = this._ignoredEntries;
-      TypeSerializer typeSer = this._valueTypeSerializer;
-      boolean skipNulls = !provider.isEnabled(SerializationConfig.Feature.WRITE_NULL_MAP_VALUES);
-      Iterator i$ = value.entrySet().iterator();
+    /**
+     * Method called to serialize fields, when the value type is statically known,
+     * so that value serializer is passed and does not need to be fetched from
+     * provider.
+     */
+    protected void serializeFieldsUsing(Map<?,?> value, JsonGenerator jgen, SerializerProvider provider,
+            JsonSerializer<Object> ser)
+            throws IOException, JsonGenerationException
+    {
+        final JsonSerializer<Object> keySerializer = _keySerializer;
+        final HashSet<String> ignored = _ignoredEntries;
+        final TypeSerializer typeSer = _valueTypeSerializer;
+        final boolean skipNulls = !provider.isEnabled(SerializationConfig.Feature.WRITE_NULL_MAP_VALUES);
 
-      while(true) {
-         Object valueElem;
-         Object keyElem;
-         while(true) {
-            if (!i$.hasNext()) {
-               return;
-            }
-
-            Entry<?, ?> entry = (Entry)i$.next();
-            valueElem = entry.getValue();
-            keyElem = entry.getKey();
+        for (Map.Entry<?,?> entry : value.entrySet()) {
+            Object valueElem = entry.getValue();
+            Object keyElem = entry.getKey();
             if (keyElem == null) {
-               provider.getNullKeySerializer().serialize((Object)null, jgen, provider);
-               break;
-            }
-
-            if ((!skipNulls || valueElem != null) && (ignored == null || !ignored.contains(keyElem))) {
-               keySerializer.serialize(keyElem, jgen, provider);
-               break;
-            }
-         }
-
-         if (valueElem == null) {
-            provider.defaultSerializeNull(jgen);
-         } else {
-            try {
-               if (typeSer == null) {
-                  ser.serialize(valueElem, jgen, provider);
-               } else {
-                  ser.serializeWithType(valueElem, jgen, provider, typeSer);
-               }
-            } catch (Exception var15) {
-               String keyDesc = "" + keyElem;
-               this.wrapAndThrow(provider, var15, value, keyDesc);
-            }
-         }
-      }
-   }
-
-   protected void serializeTypedFields(Map<?, ?> value, JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonGenerationException {
-      JsonSerializer<Object> keySerializer = this._keySerializer;
-      JsonSerializer<Object> prevValueSerializer = null;
-      Class<?> prevValueClass = null;
-      HashSet<String> ignored = this._ignoredEntries;
-      boolean skipNulls = !provider.isEnabled(SerializationConfig.Feature.WRITE_NULL_MAP_VALUES);
-      Iterator i$ = value.entrySet().iterator();
-
-      while(true) {
-         Object valueElem;
-         Object keyElem;
-         while(true) {
-            if (!i$.hasNext()) {
-               return;
-            }
-
-            Entry<?, ?> entry = (Entry)i$.next();
-            valueElem = entry.getValue();
-            keyElem = entry.getKey();
-            if (keyElem == null) {
-               provider.getNullKeySerializer().serialize((Object)null, jgen, provider);
-               break;
-            }
-
-            if ((!skipNulls || valueElem != null) && (ignored == null || !ignored.contains(keyElem))) {
-               keySerializer.serialize(keyElem, jgen, provider);
-               break;
-            }
-         }
-
-         if (valueElem == null) {
-            provider.defaultSerializeNull(jgen);
-         } else {
-            Class<?> cc = valueElem.getClass();
-            JsonSerializer currSerializer;
-            if (cc == prevValueClass) {
-               currSerializer = prevValueSerializer;
+                provider.getNullKeySerializer().serialize(null, jgen, provider);
             } else {
-               currSerializer = provider.findValueSerializer(cc, this._property);
-               prevValueSerializer = currSerializer;
-               prevValueClass = cc;
+                // [JACKSON-314] also may need to skip entries with null values
+                if (skipNulls && valueElem == null) continue;
+                if (ignored != null && ignored.contains(keyElem)) continue;
+                keySerializer.serialize(keyElem, jgen, provider);
             }
-
-            try {
-               currSerializer.serializeWithType(valueElem, jgen, provider, this._valueTypeSerializer);
-            } catch (Exception var17) {
-               String keyDesc = "" + keyElem;
-               this.wrapAndThrow(provider, var17, value, keyDesc);
+            if (valueElem == null) {
+                provider.defaultSerializeNull(jgen);
+            } else {
+                try {
+                    if (typeSer == null) {
+                        ser.serialize(valueElem, jgen, provider);
+                    } else {
+                        ser.serializeWithType(valueElem, jgen, provider, typeSer);
+                    }
+                } catch (Exception e) {
+                    // [JACKSON-55] Need to add reference information
+                    String keyDesc = ""+keyElem;
+                    wrapAndThrow(provider, e, value, keyDesc);
+                }
             }
-         }
-      }
-   }
+        }
+    }
 
-   public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-      ObjectNode o = this.createSchemaNode("object", true);
-      return o;
-   }
+    protected void serializeTypedFields(Map<?,?> value, JsonGenerator jgen, SerializerProvider provider)
+        throws IOException, JsonGenerationException
+    {
+        final JsonSerializer<Object> keySerializer = _keySerializer;
+        JsonSerializer<Object> prevValueSerializer = null;
+        Class<?> prevValueClass = null;
+        final HashSet<String> ignored = _ignoredEntries;
+        final boolean skipNulls = !provider.isEnabled(SerializationConfig.Feature.WRITE_NULL_MAP_VALUES);
+    
+        for (Map.Entry<?,?> entry : value.entrySet()) {
+            Object valueElem = entry.getValue();
+            // First, serialize key
+            Object keyElem = entry.getKey();
+            if (keyElem == null) {
+                provider.getNullKeySerializer().serialize(null, jgen, provider);
+            } else {
+                // [JACKSON-314] also may need to skip entries with null values
+                if (skipNulls && valueElem == null) continue;
+                // One twist: is entry ignorable? If so, skip
+                if (ignored != null && ignored.contains(keyElem)) continue;
+                keySerializer.serialize(keyElem, jgen, provider);
+            }
+    
+            // And then value
+            if (valueElem == null) {
+                provider.defaultSerializeNull(jgen);
+            } else {
+                Class<?> cc = valueElem.getClass();
+                JsonSerializer<Object> currSerializer;
+                if (cc == prevValueClass) {
+                    currSerializer = prevValueSerializer;
+                } else {
+                    currSerializer = provider.findValueSerializer(cc, _property);
+                    prevValueSerializer = currSerializer;
+                    prevValueClass = cc;
+                }
+                try {
+                    currSerializer.serializeWithType(valueElem, jgen, provider, _valueTypeSerializer);
+                } catch (Exception e) {
+                    // [JACKSON-55] Need to add reference information
+                    String keyDesc = ""+keyElem;
+                    wrapAndThrow(provider, e, value, keyDesc);
+                }
+            }
+        }
+    }
+    
+    @Override
+    public JsonNode getSchema(SerializerProvider provider, Type typeHint)
+    {
+        ObjectNode o = createSchemaNode("object", true);
+        //(ryan) even though it's possible to statically determine the "value" type of the map,
+        // there's no way to statically determine the keys, so the "Entries" can't be determined.
+        return o;
+    }
 
-   public void resolve(SerializerProvider provider) throws JsonMappingException {
-      if (this._valueTypeIsStatic && this._valueSerializer == null) {
-         this._valueSerializer = provider.findValueSerializer(this._valueType, this._property);
-      }
+    /**
+     * Need to get callback to resolve value serializer, if static typing
+     * is used (either being forced, or because value type is final)
+     */
+    public void resolve(SerializerProvider provider)
+        throws JsonMappingException
+    {
+        if (_valueTypeIsStatic && _valueSerializer == null) {
+            _valueSerializer = provider.findValueSerializer(_valueType, _property);
+        }
+        /* 10-Dec-2010, tatu: Let's also fetch key serializer; and always assume we'll
+         *   do that just by using static type information
+         */
+        /* 25-Feb-2011, tatu: May need to reconsider this static checking (since it
+         *   differs from value handling)... but for now, it's ok to ensure contextual
+         *   aspects are handled; this is done by provider.
+         */
+        if (_keySerializer == null) {
+            _keySerializer = provider.findKeySerializer(_keyType, _property);
+        }
+    }
 
-      if (this._keySerializer == null) {
-         this._keySerializer = provider.findKeySerializer(this._keyType, this._property);
-      }
+    /*
+    /**********************************************************
+    /* Internal methods
+    /**********************************************************
+     */
+    
+    protected final JsonSerializer<Object> _findAndAddDynamic(PropertySerializerMap map,
+            Class<?> type, SerializerProvider provider) throws JsonMappingException
+    {
+        PropertySerializerMap.SerializerAndMapResult result = map.findAndAddSerializer(type, provider, _property);
+        // did we get a new map of serializers? If so, start using it
+        if (map != result.map) {
+            _dynamicValueSerializers = result.map;
+        }
+        return result.serializer;
+    }
 
-   }
+    protected final JsonSerializer<Object> _findAndAddDynamic(PropertySerializerMap map,
+            JavaType type, SerializerProvider provider) throws JsonMappingException
+    {
+        PropertySerializerMap.SerializerAndMapResult result = map.findAndAddSerializer(type, provider, _property);
+        if (map != result.map) {
+            _dynamicValueSerializers = result.map;
+        }
+        return result.serializer;
+    }
 
-   protected final JsonSerializer<Object> _findAndAddDynamic(PropertySerializerMap map, Class<?> type, SerializerProvider provider) throws JsonMappingException {
-      PropertySerializerMap.SerializerAndMapResult result = map.findAndAddSerializer(type, provider, this._property);
-      if (map != result.map) {
-         this._dynamicValueSerializers = result.map;
-      }
-
-      return result.serializer;
-   }
-
-   protected final JsonSerializer<Object> _findAndAddDynamic(PropertySerializerMap map, JavaType type, SerializerProvider provider) throws JsonMappingException {
-      PropertySerializerMap.SerializerAndMapResult result = map.findAndAddSerializer(type, provider, this._property);
-      if (map != result.map) {
-         this._dynamicValueSerializers = result.map;
-      }
-
-      return result.serializer;
-   }
 }
+

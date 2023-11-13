@@ -3,55 +3,112 @@ package org.codehaus.jackson.map.deser;
 import java.io.IOException;
 import org.codehaus.jackson.JsonProcessingException;
 
-abstract class PropertyValue {
-   public final PropertyValue next;
-   public final Object value;
+/**
+ * Base class for property values that need to be buffered during
+ * deserialization.
+ */
+abstract class PropertyValue
+{
+    public final PropertyValue next;
 
-   protected PropertyValue(PropertyValue next, Object value) {
-      this.next = next;
-      this.value = value;
-   }
+    /**
+     * Value to assign when POJO has been instantiated.
+     */
+    public final Object value;
+    
+    protected PropertyValue(PropertyValue next, Object value)
+    {
+        this.next = next;
+        this.value = value;
+    }
 
-   public abstract void assign(Object var1) throws IOException, JsonProcessingException;
+    /**
+     * Method called to assign stored value of this property to specified
+     * bean instance
+     */
+    public abstract void assign(Object bean)
+        throws IOException, JsonProcessingException;
 
-   static final class Map extends PropertyValue {
-      final Object _key;
+    /*
+    /**********************************************************
+    /* Concrete property value classes
+    /**********************************************************
+     */
 
-      public Map(PropertyValue next, Object value, Object key) {
-         super(next, value);
-         this._key = key;
-      }
+    /**
+     * Property value that used when assigning value to property using
+     * a setter method or direct field access.
+     */
+    final static class Regular
+        extends PropertyValue
+    {
+        final SettableBeanProperty _property;
+        
+        public Regular(PropertyValue next, Object value,
+                       SettableBeanProperty prop)
+        {
+            super(next, value);
+            _property = prop;
+        }
 
-      public void assign(Object bean) throws IOException, JsonProcessingException {
-         ((java.util.Map)bean).put(this._key, this.value);
-      }
-   }
+        @Override
+        public void assign(Object bean)
+            throws IOException, JsonProcessingException
+        {
+            _property.set(bean, value);
+        }
+    }
+    
+    /**
+     * Property value type used when storing entries to be added
+     * to a POJO using "any setter" (method that takes name and
+     * value arguments, allowing setting multiple different
+     * properties using single method).
+     */
+    final static class Any
+        extends PropertyValue
+    {
+        final SettableAnyProperty _property;
+        final String _propertyName;
+        
+        public Any(PropertyValue next, Object value,
+                   SettableAnyProperty prop,
+                   String propName)
+        {
+            super(next, value);
+            _property = prop;
+            _propertyName = propName;
+        }
 
-   static final class Any extends PropertyValue {
-      final SettableAnyProperty _property;
-      final String _propertyName;
+        @Override
+        public void assign(Object bean)
+            throws IOException, JsonProcessingException
+        {
+            _property.set(bean, _propertyName, value);
+        }
+    }
 
-      public Any(PropertyValue next, Object value, SettableAnyProperty prop, String propName) {
-         super(next, value);
-         this._property = prop;
-         this._propertyName = propName;
-      }
+    /**
+     * Property value type used when storing entries to be added
+     * to a Map.
+     */
+    final static class Map
+        extends PropertyValue
+    {
+        final Object _key;
+        
+        public Map(PropertyValue next, Object value, Object key)
+        {
+            super(next, value);
+            _key = key;
+        }
 
-      public void assign(Object bean) throws IOException, JsonProcessingException {
-         this._property.set(bean, this._propertyName, this.value);
-      }
-   }
-
-   static final class Regular extends PropertyValue {
-      final SettableBeanProperty _property;
-
-      public Regular(PropertyValue next, Object value, SettableBeanProperty prop) {
-         super(next, value);
-         this._property = prop;
-      }
-
-      public void assign(Object bean) throws IOException, JsonProcessingException {
-         this._property.set(bean, this.value);
-      }
-   }
+        @SuppressWarnings("unchecked") 
+        @Override
+        public void assign(Object bean)
+            throws IOException, JsonProcessingException
+        {
+            ((java.util.Map<Object,Object>) bean).put(_key, value);
+        }
+    }
 }

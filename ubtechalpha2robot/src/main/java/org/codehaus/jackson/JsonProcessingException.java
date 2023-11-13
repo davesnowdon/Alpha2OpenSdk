@@ -1,60 +1,80 @@
 package org.codehaus.jackson;
 
-import java.io.IOException;
+/**
+ * Intermediate base class for all problems encountered when
+ * processing (parsing, generating) JSON content
+ * that are not pure I/O problems.
+ * Regular {@link java.io.IOException}s will be passed through as is.
+ * Sub-class of {@link java.io.IOException} for convenience.
+ */
+public class JsonProcessingException
+    extends java.io.IOException
+{
+    final static long serialVersionUID = 123; // Stupid eclipse...
+	
+    protected JsonLocation mLocation;
 
-public class JsonProcessingException extends IOException {
-   static final long serialVersionUID = 123L;
-   protected JsonLocation mLocation;
+    protected JsonProcessingException(String msg, JsonLocation loc, Throwable rootCause)
+    {
+        /* Argh. IOException(Throwable,String) is only available starting
+         * with JDK 1.6...
+         */
+        super(msg);
+        if (rootCause != null) {
+            initCause(rootCause);
+        }
+        mLocation = loc;
+    }
 
-   protected JsonProcessingException(String msg, JsonLocation loc, Throwable rootCause) {
-      super(msg);
-      if (rootCause != null) {
-         this.initCause(rootCause);
-      }
+    protected JsonProcessingException(String msg)
+    {
+        super(msg);
+    }
 
-      this.mLocation = loc;
-   }
+    protected JsonProcessingException(String msg, JsonLocation loc)
+    {
+        this(msg, loc, null);
+    }
 
-   protected JsonProcessingException(String msg) {
-      super(msg);
-   }
+    protected JsonProcessingException(String msg, Throwable rootCause)
+    {
+        this(msg, null, rootCause);
+    }
 
-   protected JsonProcessingException(String msg, JsonLocation loc) {
-      this(msg, loc, (Throwable)null);
-   }
+    protected JsonProcessingException(Throwable rootCause)
+    {
+        this(null, null, rootCause);
+    }
 
-   protected JsonProcessingException(String msg, Throwable rootCause) {
-      this(msg, (JsonLocation)null, rootCause);
-   }
+    public JsonLocation getLocation()
+    {
+        return mLocation;
+    }
 
-   protected JsonProcessingException(Throwable rootCause) {
-      this((String)null, (JsonLocation)null, rootCause);
-   }
+    /**
+     * Default method overridden so that we can add location information
+     */
+    @Override
+    public String getMessage()
+    {
+        String msg = super.getMessage();
+        if (msg == null) {
+            msg = "N/A";
+        }
+        JsonLocation loc = getLocation();
+        if (loc != null) {
+            StringBuilder sb = new StringBuilder();
+            sb.append(msg);
+            sb.append('\n');
+            sb.append(" at ");
+            sb.append(loc.toString());
+            return sb.toString();
+        }
+        return msg;
+    }
 
-   public JsonLocation getLocation() {
-      return this.mLocation;
-   }
-
-   public String getMessage() {
-      String msg = super.getMessage();
-      if (msg == null) {
-         msg = "N/A";
-      }
-
-      JsonLocation loc = this.getLocation();
-      if (loc != null) {
-         StringBuilder sb = new StringBuilder();
-         sb.append(msg);
-         sb.append('\n');
-         sb.append(" at ");
-         sb.append(loc.toString());
-         return sb.toString();
-      } else {
-         return msg;
-      }
-   }
-
-   public String toString() {
-      return this.getClass().getName() + ": " + this.getMessage();
-   }
+    @Override
+    public String toString() {
+        return getClass().getName()+": "+getMessage();
+    }
 }

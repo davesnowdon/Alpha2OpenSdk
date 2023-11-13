@@ -1,15 +1,8 @@
 package org.codehaus.jackson.map.ext;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collection;
-import org.codehaus.jackson.JsonParser;
-import org.codehaus.jackson.JsonProcessingException;
-import org.codehaus.jackson.JsonToken;
-import org.codehaus.jackson.map.DeserializationContext;
-import org.codehaus.jackson.map.deser.StdDeserializer;
-import org.codehaus.jackson.map.deser.StdScalarDeserializer;
-import org.codehaus.jackson.map.util.Provider;
+import java.util.*;
+
 import org.joda.time.DateMidnight;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -20,162 +13,221 @@ import org.joda.time.ReadableInstant;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
-public class JodaDeserializers implements Provider<StdDeserializer<?>> {
-   public JodaDeserializers() {
-   }
+import org.codehaus.jackson.*;
+import org.codehaus.jackson.map.*;
+import org.codehaus.jackson.map.deser.StdDeserializer;
+import org.codehaus.jackson.map.deser.StdScalarDeserializer;
+import org.codehaus.jackson.map.util.Provider;
 
-   public Collection<StdDeserializer<?>> provide() {
-      return Arrays.asList(new JodaDeserializers.DateTimeDeserializer(DateTime.class), new JodaDeserializers.DateTimeDeserializer(ReadableDateTime.class), new JodaDeserializers.DateTimeDeserializer(ReadableInstant.class), new JodaDeserializers.LocalDateDeserializer(), new JodaDeserializers.LocalDateTimeDeserializer(), new JodaDeserializers.DateMidnightDeserializer());
-   }
+/**
+ * Provider for deserializers that handle some basic data types
+ * for <a href="http://joda-time.sourceforge.net/">Joda</a> date/time library.
+ *
+ * @since 1.4
+ */
+public class JodaDeserializers
+    implements Provider<StdDeserializer<?>>
+{
+    public Collection<StdDeserializer<?>> provide() {
+        return Arrays.asList(new StdDeserializer<?>[] {
+                new DateTimeDeserializer<DateTime>(DateTime.class)
+                ,new DateTimeDeserializer<ReadableDateTime>(ReadableDateTime.class)
+                ,new DateTimeDeserializer<ReadableInstant>(ReadableInstant.class)
+                ,new LocalDateDeserializer()
+                ,new LocalDateTimeDeserializer()
+                ,new DateMidnightDeserializer()
+        });
+    }
 
-   public static class DateMidnightDeserializer extends JodaDeserializers.JodaDeserializer<DateMidnight> {
-      public DateMidnightDeserializer() {
-         super(DateMidnight.class);
-      }
+    /*
+    /*********************************************************************
+    /* Intermediate base classes
+    /*********************************************************************
+    */
 
-      public DateMidnight deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         if (jp.isExpectedStartArrayToken()) {
-            jp.nextToken();
-            int year = jp.getIntValue();
-            jp.nextToken();
-            int month = jp.getIntValue();
-            jp.nextToken();
-            int day = jp.getIntValue();
-            if (jp.nextToken() != JsonToken.END_ARRAY) {
-               throw ctxt.wrongTokenException(jp, JsonToken.END_ARRAY, "after DateMidnight ints");
-            } else {
-               return new DateMidnight(year, month, day);
-            }
-         } else {
-            switch(jp.getCurrentToken()) {
-            case VALUE_NUMBER_INT:
-               return new DateMidnight(jp.getLongValue());
-            case VALUE_STRING:
-               DateTime local = this.parseLocal(jp);
-               if (local == null) {
-                  return null;
-               }
+    abstract static class JodaDeserializer<T> extends StdScalarDeserializer<T>
+    {
+        final static DateTimeFormatter _localDateTimeFormat = ISODateTimeFormat.localDateOptionalTimeParser();
 
-               return local.toDateMidnight();
-            default:
-               throw ctxt.wrongTokenException(jp, JsonToken.START_ARRAY, "expected JSON Array, Number or String");
-            }
-         }
-      }
-   }
+        protected JodaDeserializer(Class<T> cls) { super(cls); }
 
-   public static class LocalDateTimeDeserializer extends JodaDeserializers.JodaDeserializer<LocalDateTime> {
-      public LocalDateTimeDeserializer() {
-         super(LocalDateTime.class);
-      }
-
-      public LocalDateTime deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         if (jp.isExpectedStartArrayToken()) {
-            jp.nextToken();
-            int year = jp.getIntValue();
-            jp.nextToken();
-            int month = jp.getIntValue();
-            jp.nextToken();
-            int day = jp.getIntValue();
-            jp.nextToken();
-            int hour = jp.getIntValue();
-            jp.nextToken();
-            int minute = jp.getIntValue();
-            jp.nextToken();
-            int second = jp.getIntValue();
-            int millisecond = 0;
-            if (jp.nextToken() != JsonToken.END_ARRAY) {
-               millisecond = jp.getIntValue();
-               jp.nextToken();
-            }
-
-            if (jp.getCurrentToken() != JsonToken.END_ARRAY) {
-               throw ctxt.wrongTokenException(jp, JsonToken.END_ARRAY, "after LocalDateTime ints");
-            } else {
-               return new LocalDateTime(year, month, day, hour, minute, second, millisecond);
-            }
-         } else {
-            switch(jp.getCurrentToken()) {
-            case VALUE_NUMBER_INT:
-               return new LocalDateTime(jp.getLongValue());
-            case VALUE_STRING:
-               DateTime local = this.parseLocal(jp);
-               if (local == null) {
-                  return null;
-               }
-
-               return local.toLocalDateTime();
-            default:
-               throw ctxt.wrongTokenException(jp, JsonToken.START_ARRAY, "expected JSON Array or Number");
-            }
-         }
-      }
-   }
-
-   public static class LocalDateDeserializer extends JodaDeserializers.JodaDeserializer<LocalDate> {
-      public LocalDateDeserializer() {
-         super(LocalDate.class);
-      }
-
-      public LocalDate deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         if (jp.isExpectedStartArrayToken()) {
-            jp.nextToken();
-            int year = jp.getIntValue();
-            jp.nextToken();
-            int month = jp.getIntValue();
-            jp.nextToken();
-            int day = jp.getIntValue();
-            if (jp.nextToken() != JsonToken.END_ARRAY) {
-               throw ctxt.wrongTokenException(jp, JsonToken.END_ARRAY, "after LocalDate ints");
-            } else {
-               return new LocalDate(year, month, day);
-            }
-         } else {
-            switch(jp.getCurrentToken()) {
-            case VALUE_NUMBER_INT:
-               return new LocalDate(jp.getLongValue());
-            case VALUE_STRING:
-               DateTime local = this.parseLocal(jp);
-               if (local == null) {
-                  return null;
-               }
-
-               return local.toLocalDate();
-            default:
-               throw ctxt.wrongTokenException(jp, JsonToken.START_ARRAY, "expected JSON Array, String or Number");
-            }
-         }
-      }
-   }
-
-   public static class DateTimeDeserializer<T extends ReadableInstant> extends JodaDeserializers.JodaDeserializer<T> {
-      public DateTimeDeserializer(Class<T> cls) {
-         super(cls);
-      }
-
-      public T deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         JsonToken t = jp.getCurrentToken();
-         if (t == JsonToken.VALUE_NUMBER_INT) {
-            return new DateTime(jp.getLongValue(), DateTimeZone.UTC);
-         } else if (t == JsonToken.VALUE_STRING) {
+        protected DateTime parseLocal(JsonParser jp)
+            throws IOException, JsonProcessingException
+        {
             String str = jp.getText().trim();
-            return str.length() == 0 ? null : new DateTime(str, DateTimeZone.UTC);
-         } else {
-            throw ctxt.mappingException(this.getValueClass());
-         }
-      }
-   }
+            if (str.length() == 0) { // [JACKSON-360]
+                return null;
+            }
+            return _localDateTimeFormat.parseDateTime(str);
+        }
+    }
+    
+    /*
+    /*********************************************************************
+    /* Concrete deserializers
+    /*********************************************************************
+    */
 
-   abstract static class JodaDeserializer<T> extends StdScalarDeserializer<T> {
-      static final DateTimeFormatter _localDateTimeFormat = ISODateTimeFormat.localDateOptionalTimeParser();
+    /**
+     * Basic deserializer for {@link DateTime}. Accepts JSON String and Number
+     * values and passes those to single-argument constructor.
+     * Does not (yet?) support JSON object; support can be added if desired.
+     *<p>
+     * Since 1.6 this has been generic, to handle multiple related types,
+     * including super types of {@link DateTime}
+     */
+    public static class DateTimeDeserializer<T extends ReadableInstant>
+        extends JodaDeserializer<T>
+    {
+        public DateTimeDeserializer(Class<T> cls) { super(cls); }
 
-      protected JodaDeserializer(Class<T> cls) {
-         super(cls);
-      }
+        @SuppressWarnings("unchecked")
+        @Override
+        public T deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            JsonToken t = jp.getCurrentToken();
+            if (t == JsonToken.VALUE_NUMBER_INT) {
+                return (T) new DateTime(jp.getLongValue(), DateTimeZone.UTC);
+            }
+            if (t == JsonToken.VALUE_STRING) {
+                String str = jp.getText().trim();
+                if (str.length() == 0) { // [JACKSON-360]
+                    return null;
+                }
+                return (T) new DateTime(str, DateTimeZone.UTC);
+            }
+            throw ctxt.mappingException(getValueClass());
+        }
+    }
 
-      protected DateTime parseLocal(JsonParser jp) throws IOException, JsonProcessingException {
-         String str = jp.getText().trim();
-         return str.length() == 0 ? null : _localDateTimeFormat.parseDateTime(str);
-      }
-   }
+    /**
+     * @since 1.5
+     */
+    public static class LocalDateDeserializer
+        extends JodaDeserializer<LocalDate>
+    {
+        public LocalDateDeserializer() { super(LocalDate.class); }
+    
+        @Override
+        public LocalDate deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            // We'll accept either long (timestamp) or array:
+            if (jp.isExpectedStartArrayToken()) {
+                jp.nextToken(); // VALUE_NUMBER_INT 
+                int year = jp.getIntValue(); 
+                jp.nextToken(); // VALUE_NUMBER_INT
+                int month = jp.getIntValue();
+                jp.nextToken(); // VALUE_NUMBER_INT
+                int day = jp.getIntValue();
+                if (jp.nextToken() != JsonToken.END_ARRAY) {
+                    throw ctxt.wrongTokenException(jp, JsonToken.END_ARRAY, "after LocalDate ints");
+                }
+                return new LocalDate(year, month, day);
+            }
+            switch (jp.getCurrentToken()) {
+            case VALUE_NUMBER_INT:
+                return new LocalDate(jp.getLongValue());            
+            case VALUE_STRING:
+                DateTime local = parseLocal(jp);
+                if (local == null) {
+                    return null;
+                }
+                return local.toLocalDate();
+            }
+            throw ctxt.wrongTokenException(jp, JsonToken.START_ARRAY, "expected JSON Array, String or Number");
+        }
+    }
+
+    /**
+     * @since 1.5
+     */
+    public static class LocalDateTimeDeserializer
+        extends JodaDeserializer<LocalDateTime>
+    {
+        public LocalDateTimeDeserializer() { super(LocalDateTime.class); }
+    
+        @Override
+        public LocalDateTime deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            // We'll accept either long (timestamp) or array:
+            if (jp.isExpectedStartArrayToken()) {
+                jp.nextToken(); // VALUE_NUMBER_INT
+                int year = jp.getIntValue();
+                jp.nextToken(); // VALUE_NUMBER_INT
+                int month = jp.getIntValue();
+                jp.nextToken(); // VALUE_NUMBER_INT
+                int day = jp.getIntValue();
+                jp.nextToken(); // VALUE_NUMBER_INT
+                int hour = jp.getIntValue();
+                jp.nextToken(); // VALUE_NUMBER_INT
+                int minute = jp.getIntValue();
+                jp.nextToken(); // VALUE_NUMBER_INT
+                int second = jp.getIntValue();
+                // let's leave milliseconds optional?
+                int millisecond = 0;
+                if (jp.nextToken() != JsonToken.END_ARRAY) { // VALUE_NUMBER_INT           
+                    millisecond = jp.getIntValue();
+                    jp.nextToken(); // END_ARRAY?
+                }
+                if (jp.getCurrentToken() != JsonToken.END_ARRAY) {
+                    throw ctxt.wrongTokenException(jp, JsonToken.END_ARRAY, "after LocalDateTime ints");
+                }
+                return new LocalDateTime(year, month, day, hour, minute, second, millisecond);                 
+            }
+
+            switch (jp.getCurrentToken()) {
+            case VALUE_NUMBER_INT:
+                return new LocalDateTime(jp.getLongValue());            
+            case VALUE_STRING:
+                DateTime local = parseLocal(jp);
+                if (local == null) {
+                    return null;
+                }
+                return local.toLocalDateTime();
+            }
+            throw ctxt.wrongTokenException(jp, JsonToken.START_ARRAY, "expected JSON Array or Number");
+        }
+    }
+
+    /**
+     * @since 1.5
+     */
+    public static class DateMidnightDeserializer
+        extends JodaDeserializer<DateMidnight>
+    {
+        public DateMidnightDeserializer() { super(DateMidnight.class); }
+    
+        @Override
+        public DateMidnight deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            // We'll accept either long (timestamp) or array:
+            if (jp.isExpectedStartArrayToken()) {
+                jp.nextToken(); // VALUE_NUMBER_INT 
+                int year = jp.getIntValue(); 
+                jp.nextToken(); // VALUE_NUMBER_INT
+                int month = jp.getIntValue();
+                jp.nextToken(); // VALUE_NUMBER_INT
+                int day = jp.getIntValue();
+                if (jp.nextToken() != JsonToken.END_ARRAY) {
+                    throw ctxt.wrongTokenException(jp, JsonToken.END_ARRAY, "after DateMidnight ints");
+                }
+                return new DateMidnight(year, month, day);
+            }
+            switch (jp.getCurrentToken()) {
+            case VALUE_NUMBER_INT:
+                return new DateMidnight(jp.getLongValue());            
+            case VALUE_STRING:
+                DateTime local = parseLocal(jp);
+                if (local == null) {
+                    return null;
+                }
+                return local.toDateMidnight();
+            }
+            throw ctxt.wrongTokenException(jp, JsonToken.START_ARRAY, "expected JSON Array, Number or String");
+        }
+    }
 }

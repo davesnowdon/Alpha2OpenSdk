@@ -2,6 +2,11 @@ package org.codehaus.jackson.map.introspect;
 
 import java.lang.reflect.Method;
 
-public interface MethodFilter {
-   boolean includeMethod(Method var1);
+/**
+ * Simple interface that defines API used to filter out irrelevant
+ * methods
+ */
+public interface MethodFilter
+{
+    public boolean includeMethod(Method m);
 }

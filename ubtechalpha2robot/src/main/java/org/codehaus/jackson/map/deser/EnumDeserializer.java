@@ -2,89 +2,139 @@ package org.codehaus.jackson.map.deser;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
+
 import org.codehaus.jackson.JsonParser;
 import org.codehaus.jackson.JsonProcessingException;
 import org.codehaus.jackson.JsonToken;
 import org.codehaus.jackson.map.DeserializationConfig;
-import org.codehaus.jackson.map.DeserializationContext;
 import org.codehaus.jackson.map.JsonDeserializer;
+import org.codehaus.jackson.map.DeserializationContext;
 import org.codehaus.jackson.map.annotate.JsonCachable;
 import org.codehaus.jackson.map.introspect.AnnotatedMethod;
 import org.codehaus.jackson.map.util.ClassUtil;
 
+/**
+ * Deserializer class that can deserialize instances of
+ * specified Enum class from Strings and Integers.
+ */
 @JsonCachable
-public class EnumDeserializer extends StdScalarDeserializer<Enum<?>> {
-   final EnumResolver<?> _resolver;
+/**
+ * Construction of these deserializers is bit costly, plus it's
+ * absolutely safe to cache them as well (no generic variations etc).
+ */
+public class EnumDeserializer
+    extends StdScalarDeserializer<Enum<?>>
+{
+    final EnumResolver<?> _resolver;
+    
+    public EnumDeserializer(EnumResolver<?> res)
+    {
+        super(Enum.class);
+        _resolver = res;
+    }
 
-   public EnumDeserializer(EnumResolver<?> res) {
-      super(Enum.class);
-      this._resolver = res;
-   }
-
-   public static JsonDeserializer<?> deserializerForCreator(DeserializationConfig config, Class<?> enumClass, AnnotatedMethod factory) {
-      if (factory.getParameterType(0) != String.class) {
-         throw new IllegalArgumentException("Parameter #0 type for factory method (" + factory + ") not suitable, must be java.lang.String");
-      } else {
-         if (config.isEnabled(DeserializationConfig.Feature.CAN_OVERRIDE_ACCESS_MODIFIERS)) {
+    /**
+     * Factory method used when Enum instances are to be deserialized
+     * using a creator (static factory method)
+     * 
+     * @return Deserializer based on given factory method, if type was suitable;
+     *  null if type can not be used
+     * 
+     * @since 1.6
+     */
+    public static JsonDeserializer<?> deserializerForCreator(DeserializationConfig config,
+            Class<?> enumClass, AnnotatedMethod factory)
+    {
+        // note: caller has verified there's just one arg; but we must verify its type
+        if (factory.getParameterType(0) != String.class) {
+            throw new IllegalArgumentException("Parameter #0 type for factory method ("+factory+") not suitable, must be java.lang.String");
+        }
+        if (config.isEnabled(DeserializationConfig.Feature.CAN_OVERRIDE_ACCESS_MODIFIERS)) {
             ClassUtil.checkAndFixAccess(factory.getMember());
-         }
+        }
+        return new FactoryBasedDeserializer(enumClass, factory);
+    }
+    
+    /*
+    /**********************************************************
+    /* Default JsonDeserializer implementation
+    /**********************************************************
+     */
 
-         return new EnumDeserializer.FactoryBasedDeserializer(enumClass, factory);
-      }
-   }
-
-   public Enum<?> deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-      JsonToken curr = jp.getCurrentToken();
-      Enum result;
-      if (curr == JsonToken.VALUE_STRING) {
-         String name = jp.getText();
-         result = this._resolver.findEnum(name);
-         if (result == null) {
-            throw ctxt.weirdStringException(this._resolver.getEnumClass(), "value not one of declared Enum instance names");
-         } else {
-            return result;
-         }
-      } else if (curr == JsonToken.VALUE_NUMBER_INT) {
-         if (ctxt.isEnabled(DeserializationConfig.Feature.FAIL_ON_NUMBERS_FOR_ENUMS)) {
-            throw ctxt.mappingException("Not allowed to deserialize Enum value out of JSON number (disable DeserializationConfig.Feature.FAIL_ON_NUMBERS_FOR_ENUMS to allow)");
-         } else {
-            int index = jp.getIntValue();
-            result = this._resolver.getEnum(index);
+    @Override
+    public Enum<?> deserialize(JsonParser jp, DeserializationContext ctxt)
+        throws IOException, JsonProcessingException
+    {
+        JsonToken curr = jp.getCurrentToken();
+        
+        // Usually should just get string value:
+        if (curr == JsonToken.VALUE_STRING) {
+            String name = jp.getText();
+            Enum<?> result = _resolver.findEnum(name);
             if (result == null) {
-               throw ctxt.weirdNumberException(this._resolver.getEnumClass(), "index value outside legal index range [0.." + this._resolver.lastValidIndex() + "]");
-            } else {
-               return result;
+                throw ctxt.weirdStringException(_resolver.getEnumClass(), "value not one of declared Enum instance names");
             }
-         }
-      } else {
-         throw ctxt.mappingException(this._resolver.getEnumClass());
-      }
-   }
+            return result;
+        }
+        // But let's consider int acceptable as well (if within ordinal range)
+        if (curr == JsonToken.VALUE_NUMBER_INT) {
+            /* ... unless told not to do that. :-)
+             * (as per [JACKSON-412]
+             */
+            if (ctxt.isEnabled(DeserializationConfig.Feature.FAIL_ON_NUMBERS_FOR_ENUMS)) {
+                throw ctxt.mappingException("Not allowed to deserialize Enum value out of JSON number (disable DeserializationConfig.Feature.FAIL_ON_NUMBERS_FOR_ENUMS to allow)");
+            }
+            
+            int index = jp.getIntValue();
+            Enum<?> result = _resolver.getEnum(index);
+            if (result == null) {
+                throw ctxt.weirdNumberException(_resolver.getEnumClass(), "index value outside legal index range [0.."+_resolver.lastValidIndex()+"]");
+            }
+            return result;
+        }
+        throw ctxt.mappingException(_resolver.getEnumClass());
+    }
 
-   protected static class FactoryBasedDeserializer extends StdScalarDeserializer<Object> {
-      protected final Class<?> _enumClass;
-      protected final Method _factory;
+    /*
+    /**********************************************************
+    /* Default JsonDeserializer implementation
+    /**********************************************************
+     */
 
-      public FactoryBasedDeserializer(Class<?> cls, AnnotatedMethod f) {
-         super(Enum.class);
-         this._enumClass = cls;
-         this._factory = f.getAnnotated();
-      }
+    /**
+     * Deserializer that uses a single-String static factory method
+     * for locating Enum values by String id.
+     */
+    protected static class FactoryBasedDeserializer
+        extends StdScalarDeserializer<Object>
+    {
+        protected final Class<?> _enumClass;
+        protected final Method _factory;
+        
+        public FactoryBasedDeserializer(Class<?> cls, AnnotatedMethod f)
+        {
+            super(Enum.class);
+            _enumClass = cls;
+            _factory = f.getAnnotated();
+        }
 
-      public Object deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-         JsonToken curr = jp.getCurrentToken();
-         if (curr != JsonToken.VALUE_STRING) {
-            throw ctxt.mappingException(this._enumClass);
-         } else {
+        @Override
+        public Object deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException, JsonProcessingException
+        {
+            JsonToken curr = jp.getCurrentToken();
+            
+            // Usually should just get string value:
+            if (curr != JsonToken.VALUE_STRING) {
+                throw ctxt.mappingException(_enumClass);
+            }
             String value = jp.getText();
-
             try {
-               return this._factory.invoke(this._enumClass, value);
-            } catch (Exception var6) {
-               ClassUtil.unwrapAndThrowAsIAE(var6);
-               return null;
+                return _factory.invoke(_enumClass, value);
+            } catch (Exception e) {
+                ClassUtil.unwrapAndThrowAsIAE(e);
             }
-         }
-      }
-   }
+            return null;
+        }
+    }
 }

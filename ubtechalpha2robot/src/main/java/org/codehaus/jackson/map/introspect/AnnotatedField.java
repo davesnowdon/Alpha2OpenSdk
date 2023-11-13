@@ -5,60 +5,100 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Member;
 import java.lang.reflect.Type;
 
-public final class AnnotatedField extends AnnotatedMember {
-   protected final Field _field;
-   protected final AnnotationMap _annotations;
+/**
+ * Object that represents non-static (and usually non-transient/volatile)
+ * fields of a class.
+ * 
+ * @author tatu
+ */
+public final class AnnotatedField
+    extends AnnotatedMember
+{
+    protected final Field _field;
 
-   public AnnotatedField(Field field, AnnotationMap annMap) {
-      this._field = field;
-      this._annotations = annMap;
-   }
+    protected final AnnotationMap _annotations;
 
-   public void addOrOverride(Annotation a) {
-      this._annotations.add(a);
-   }
+    /*
+    /**********************************************************
+    /* Life-cycle
+    /**********************************************************
+     */
 
-   public Field getAnnotated() {
-      return this._field;
-   }
+    public AnnotatedField(Field field, AnnotationMap annMap)
+    {
+        _field = field;
+        _annotations = annMap;
+    }
 
-   public int getModifiers() {
-      return this._field.getModifiers();
-   }
+    /**
+     * Method called to override an annotation, usually due to a mix-in
+     * annotation masking or overriding an annotation 'real' constructor
+     * has.
+     */
+    public void addOrOverride(Annotation a)
+    {
+        _annotations.add(a);
+    }
 
-   public String getName() {
-      return this._field.getName();
-   }
+    /*
+    /**********************************************************
+    /* Annotated impl
+    /**********************************************************
+     */
 
-   public <A extends Annotation> A getAnnotation(Class<A> acls) {
-      return this._annotations.get(acls);
-   }
+    @Override
+    public Field getAnnotated() { return _field; }
 
-   public Type getGenericType() {
-      return this._field.getGenericType();
-   }
+    @Override
+    public int getModifiers() { return _field.getModifiers(); }
 
-   public Class<?> getRawType() {
-      return this._field.getType();
-   }
+    @Override
+    public String getName() { return _field.getName(); }
 
-   public Class<?> getDeclaringClass() {
-      return this._field.getDeclaringClass();
-   }
+    @Override
+    public <A extends Annotation> A getAnnotation(Class<A> acls)
+    {
+        return _annotations.get(acls);
+    }
 
-   public Member getMember() {
-      return this._field;
-   }
+    @Override
+    public Type getGenericType() {
+        return _field.getGenericType();
+    }
 
-   public String getFullName() {
-      return this.getDeclaringClass().getName() + "#" + this.getName();
-   }
+    @Override
+    public Class<?> getRawType() {
+        return _field.getType();
+    }
+    
+    /*
+    /**********************************************************
+    /* AnnotatedMember impl
+    /**********************************************************
+     */
 
-   public int getAnnotationCount() {
-      return this._annotations.size();
-   }
+    @Override
+    public Class<?> getDeclaringClass() { return _field.getDeclaringClass(); }
 
-   public String toString() {
-      return "[field " + this.getName() + ", annotations: " + this._annotations + "]";
-   }
+    @Override
+    public Member getMember() { return _field; }
+    
+    /*
+    /**********************************************************
+    /* Extended API, generic
+    /**********************************************************
+     */
+
+    public String getFullName() {
+        return getDeclaringClass().getName() + "#" + getName();
+    }
+
+    public int getAnnotationCount() { return _annotations.size(); }
+
+    @Override
+    public String toString()
+    {
+        return "[field "+getName()+", annotations: "+_annotations+"]";
+    }
 }
+

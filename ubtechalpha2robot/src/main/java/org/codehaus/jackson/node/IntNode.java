@@ -3,102 +3,120 @@ package org.codehaus.jackson.node;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.JsonParser;
-import org.codehaus.jackson.JsonProcessingException;
-import org.codehaus.jackson.JsonToken;
+
+import org.codehaus.jackson.*;
 import org.codehaus.jackson.io.NumberOutput;
 import org.codehaus.jackson.map.SerializerProvider;
 
-public final class IntNode extends NumericNode {
-   static final int MIN_CANONICAL = -1;
-   static final int MAX_CANONICAL = 10;
-   private static final IntNode[] CANONICALS;
-   final int _value;
+/**
+ * Numeric node that contains simple 32-bit integer values.
+ */
+public final class IntNode
+    extends NumericNode
+{
+    // // // Let's cache small set of common value
 
-   public IntNode(int v) {
-      this._value = v;
-   }
+    final static int MIN_CANONICAL = -1;
+    final static int MAX_CANONICAL = 10;
 
-   public static IntNode valueOf(int i) {
-      return i <= 10 && i >= -1 ? CANONICALS[i - -1] : new IntNode(i);
-   }
+    private final static IntNode[] CANONICALS;
+    static {
+        int count = MAX_CANONICAL - MIN_CANONICAL + 1;
+        CANONICALS = new IntNode[count];
+        for (int i = 0; i < count; ++i) {
+            CANONICALS[i] = new IntNode(MIN_CANONICAL + i);
+        }
+    }
 
-   public JsonToken asToken() {
-      return JsonToken.VALUE_NUMBER_INT;
-   }
+    /**
+     * Integer value this node contains
+     */
+    final int _value;
 
-   public JsonParser.NumberType getNumberType() {
-      return JsonParser.NumberType.INT;
-   }
+    /* 
+    ************************************************
+    * Construction
+    ************************************************
+    */
 
-   public boolean isIntegralNumber() {
-      return true;
-   }
+    public IntNode(int v) { _value = v; }
 
-   public boolean isInt() {
-      return true;
-   }
+    public static IntNode valueOf(int i) {
+        if (i > MAX_CANONICAL || i < MIN_CANONICAL) return new IntNode(i);
+        return CANONICALS[i - MIN_CANONICAL];
+    }
 
-   public Number getNumberValue() {
-      return this._value;
-   }
+    /* 
+    /**********************************************************
+    /* BaseJsonNode extended API
+    /**********************************************************
+     */
 
-   public int getIntValue() {
-      return this._value;
-   }
+    @Override public JsonToken asToken() { return JsonToken.VALUE_NUMBER_INT; }
 
-   public long getLongValue() {
-      return (long)this._value;
-   }
+    @Override
+    public JsonParser.NumberType getNumberType() { return JsonParser.NumberType.INT; }
 
-   public double getDoubleValue() {
-      return (double)this._value;
-   }
+    /* 
+    /**********************************************************
+    /* Overrridden JsonNode methods
+    /**********************************************************
+     */
 
-   public BigDecimal getDecimalValue() {
-      return BigDecimal.valueOf((long)this._value);
-   }
+    @Override
+    public boolean isIntegralNumber() { return true; }
 
-   public BigInteger getBigIntegerValue() {
-      return BigInteger.valueOf((long)this._value);
-   }
+    @Override
+    public boolean isInt() { return true; }
 
-   public String getValueAsText() {
-      return NumberOutput.toString(this._value);
-   }
+    @Override
+    public Number getNumberValue() {
+        return Integer.valueOf(_value);
+    }
 
-   public boolean getValueAsBoolean(boolean defaultValue) {
-      return this._value != 0;
-   }
+    @Override
+    public int getIntValue() { return _value; }
 
-   public final void serialize(JsonGenerator jg, SerializerProvider provider) throws IOException, JsonProcessingException {
-      jg.writeNumber(this._value);
-   }
+    @Override
+    public long getLongValue() { return (long) _value; }
 
-   public boolean equals(Object o) {
-      if (o == this) {
-         return true;
-      } else if (o == null) {
-         return false;
-      } else if (o.getClass() != this.getClass()) {
-         return false;
-      } else {
-         return ((IntNode)o)._value == this._value;
-      }
-   }
+    @Override
+    public double getDoubleValue() { return (double) _value; }
 
-   public int hashCode() {
-      return this._value;
-   }
+    @Override
+    public BigDecimal getDecimalValue() { return BigDecimal.valueOf(_value); }
 
-   static {
-      int count = 12;
-      CANONICALS = new IntNode[count];
+    @Override
+    public BigInteger getBigIntegerValue() { return BigInteger.valueOf(_value); }
 
-      for(int i = 0; i < count; ++i) {
-         CANONICALS[i] = new IntNode(-1 + i);
-      }
+    @Override
+    public String getValueAsText() {
+        return NumberOutput.toString(_value);
+    }
 
-   }
+    @Override
+    public boolean getValueAsBoolean(boolean defaultValue) {
+        return _value != 0;
+    }
+    
+    @Override
+    public final void serialize(JsonGenerator jg, SerializerProvider provider)
+        throws IOException, JsonProcessingException
+    {
+        jg.writeNumber(_value);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o == this) return true;
+        if (o == null) return false;
+        if (o.getClass() != getClass()) { // final class, can do this
+            return false;
+        }
+        return ((IntNode) o)._value == _value;
+    }
+
+    @Override
+        public int hashCode() { return _value; }
 }

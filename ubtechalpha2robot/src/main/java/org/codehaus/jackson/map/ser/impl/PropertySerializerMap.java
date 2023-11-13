@@ -6,139 +6,226 @@ import org.codehaus.jackson.map.JsonSerializer;
 import org.codehaus.jackson.map.SerializerProvider;
 import org.codehaus.jackson.type.JavaType;
 
-public abstract class PropertySerializerMap {
-   public PropertySerializerMap() {
-   }
+/**
+ * Helper container used for resolving serializers for dynamic (possibly but not
+ * necessarily polymorphic) properties: properties whose type is not forced
+ * to use dynamic (declared) type and that are not final.
+ * If so, serializer to use can only be established once actual value type is known.
+ * Since this happens a lot unless static typing is forced (or types are final)
+ * this implementation is optimized for efficiency.
+ * Instances are immutable; new instances are created with factory methods: this
+ * is important to ensure correct multi-threaded access.
+ * 
+ * @since 1.7
+ */
+public abstract class PropertySerializerMap
+{
+    /**
+     * Main lookup method. Takes a "raw" type since usage is always from
+     * place where parameterization is fixed such that there can not be
+     * type-parametric variations.
+     */
+    public abstract JsonSerializer<Object> serializerFor(Class<?> type);
 
-   public abstract JsonSerializer<Object> serializerFor(Class<?> var1);
+    /**
+     * Method called if initial lookup fails; will both find serializer
+     * and construct new map instance if warranted, and return both
+     * @throws JsonMappingException 
+     */
+    public final SerializerAndMapResult findAndAddSerializer(Class<?> type,
+            SerializerProvider provider, BeanProperty property)
+        throws JsonMappingException
+    {
+        JsonSerializer<Object> serializer = provider.findValueSerializer(type, property);
+        return new SerializerAndMapResult(serializer, newWith(type, serializer));
+    }
 
-   public final PropertySerializerMap.SerializerAndMapResult findAndAddSerializer(Class<?> type, SerializerProvider provider, BeanProperty property) throws JsonMappingException {
-      JsonSerializer<Object> serializer = provider.findValueSerializer(type, property);
-      return new PropertySerializerMap.SerializerAndMapResult(serializer, this.newWith(type, serializer));
-   }
+    public final SerializerAndMapResult findAndAddSerializer(JavaType type,
+            SerializerProvider provider, BeanProperty property)
+        throws JsonMappingException
+    {
+        JsonSerializer<Object> serializer = provider.findValueSerializer(type, property);
+        return new SerializerAndMapResult(serializer, newWith(type.getRawClass(), serializer));
+    }
 
-   public final PropertySerializerMap.SerializerAndMapResult findAndAddSerializer(JavaType type, SerializerProvider provider, BeanProperty property) throws JsonMappingException {
-      JsonSerializer<Object> serializer = provider.findValueSerializer(type, property);
-      return new PropertySerializerMap.SerializerAndMapResult(serializer, this.newWith(type.getRawClass(), serializer));
-   }
+    protected abstract PropertySerializerMap newWith(Class<?> type, JsonSerializer<Object> serializer);
+    
+    public static PropertySerializerMap emptyMap() {
+        return Empty.instance;
+    }
+    
+    /*
+    /**********************************************************
+    /* Helper classes
+    /**********************************************************
+     */
 
-   protected abstract PropertySerializerMap newWith(Class<?> var1, JsonSerializer<Object> var2);
+    /**
+     * Value class used for returning tuple that has both serializer
+     * that was retrieved and new map instance
+     */
+    public final static class SerializerAndMapResult
+    {
+        public final JsonSerializer<Object> serializer;
+        public final PropertySerializerMap map;
+        
+        public SerializerAndMapResult(JsonSerializer<Object> serializer,
+                PropertySerializerMap map)
+        {
+            this.serializer = serializer;
+            this.map = map;
+        }
+    }
 
-   public static PropertySerializerMap emptyMap() {
-      return PropertySerializerMap.Empty.instance;
-   }
+    /**
+     * Trivial container for bundling type + serializer entries.
+     */
+    private final static class TypeAndSerializer
+    {
+        public final Class<?> type;
+        public final JsonSerializer<Object> serializer;
 
-   private static final class Multi extends PropertySerializerMap {
-      private static final int MAX_ENTRIES = 8;
-      private final PropertySerializerMap.TypeAndSerializer[] _entries;
+        public TypeAndSerializer(Class<?> type, JsonSerializer<Object> serializer) {
+            this.type = type;
+            this.serializer = serializer;
+        }
+    }
 
-      public Multi(PropertySerializerMap.TypeAndSerializer[] entries) {
-         this._entries = entries;
-      }
+    /*
+    /**********************************************************
+    /* Implementations
+    /**********************************************************
+     */
 
-      public JsonSerializer<Object> serializerFor(Class<?> type) {
-         int i = 0;
+    /**
+     * Bogus instance that contains no serializers; used as the default
+     * map with new serializers.
+     */
+    private final static class Empty extends PropertySerializerMap
+    {
+        protected final static Empty instance = new Empty();
 
-         for(int len = this._entries.length; i < len; ++i) {
-            PropertySerializerMap.TypeAndSerializer entry = this._entries[i];
-            if (entry.type == type) {
-               return entry.serializer;
+        @Override
+        public JsonSerializer<Object> serializerFor(Class<?> type) {
+            return null; // empty, nothing to find
+        }        
+
+        @Override
+        protected PropertySerializerMap newWith(Class<?> type, JsonSerializer<Object> serializer) {
+            return new Single(type, serializer);
+        }
+    }
+
+    /**
+     * Map that contains a single serializer; although seemingly silly
+     * this is probably the most commonly used variant because many
+     * theoretically dynamic or polymorphic types just have single
+     * actual type.
+     */
+    private final static class Single extends PropertySerializerMap
+    {
+        private final Class<?> _type;
+        private final JsonSerializer<Object> _serializer;
+
+        public Single(Class<?> type, JsonSerializer<Object> serializer) {
+            _type = type;
+            _serializer = serializer;
+        }
+
+        @Override
+        public JsonSerializer<Object> serializerFor(Class<?> type)
+        {
+            if (type == _type) {
+                return _serializer;
             }
-         }
+            return null;
+        }
 
-         return null;
-      }
+        @Override
+        protected PropertySerializerMap newWith(Class<?> type, JsonSerializer<Object> serializer) {
+            return new Double(_type, _serializer, type, serializer);
+        }
+    }
 
-      protected PropertySerializerMap newWith(Class<?> type, JsonSerializer<Object> serializer) {
-         int len = this._entries.length;
-         if (len == 8) {
-            return this;
-         } else {
-            PropertySerializerMap.TypeAndSerializer[] entries = new PropertySerializerMap.TypeAndSerializer[len + 1];
-            System.arraycopy(this._entries, 0, entries, 0, len);
-            entries[len] = new PropertySerializerMap.TypeAndSerializer(type, serializer);
-            return new PropertySerializerMap.Multi(entries);
-         }
-      }
-   }
+    private final static class Double extends PropertySerializerMap
+    {
+        private final Class<?> _type1, _type2;
+        private final JsonSerializer<Object> _serializer1, _serializer2;
 
-   private static final class Double extends PropertySerializerMap {
-      private final Class<?> _type1;
-      private final Class<?> _type2;
-      private final JsonSerializer<Object> _serializer1;
-      private final JsonSerializer<Object> _serializer2;
+        public Double(Class<?> type1, JsonSerializer<Object> serializer1,
+                Class<?> type2, JsonSerializer<Object> serializer2)
+        {
+            _type1 = type1;
+            _serializer1 = serializer1;
+            _type2 = type2;
+            _serializer2 = serializer2;
+        }
 
-      public Double(Class<?> type1, JsonSerializer<Object> serializer1, Class<?> type2, JsonSerializer<Object> serializer2) {
-         this._type1 = type1;
-         this._serializer1 = serializer1;
-         this._type2 = type2;
-         this._serializer2 = serializer2;
-      }
+        @Override
+        public JsonSerializer<Object> serializerFor(Class<?> type)
+        {
+            if (type == _type1) {
+                return _serializer1;
+            }
+            if (type == _type2) {
+                return _serializer2;
+            }
+            return null;
+        }        
 
-      public JsonSerializer<Object> serializerFor(Class<?> type) {
-         if (type == this._type1) {
-            return this._serializer1;
-         } else {
-            return type == this._type2 ? this._serializer2 : null;
-         }
-      }
+        @Override
+        protected PropertySerializerMap newWith(Class<?> type, JsonSerializer<Object> serializer) {
+            // Ok: let's just create generic one
+            TypeAndSerializer[] ts = new TypeAndSerializer[2];
+            ts[0] = new TypeAndSerializer(_type1, _serializer1);
+            ts[1] = new TypeAndSerializer(_type2, _serializer2);
+            return new Multi(ts);
+        }
+    }
+    
+    private final static class Multi extends PropertySerializerMap
+    {
+        /**
+         * Let's limit number of serializers we actually cache; linear
+         * lookup won't scale too well beyond smallish number, and if
+         * we really want to support larger collections should use
+         * a hash map. But it seems unlikely this is a common use
+         * case so for now let's just stop building after hard-coded
+         * limit. 8 sounds like a reasonable stab for now.
+         */
+        private final static int MAX_ENTRIES = 8;
+        
+        private final TypeAndSerializer[] _entries;
 
-      protected PropertySerializerMap newWith(Class<?> type, JsonSerializer<Object> serializer) {
-         PropertySerializerMap.TypeAndSerializer[] ts = new PropertySerializerMap.TypeAndSerializer[]{new PropertySerializerMap.TypeAndSerializer(this._type1, this._serializer1), new PropertySerializerMap.TypeAndSerializer(this._type2, this._serializer2)};
-         return new PropertySerializerMap.Multi(ts);
-      }
-   }
+        public Multi(TypeAndSerializer[] entries) {
+            _entries = entries;
+        }
 
-   private static final class Single extends PropertySerializerMap {
-      private final Class<?> _type;
-      private final JsonSerializer<Object> _serializer;
+        @Override
+        public JsonSerializer<Object> serializerFor(Class<?> type)
+        {
+            for (int i = 0, len = _entries.length; i < len; ++i) {
+                TypeAndSerializer entry = _entries[i];
+                if (entry.type == type) {
+                    return entry.serializer;
+                }
+            }
+            return null;
+        }
 
-      public Single(Class<?> type, JsonSerializer<Object> serializer) {
-         this._type = type;
-         this._serializer = serializer;
-      }
-
-      public JsonSerializer<Object> serializerFor(Class<?> type) {
-         return type == this._type ? this._serializer : null;
-      }
-
-      protected PropertySerializerMap newWith(Class<?> type, JsonSerializer<Object> serializer) {
-         return new PropertySerializerMap.Double(this._type, this._serializer, type, serializer);
-      }
-   }
-
-   private static final class Empty extends PropertySerializerMap {
-      protected static final PropertySerializerMap.Empty instance = new PropertySerializerMap.Empty();
-
-      private Empty() {
-      }
-
-      public JsonSerializer<Object> serializerFor(Class<?> type) {
-         return null;
-      }
-
-      protected PropertySerializerMap newWith(Class<?> type, JsonSerializer<Object> serializer) {
-         return new PropertySerializerMap.Single(type, serializer);
-      }
-   }
-
-   private static final class TypeAndSerializer {
-      public final Class<?> type;
-      public final JsonSerializer<Object> serializer;
-
-      public TypeAndSerializer(Class<?> type, JsonSerializer<Object> serializer) {
-         this.type = type;
-         this.serializer = serializer;
-      }
-   }
-
-   public static final class SerializerAndMapResult {
-      public final JsonSerializer<Object> serializer;
-      public final PropertySerializerMap map;
-
-      public SerializerAndMapResult(JsonSerializer<Object> serializer, PropertySerializerMap map) {
-         this.serializer = serializer;
-         this.map = map;
-      }
-   }
+        @Override
+        protected PropertySerializerMap newWith(Class<?> type, JsonSerializer<Object> serializer)
+        {
+            int len = _entries.length;
+            // Will only grow up to N entries
+            if (len == MAX_ENTRIES) {
+                return this;
+            }
+            // 1.6 has nice resize methods but we are still 1.5
+            TypeAndSerializer[] entries = new TypeAndSerializer[len+1];
+            System.arraycopy(_entries, 0, entries, 0, len);
+            entries[len] = new TypeAndSerializer(type, serializer);
+            return new Multi(entries);
+        }
+    }
 }

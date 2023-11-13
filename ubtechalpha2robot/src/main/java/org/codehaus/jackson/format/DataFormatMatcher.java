@@ -1,53 +1,117 @@
 package org.codehaus.jackson.format;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
+
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonParser;
-import org.codehaus.jackson.io.IOContext;
 import org.codehaus.jackson.io.MergedStream;
 
-public class DataFormatMatcher {
-   protected final InputStream _originalStream;
-   protected final byte[] _bufferedData;
-   protected final int _bufferedLength;
-   protected final JsonFactory _match;
-   protected final MatchStrength _matchStrength;
+/**
+ * Result object constructed by {@link DataFormatDetector} when requested
+ * to detect format of given input data.
+ */
+public class DataFormatMatcher
+{
+    protected final InputStream _originalStream;
 
-   protected DataFormatMatcher(InputStream in, byte[] buffered, int bufferedLength, JsonFactory match, MatchStrength strength) {
-      this._originalStream = in;
-      this._bufferedData = buffered;
-      this._bufferedLength = bufferedLength;
-      this._match = match;
-      this._matchStrength = strength;
-   }
+    /**
+     * Content read during format matching process
+     */
+    protected final byte[] _bufferedData;
 
-   public boolean hasMatch() {
-      return this._match != null;
-   }
+    /**
+     * Number of bytes in {@link #_bufferedData} that were read.
+     */
+    protected final int _bufferedLength;
 
-   public MatchStrength getMatchStrength() {
-      return this._matchStrength == null ? MatchStrength.INCONCLUSIVE : this._matchStrength;
-   }
+    /**
+     * Factory that produced sufficient match (if any)
+     */
+    protected final JsonFactory _match;
 
-   public JsonFactory getMatch() {
-      return this._match;
-   }
+    /**
+     * Strength of match with {@link #_match}
+     */
+    protected final MatchStrength _matchStrength;
+    
+    protected DataFormatMatcher(InputStream in, byte[] buffered, int bufferedLength,
+            JsonFactory match, MatchStrength strength)
+    {
+        _originalStream = in;
+        _bufferedData = buffered;
+        _bufferedLength = bufferedLength;
+        _match = match;
+        _matchStrength = strength;
+    }
 
-   public String getMatchedFormatName() {
-      return this._match.getFormatName();
-   }
+    /*
+    /**********************************************************
+    /* Public API, simple accessors
+    /**********************************************************
+     */
 
-   public JsonParser createParserWithMatch() throws IOException {
-      if (this._match == null) {
-         return null;
-      } else {
-         return this._originalStream == null ? this._match.createJsonParser(this._bufferedData, 0, this._bufferedLength) : this._match.createJsonParser(this.getDataStream());
-      }
-   }
+    /**
+     * Accessor to use to see if any formats matched well enough with
+     * the input data.
+     */
+    public boolean hasMatch() { return _match != null; }
 
-   public InputStream getDataStream() {
-      return (InputStream)(this._originalStream == null ? new ByteArrayInputStream(this._bufferedData, 0, this._bufferedLength) : new MergedStream((IOContext)null, this._originalStream, this._bufferedData, 0, this._bufferedLength));
-   }
+    /**
+     * Method for accessing strength of the match, if any; if no match,
+     * will return {@link MatchStrength#INCONCLUSIVE}.
+     */
+    public MatchStrength getMatchStrength() {
+        return (_matchStrength == null) ? MatchStrength.INCONCLUSIVE : _matchStrength;
+    }
+
+    /**
+     * Accessor for {@link JsonFactory} that represents format that data matched.
+     */
+    public JsonFactory getMatch() { return _match; }
+
+    /**
+     * Accessor for getting brief textual name of matched format if any (null
+     * if none). Equivalent to:
+     *<pre>
+     *   return hasMatch() ? getMatch().getFormatName() : null;
+     *</pre>
+     */
+    public String getMatchedFormatName() {
+        return _match.getFormatName();
+    }
+    
+    /*
+    /**********************************************************
+    /* Public API, factory methods
+    /**********************************************************
+     */
+    
+    /**
+     * Convenience method for trying to construct a {@link JsonParser} for
+     * parsing content which is assumed to be in detected data format.
+     * If no match was found, returns null.
+     */
+    public JsonParser createParserWithMatch() throws IOException {
+        if (_match == null) {
+            return null;
+        }
+        if (_originalStream == null) {
+            return _match.createJsonParser(_bufferedData, 0, _bufferedLength);
+        }
+        return _match.createJsonParser(getDataStream());
+    }
+    
+    /**
+     * Method to use for accessing input for which format detection has been done.
+     * This <b>must</b> be used instead of using stream passed to detector
+     * unless given stream itself can do buffering.
+     * Stream will return all content that was read during matching process, as well
+     * as remaining contents of the underlying stream.
+     */
+    public InputStream getDataStream() {
+        if (_originalStream == null) {
+            return new ByteArrayInputStream(_bufferedData, 0, _bufferedLength);
+        }
+        return new MergedStream(null, _originalStream, _bufferedData, 0, _bufferedLength);
+    }
 }

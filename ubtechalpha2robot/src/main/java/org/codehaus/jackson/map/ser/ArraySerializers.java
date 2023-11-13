@@ -2,345 +2,474 @@ package org.codehaus.jackson.map.ser;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
-import org.codehaus.jackson.JsonGenerationException;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.map.BeanProperty;
-import org.codehaus.jackson.map.JsonMappingException;
-import org.codehaus.jackson.map.JsonSerializer;
-import org.codehaus.jackson.map.ResolvableSerializer;
-import org.codehaus.jackson.map.SerializationConfig;
-import org.codehaus.jackson.map.SerializerProvider;
-import org.codehaus.jackson.map.TypeSerializer;
-import org.codehaus.jackson.map.annotate.JacksonStdImpl;
+
+import org.codehaus.jackson.*;
 import org.codehaus.jackson.node.ObjectNode;
+import org.codehaus.jackson.map.*;
+import org.codehaus.jackson.map.annotate.JacksonStdImpl;
 
-public final class ArraySerializers {
-   private ArraySerializers() {
-   }
+/**
+ * Dummy container class to group standard homogenous array serializer implementations
+ * (primitive arrays and String array).
+ */
+public final class ArraySerializers
+{
+    private ArraySerializers() { }
 
-   @JacksonStdImpl
-   public static final class DoubleArraySerializer extends ArraySerializers.AsArraySerializer<double[]> {
-      public DoubleArraySerializer() {
-         super(double[].class, (TypeSerializer)null, (BeanProperty)null);
-      }
+    /*
+    /**********************************************************
+    /* Base classes
+    /**********************************************************
+     */
+    
+    /**
+     * Base class for serializers that will output contents as JSON
+     * arrays.
+     */
+    public abstract static class AsArraySerializer<T>
+        extends ContainerSerializerBase<T>
+    {
+         /**
+         * Type serializer used for values, if any.
+         */
+        protected final TypeSerializer _valueTypeSerializer;
 
-      public ContainerSerializerBase<?> _withValueTypeSerializer(TypeSerializer vts) {
-         return this;
-      }
-
-      public void serializeContents(double[] value, JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonGenerationException {
-         int i = 0;
-
-         for(int len = value.length; i < len; ++i) {
-            jgen.writeNumber(value[i]);
-         }
-
-      }
-
-      public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-         ObjectNode o = this.createSchemaNode("array", true);
-         o.put("items", (JsonNode)this.createSchemaNode("number"));
-         return o;
-      }
-   }
-
-   @JacksonStdImpl
-   public static final class FloatArraySerializer extends ArraySerializers.AsArraySerializer<float[]> {
-      public FloatArraySerializer() {
-         this((TypeSerializer)null);
-      }
-
-      public FloatArraySerializer(TypeSerializer vts) {
-         super(float[].class, vts, (BeanProperty)null);
-      }
-
-      public ContainerSerializerBase<?> _withValueTypeSerializer(TypeSerializer vts) {
-         return new ArraySerializers.FloatArraySerializer(vts);
-      }
-
-      public void serializeContents(float[] value, JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonGenerationException {
-         int i = 0;
-
-         for(int len = value.length; i < len; ++i) {
-            jgen.writeNumber(value[i]);
-         }
-
-      }
-
-      public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-         ObjectNode o = this.createSchemaNode("array", true);
-         o.put("items", (JsonNode)this.createSchemaNode("number"));
-         return o;
-      }
-   }
-
-   @JacksonStdImpl
-   public static final class LongArraySerializer extends ArraySerializers.AsArraySerializer<long[]> {
-      public LongArraySerializer() {
-         this((TypeSerializer)null);
-      }
-
-      public LongArraySerializer(TypeSerializer vts) {
-         super(long[].class, vts, (BeanProperty)null);
-      }
-
-      public ContainerSerializerBase<?> _withValueTypeSerializer(TypeSerializer vts) {
-         return new ArraySerializers.LongArraySerializer(vts);
-      }
-
-      public void serializeContents(long[] value, JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonGenerationException {
-         int i = 0;
-
-         for(int len = value.length; i < len; ++i) {
-            jgen.writeNumber(value[i]);
-         }
-
-      }
-
-      public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-         ObjectNode o = this.createSchemaNode("array", true);
-         o.put("items", (JsonNode)this.createSchemaNode("number", true));
-         return o;
-      }
-   }
-
-   @JacksonStdImpl
-   public static final class IntArraySerializer extends ArraySerializers.AsArraySerializer<int[]> {
-      public IntArraySerializer() {
-         super(int[].class, (TypeSerializer)null, (BeanProperty)null);
-      }
-
-      public ContainerSerializerBase<?> _withValueTypeSerializer(TypeSerializer vts) {
-         return this;
-      }
-
-      public void serializeContents(int[] value, JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonGenerationException {
-         int i = 0;
-
-         for(int len = value.length; i < len; ++i) {
-            jgen.writeNumber(value[i]);
-         }
-
-      }
-
-      public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-         ObjectNode o = this.createSchemaNode("array", true);
-         o.put("items", (JsonNode)this.createSchemaNode("integer"));
-         return o;
-      }
-   }
-
-   @JacksonStdImpl
-   public static final class CharArraySerializer extends SerializerBase<char[]> {
-      public CharArraySerializer() {
-         super(char[].class);
-      }
-
-      public void serialize(char[] value, JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonGenerationException {
-         if (provider.isEnabled(SerializationConfig.Feature.WRITE_CHAR_ARRAYS_AS_JSON_ARRAYS)) {
+        /**
+         * Array-valued property being serialized with this instance
+         * 
+         * @since 1.7
+         */
+        protected final BeanProperty _property;
+        
+        protected AsArraySerializer(Class<T> cls, TypeSerializer vts, BeanProperty property)
+        {
+            super(cls);
+            _valueTypeSerializer = vts;
+            _property = property;
+        }
+        
+        @Override
+        public final void serialize(T value, JsonGenerator jgen, SerializerProvider provider)
+            throws IOException, JsonGenerationException
+        {
             jgen.writeStartArray();
-            this._writeArrayContents(jgen, value);
+            serializeContents(value, jgen, provider);
             jgen.writeEndArray();
-         } else {
-            jgen.writeString(value, 0, value.length);
-         }
-
-      }
-
-      public void serializeWithType(char[] value, JsonGenerator jgen, SerializerProvider provider, TypeSerializer typeSer) throws IOException, JsonGenerationException {
-         if (provider.isEnabled(SerializationConfig.Feature.WRITE_CHAR_ARRAYS_AS_JSON_ARRAYS)) {
+        }
+        
+        @Override
+        public final void serializeWithType(T value, JsonGenerator jgen, SerializerProvider provider,
+                TypeSerializer typeSer)
+            throws IOException, JsonGenerationException
+        {
             typeSer.writeTypePrefixForArray(value, jgen);
-            this._writeArrayContents(jgen, value);
+            serializeContents(value, jgen, provider);
             typeSer.writeTypeSuffixForArray(value, jgen);
-         } else {
+        }
+
+        protected abstract void serializeContents(T value, JsonGenerator jgen, SerializerProvider provider)
+            throws IOException, JsonGenerationException;
+    }
+
+    /*
+     ****************************************************************
+    /* Concrete serializers, arrays
+     ****************************************************************
+     */
+
+    /**
+     * Standard serializer used for <code>String[]</code> values.
+     */
+    @JacksonStdImpl
+    public final static class StringArraySerializer
+        extends AsArraySerializer<String[]>
+        implements ResolvableSerializer
+    {
+        /**
+         * Value serializer to use, if it's not the standard one
+         * (if it is we can optimize serialization a lot)
+         * 
+         * @since 1.7
+         */
+        protected JsonSerializer<Object> _elementSerializer;
+
+        public StringArraySerializer(BeanProperty prop) {
+            super(String[].class, null, prop);
+        }
+
+        /**
+         * Strings never add type info; hence, even if type serializer is suggested,
+         * we'll ignore it...
+         */
+        @Override
+        public ContainerSerializerBase<?> _withValueTypeSerializer(TypeSerializer vts) {
+            return this;
+        }
+        
+        @Override
+        public void serializeContents(String[] value, JsonGenerator jgen, SerializerProvider provider)
+            throws IOException, JsonGenerationException
+        {
+            final int len = value.length;
+            if (len == 0) {
+                return;
+            }
+            if (_elementSerializer != null) {
+                serializeContentsSlow(value, jgen, provider, _elementSerializer);
+                return;
+            }
+            /* 08-Dec-2008, tatus: If we want this to be fully overridable
+             *  (for example, to support String cleanup during writing
+             *  or something), we should find serializer  by provider.
+             *  But for now, that seems like an overkill: and caller can
+             *  add custom serializer if that is needed as well.
+             * (ditto for null values)
+             */
+            //JsonSerializer<String> ser = (JsonSerializer<String>)provider.findValueSerializer(String.class);
+            for (int i = 0; i < len; ++i) {
+                String str = value[i];
+                if (str == null) {
+                    jgen.writeNull();
+                } else {
+                    //ser.serialize(value[i], jgen, provider);
+                    jgen.writeString(value[i]);
+                }
+            }
+        }
+
+        private void serializeContentsSlow(String[] value, JsonGenerator jgen, SerializerProvider provider,
+                JsonSerializer<Object> ser)
+            throws IOException, JsonGenerationException
+        {
+            for (int i = 0, len = value.length; i < len; ++i) {
+                String str = value[i];
+                if (str == null) {
+                    provider.defaultSerializeNull(jgen);
+                } else {
+                    ser.serialize(value[i], jgen, provider);
+                }
+            }
+        }
+
+        /**
+         * Need to get callback to resolve value serializer, which may
+         * be overridden by custom serializer
+         */
+        public void resolve(SerializerProvider provider)
+            throws JsonMappingException
+        {
+            JsonSerializer<Object> ser = provider.findValueSerializer(String.class, _property);
+            // Retain if not the standard implementation
+            if (ser != null && ser.getClass().getAnnotation(JacksonStdImpl.class) == null) {
+                _elementSerializer = ser;
+            }
+        }        
+        
+        @Override
+        public JsonNode getSchema(SerializerProvider provider, Type typeHint)
+        {
+            ObjectNode o = createSchemaNode("array", true);
+            o.put("items", createSchemaNode("string"));
+            return o;
+        }
+    }
+
+    @JacksonStdImpl
+    public final static class BooleanArraySerializer
+        extends AsArraySerializer<boolean[]>
+    {
+        public BooleanArraySerializer() { super(boolean[].class, null, null); }
+
+        /**
+         * Booleans never add type info; hence, even if type serializer is suggested,
+         * we'll ignore it...
+         */
+        @Override
+        public ContainerSerializerBase<?> _withValueTypeSerializer(TypeSerializer vts)
+        {
+            return this;
+        }
+        
+        @Override
+        public void serializeContents(boolean[] value, JsonGenerator jgen, SerializerProvider provider)
+            throws IOException, JsonGenerationException
+        {
+            for (int i = 0, len = value.length; i < len; ++i) {
+                jgen.writeBoolean(value[i]);
+            }
+        }
+
+        @Override
+        public JsonNode getSchema(SerializerProvider provider, Type typeHint)
+        {
+            ObjectNode o = createSchemaNode("array", true);
+            o.put("items", createSchemaNode("boolean"));
+            return o;
+        }
+    }
+
+    /**
+     * Unlike other integral number array serializers, we do not just print out byte values
+     * as numbers. Instead, we assume that it would make more sense to output content
+     * as base64 encoded bytes (using default base64 encoding).
+     *<p>
+     * NOTE: since it is NOT serialized as an array, can not use AsArraySerializer as base
+     */
+    @JacksonStdImpl
+    public final static class ByteArraySerializer
+        extends SerializerBase<byte[]>
+    {
+        public ByteArraySerializer() {
+            super(byte[].class);
+        }
+        
+        @Override
+        public void serialize(byte[] value, JsonGenerator jgen, SerializerProvider provider)
+            throws IOException, JsonGenerationException
+        {
+            jgen.writeBinary(value);
+        }
+
+        @Override
+        public void serializeWithType(byte[] value, JsonGenerator jgen, SerializerProvider provider,
+                TypeSerializer typeSer)
+            throws IOException, JsonGenerationException
+        {
             typeSer.writeTypePrefixForScalar(value, jgen);
-            jgen.writeString(value, 0, value.length);
+            jgen.writeBinary(value);
             typeSer.writeTypeSuffixForScalar(value, jgen);
-         }
+        }
+        
+        @Override
+        public JsonNode getSchema(SerializerProvider provider, Type typeHint)
+        {
+            ObjectNode o = createSchemaNode("array", true);
+            ObjectNode itemSchema = createSchemaNode("string"); //binary values written as strings?
+            o.put("items", itemSchema);
+            return o;
+        }
+    }
 
-      }
+    @JacksonStdImpl
+    public final static class ShortArraySerializer
+        extends AsArraySerializer<short[]>
+    {
+        public ShortArraySerializer() { this(null); }
+        public ShortArraySerializer(TypeSerializer vts) { super(short[].class, vts, null); }
 
-      private final void _writeArrayContents(JsonGenerator jgen, char[] value) throws IOException, JsonGenerationException {
-         int i = 0;
-
-         for(int len = value.length; i < len; ++i) {
-            jgen.writeString(value, i, 1);
-         }
-
-      }
-
-      public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-         ObjectNode o = this.createSchemaNode("array", true);
-         ObjectNode itemSchema = this.createSchemaNode("string");
-         itemSchema.put("type", "string");
-         o.put("items", (JsonNode)itemSchema);
-         return o;
-      }
-   }
-
-   @JacksonStdImpl
-   public static final class ShortArraySerializer extends ArraySerializers.AsArraySerializer<short[]> {
-      public ShortArraySerializer() {
-         this((TypeSerializer)null);
-      }
-
-      public ShortArraySerializer(TypeSerializer vts) {
-         super(short[].class, vts, (BeanProperty)null);
-      }
-
-      public ContainerSerializerBase<?> _withValueTypeSerializer(TypeSerializer vts) {
-         return new ArraySerializers.ShortArraySerializer(vts);
-      }
-
-      public void serializeContents(short[] value, JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonGenerationException {
-         int i = 0;
-
-         for(int len = value.length; i < len; ++i) {
-            jgen.writeNumber(value[i]);
-         }
-
-      }
-
-      public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-         ObjectNode o = this.createSchemaNode("array", true);
-         o.put("items", (JsonNode)this.createSchemaNode("integer"));
-         return o;
-      }
-   }
-
-   @JacksonStdImpl
-   public static final class ByteArraySerializer extends SerializerBase<byte[]> {
-      public ByteArraySerializer() {
-         super(byte[].class);
-      }
-
-      public void serialize(byte[] value, JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonGenerationException {
-         jgen.writeBinary(value);
-      }
-
-      public void serializeWithType(byte[] value, JsonGenerator jgen, SerializerProvider provider, TypeSerializer typeSer) throws IOException, JsonGenerationException {
-         typeSer.writeTypePrefixForScalar(value, jgen);
-         jgen.writeBinary(value);
-         typeSer.writeTypeSuffixForScalar(value, jgen);
-      }
-
-      public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-         ObjectNode o = this.createSchemaNode("array", true);
-         ObjectNode itemSchema = this.createSchemaNode("string");
-         o.put("items", (JsonNode)itemSchema);
-         return o;
-      }
-   }
-
-   @JacksonStdImpl
-   public static final class BooleanArraySerializer extends ArraySerializers.AsArraySerializer<boolean[]> {
-      public BooleanArraySerializer() {
-         super(boolean[].class, (TypeSerializer)null, (BeanProperty)null);
-      }
-
-      public ContainerSerializerBase<?> _withValueTypeSerializer(TypeSerializer vts) {
-         return this;
-      }
-
-      public void serializeContents(boolean[] value, JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonGenerationException {
-         int i = 0;
-
-         for(int len = value.length; i < len; ++i) {
-            jgen.writeBoolean(value[i]);
-         }
-
-      }
-
-      public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-         ObjectNode o = this.createSchemaNode("array", true);
-         o.put("items", (JsonNode)this.createSchemaNode("boolean"));
-         return o;
-      }
-   }
-
-   @JacksonStdImpl
-   public static final class StringArraySerializer extends ArraySerializers.AsArraySerializer<String[]> implements ResolvableSerializer {
-      protected JsonSerializer<Object> _elementSerializer;
-
-      public StringArraySerializer(BeanProperty prop) {
-         super(String[].class, (TypeSerializer)null, prop);
-      }
-
-      public ContainerSerializerBase<?> _withValueTypeSerializer(TypeSerializer vts) {
-         return this;
-      }
-
-      public void serializeContents(String[] value, JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonGenerationException {
-         int len = value.length;
-         if (len != 0) {
-            if (this._elementSerializer != null) {
-               this.serializeContentsSlow(value, jgen, provider, this._elementSerializer);
-            } else {
-               for(int i = 0; i < len; ++i) {
-                  String str = value[i];
-                  if (str == null) {
-                     jgen.writeNull();
-                  } else {
-                     jgen.writeString(value[i]);
-                  }
-               }
-
+        @Override
+        public ContainerSerializerBase<?> _withValueTypeSerializer(TypeSerializer vts) {
+            return new ShortArraySerializer(vts);
+        }
+        
+        @SuppressWarnings("cast")
+        @Override
+        public void serializeContents(short[] value, JsonGenerator jgen, SerializerProvider provider)
+            throws IOException, JsonGenerationException
+        {
+            for (int i = 0, len = value.length; i < len; ++i) {
+                jgen.writeNumber((int)value[i]);
             }
-         }
-      }
+        }
 
-      private void serializeContentsSlow(String[] value, JsonGenerator jgen, SerializerProvider provider, JsonSerializer<Object> ser) throws IOException, JsonGenerationException {
-         int i = 0;
+        @Override
+        public JsonNode getSchema(SerializerProvider provider, Type typeHint)
+        {
+            //no "short" type defined by json
+            ObjectNode o = createSchemaNode("array", true);
+            o.put("items", createSchemaNode("integer"));
+            return o;
+        }
+    }
 
-         for(int len = value.length; i < len; ++i) {
-            String str = value[i];
-            if (str == null) {
-               provider.defaultSerializeNull(jgen);
+    /**
+     * Character arrays are different from other integral number arrays in that
+     * they are most likely to be textual data, and should be written as
+     * Strings, not arrays of entries.
+     *<p>
+     * NOTE: since it is NOT serialized as an array, can not use AsArraySerializer as base
+     */
+    @JacksonStdImpl
+    public final static class CharArraySerializer
+        extends SerializerBase<char[]>
+    {
+        public CharArraySerializer() { super(char[].class); }
+        
+        @Override
+        public void serialize(char[] value, JsonGenerator jgen, SerializerProvider provider)
+            throws IOException, JsonGenerationException
+        {
+            // [JACKSON-289] allows serializing as 'sparse' char array too:
+            if (provider.isEnabled(SerializationConfig.Feature.WRITE_CHAR_ARRAYS_AS_JSON_ARRAYS)) {
+                jgen.writeStartArray();
+                _writeArrayContents(jgen, value);
+                jgen.writeEndArray();
             } else {
-               ser.serialize(value[i], jgen, provider);
+                jgen.writeString(value, 0, value.length);
             }
-         }
+        }
 
-      }
+        @Override
+        public void serializeWithType(char[] value, JsonGenerator jgen, SerializerProvider provider,
+                TypeSerializer typeSer)
+            throws IOException, JsonGenerationException
+        {
+            // [JACKSON-289] allows serializing as 'sparse' char array too:
+            if (provider.isEnabled(SerializationConfig.Feature.WRITE_CHAR_ARRAYS_AS_JSON_ARRAYS)) {
+                typeSer.writeTypePrefixForArray(value, jgen);
+                _writeArrayContents(jgen, value);
+                typeSer.writeTypeSuffixForArray(value, jgen);
+            } else { // default is to write as simple String
+                typeSer.writeTypePrefixForScalar(value, jgen);
+                jgen.writeString(value, 0, value.length);
+                typeSer.writeTypeSuffixForScalar(value, jgen);
+            }
+        }
 
-      public void resolve(SerializerProvider provider) throws JsonMappingException {
-         JsonSerializer<Object> ser = provider.findValueSerializer(String.class, this._property);
-         if (ser != null && ser.getClass().getAnnotation(JacksonStdImpl.class) == null) {
-            this._elementSerializer = ser;
-         }
+        private final void _writeArrayContents(JsonGenerator jgen, char[] value)
+            throws IOException, JsonGenerationException
+        {
+            for (int i = 0, len = value.length; i < len; ++i) {
+                jgen.writeString(value, i, 1);
+            }
+        }
 
-      }
+        @Override
+        public JsonNode getSchema(SerializerProvider provider, Type typeHint)
+        {
+            ObjectNode o = createSchemaNode("array", true);
+            ObjectNode itemSchema = createSchemaNode("string");
+            itemSchema.put("type", "string");
+            o.put("items", itemSchema);
+            return o;
+        }
+    }
 
-      public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-         ObjectNode o = this.createSchemaNode("array", true);
-         o.put("items", (JsonNode)this.createSchemaNode("string"));
-         return o;
-      }
-   }
+    @JacksonStdImpl
+    public final static class IntArraySerializer
+        extends AsArraySerializer<int[]>
+    {
+        public IntArraySerializer() { super(int[].class, null, null); }
 
-   public abstract static class AsArraySerializer<T> extends ContainerSerializerBase<T> {
-      protected final TypeSerializer _valueTypeSerializer;
-      protected final BeanProperty _property;
+        /**
+         * Ints never add type info; hence, even if type serializer is suggested,
+         * we'll ignore it...
+         */
+        @Override
+        public ContainerSerializerBase<?> _withValueTypeSerializer(TypeSerializer vts)
+        {
+            return this;
+        }        
+        
+        @Override
+        public void serializeContents(int[] value, JsonGenerator jgen, SerializerProvider provider)
+            throws IOException, JsonGenerationException
+        {
+            for (int i = 0, len = value.length; i < len; ++i) {
+                jgen.writeNumber(value[i]);
+            }
+        }
 
-      protected AsArraySerializer(Class<T> cls, TypeSerializer vts, BeanProperty property) {
-         super(cls);
-         this._valueTypeSerializer = vts;
-         this._property = property;
-      }
+        @Override
+        public JsonNode getSchema(SerializerProvider provider, Type typeHint)
+        {
+            ObjectNode o = createSchemaNode("array", true);
+            o.put("items", createSchemaNode("integer"));
+            return o;
+        }
+    }
 
-      public final void serialize(T value, JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonGenerationException {
-         jgen.writeStartArray();
-         this.serializeContents(value, jgen, provider);
-         jgen.writeEndArray();
-      }
+    @JacksonStdImpl
+    public final static class LongArraySerializer
+        extends AsArraySerializer<long[]>
+    {
+        public LongArraySerializer() { this(null); }
+        public LongArraySerializer(TypeSerializer vts) { super(long[].class, vts, null); }
 
-      public final void serializeWithType(T value, JsonGenerator jgen, SerializerProvider provider, TypeSerializer typeSer) throws IOException, JsonGenerationException {
-         typeSer.writeTypePrefixForArray(value, jgen);
-         this.serializeContents(value, jgen, provider);
-         typeSer.writeTypeSuffixForArray(value, jgen);
-      }
+        @Override
+        public ContainerSerializerBase<?> _withValueTypeSerializer(TypeSerializer vts) {
+            return new LongArraySerializer(vts);
+        }
+        
+        @Override
+        public void serializeContents(long[] value, JsonGenerator jgen, SerializerProvider provider)
+            throws IOException, JsonGenerationException
+        {
+            for (int i = 0, len = value.length; i < len; ++i) {
+                jgen.writeNumber(value[i]);
+            }
+        }
 
-      protected abstract void serializeContents(T var1, JsonGenerator var2, SerializerProvider var3) throws IOException, JsonGenerationException;
-   }
+        @Override
+        public JsonNode getSchema(SerializerProvider provider, Type typeHint)
+        {
+            ObjectNode o = createSchemaNode("array", true);
+            o.put("items", createSchemaNode("number", true));
+            return o;
+        }
+    }
+
+    @JacksonStdImpl
+    public final static class FloatArraySerializer
+        extends AsArraySerializer<float[]>
+    {
+        public FloatArraySerializer() { this(null); }
+        public FloatArraySerializer(TypeSerializer vts) { super(float[].class, vts, null); }
+
+        @Override
+        public ContainerSerializerBase<?> _withValueTypeSerializer(TypeSerializer vts) {
+            return new FloatArraySerializer(vts);
+        }
+        
+        @Override
+        public void serializeContents(float[] value, JsonGenerator jgen, SerializerProvider provider)
+            throws IOException, JsonGenerationException
+        {
+            for (int i = 0, len = value.length; i < len; ++i) {
+                jgen.writeNumber(value[i]);
+            }
+        }
+
+        @Override
+        public JsonNode getSchema(SerializerProvider provider, Type typeHint)
+        {
+            ObjectNode o = createSchemaNode("array", true);
+            o.put("items", createSchemaNode("number"));
+            return o;
+        }
+    }
+
+    @JacksonStdImpl
+    public final static class DoubleArraySerializer
+        extends AsArraySerializer<double[]>
+    {
+        public DoubleArraySerializer() { super(double[].class, null, null); }
+
+        /**
+         * Doubles never add type info; hence, even if type serializer is suggested,
+         * we'll ignore it...
+         */
+        @Override
+        public ContainerSerializerBase<?> _withValueTypeSerializer(TypeSerializer vts)
+        {
+            return this;
+        }
+        
+        @Override
+        public void serializeContents(double[] value, JsonGenerator jgen, SerializerProvider provider)
+            throws IOException, JsonGenerationException
+        {
+            for (int i = 0, len = value.length; i < len; ++i) {
+                jgen.writeNumber(value[i]);
+            }
+        }
+
+        @Override
+        public JsonNode getSchema(SerializerProvider provider, Type typeHint)
+        {
+            ObjectNode o = createSchemaNode("array", true);
+            o.put("items", createSchemaNode("number"));
+            return o;
+        }
+    }
 }

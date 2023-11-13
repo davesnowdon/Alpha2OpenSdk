@@ -3,246 +3,375 @@ package org.codehaus.jackson.node;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import org.codehaus.jackson.Base64Variant;
-import org.codehaus.jackson.JsonLocation;
-import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.JsonParseException;
-import org.codehaus.jackson.JsonParser;
-import org.codehaus.jackson.JsonStreamContext;
-import org.codehaus.jackson.JsonToken;
-import org.codehaus.jackson.ObjectCodec;
+
+import org.codehaus.jackson.*;
 import org.codehaus.jackson.impl.JsonParserMinimalBase;
 
-public class TreeTraversingParser extends JsonParserMinimalBase {
-   protected ObjectCodec _objectCodec;
-   protected NodeCursor _nodeCursor;
-   protected JsonToken _nextToken;
-   protected boolean _startContainer;
-   protected boolean _closed;
+/**
+ * Facade over {@link JsonNode} that implements {@link JsonParser} to allow
+ * accessing contents of JSON tree in alternate form (stream of tokens).
+ * Useful when a streaming source is expected by code, such as data binding
+ * functionality.
+ * 
+ * @author tatu
+ * 
+ * @since 1.3
+ */
+public class TreeTraversingParser extends JsonParserMinimalBase
+{
+    /*
+    /**********************************************************
+    /* Configuration
+    /**********************************************************
+     */
 
-   public TreeTraversingParser(JsonNode n) {
-      this(n, (ObjectCodec)null);
-   }
+    protected ObjectCodec _objectCodec;
 
-   public TreeTraversingParser(JsonNode n, ObjectCodec codec) {
-      super(0);
-      this._objectCodec = codec;
-      if (n.isArray()) {
-         this._nextToken = JsonToken.START_ARRAY;
-         this._nodeCursor = new NodeCursor.Array(n, (NodeCursor)null);
-      } else if (n.isObject()) {
-         this._nextToken = JsonToken.START_OBJECT;
-         this._nodeCursor = new NodeCursor.Object(n, (NodeCursor)null);
-      } else {
-         this._nodeCursor = new NodeCursor.RootValue(n, (NodeCursor)null);
-      }
+    /**
+     * Traversal context within tree
+     */
+    protected NodeCursor _nodeCursor;
 
-   }
+    /*
+    /**********************************************************
+    /* State
+    /**********************************************************
+     */
 
-   public void setCodec(ObjectCodec c) {
-      this._objectCodec = c;
-   }
+    /**
+     * Sometimes parser needs to buffer a single look-ahead token; if so,
+     * it'll be stored here. This is currently used for handling 
+     */
+    protected JsonToken _nextToken;
 
-   public ObjectCodec getCodec() {
-      return this._objectCodec;
-   }
+    /**
+     * Flag needed to handle recursion into contents of child
+     * Array/Object nodes.
+     */
+    protected boolean _startContainer;
+    
+    /**
+     * Flag that indicates whether parser is closed or not. Gets
+     * set when parser is either closed by explicit call
+     * ({@link #close}) or when end-of-input is reached.
+     */
+    protected boolean _closed;
 
-   public void close() throws IOException {
-      if (!this._closed) {
-         this._closed = true;
-         this._nodeCursor = null;
-         this._currToken = null;
-      }
+    /*
+    /**********************************************************
+    /* Life-cycle
+    /**********************************************************
+     */
 
-   }
+    public TreeTraversingParser(JsonNode n) { this(n, null); }
 
-   public JsonToken nextToken() throws IOException, JsonParseException {
-      if (this._nextToken != null) {
-         this._currToken = this._nextToken;
-         this._nextToken = null;
-         return this._currToken;
-      } else if (this._startContainer) {
-         this._startContainer = false;
-         if (!this._nodeCursor.currentHasChildren()) {
-            this._currToken = this._currToken == JsonToken.START_OBJECT ? JsonToken.END_OBJECT : JsonToken.END_ARRAY;
-            return this._currToken;
-         } else {
-            this._nodeCursor = this._nodeCursor.iterateChildren();
-            this._currToken = this._nodeCursor.nextToken();
-            if (this._currToken == JsonToken.START_OBJECT || this._currToken == JsonToken.START_ARRAY) {
-               this._startContainer = true;
+    public TreeTraversingParser(JsonNode n, ObjectCodec codec)
+    {
+        super(0);
+        _objectCodec = codec;
+        if (n.isArray()) {
+            _nextToken = JsonToken.START_ARRAY;
+            _nodeCursor = new NodeCursor.Array(n, null);
+        } else if (n.isObject()) {
+            _nextToken = JsonToken.START_OBJECT;
+            _nodeCursor = new NodeCursor.Object(n, null);
+        } else { // value node
+            _nodeCursor = new NodeCursor.RootValue(n, null);
+        }
+    }
+
+    @Override
+    public void setCodec(ObjectCodec c) {
+        _objectCodec = c;
+    }
+
+    @Override
+    public ObjectCodec getCodec() {
+        return _objectCodec;
+    }
+
+    /*
+    /**********************************************************
+    /* Closeable implementation
+    /**********************************************************
+     */
+
+    @Override
+    public void close() throws IOException
+    {
+        if (!_closed) {
+            _closed = true;
+            _nodeCursor = null;
+            _currToken = null;
+        }
+    }
+
+    /*
+    /**********************************************************
+    /* Public API, traversal
+    /**********************************************************
+     */
+
+    @Override
+    public JsonToken nextToken() throws IOException, JsonParseException
+    {
+        if (_nextToken != null) {
+            _currToken = _nextToken;
+            _nextToken = null;
+            return _currToken;
+        }
+        // are we to descend to a container child?
+        if (_startContainer) {
+            _startContainer = false;
+            // minor optimization: empty containers can be skipped
+            if (!_nodeCursor.currentHasChildren()) {
+                _currToken = (_currToken == JsonToken.START_OBJECT) ?
+                    JsonToken.END_OBJECT : JsonToken.END_ARRAY;
+                return _currToken;
             }
-
-            return this._currToken;
-         }
-      } else if (this._nodeCursor == null) {
-         this._closed = true;
-         return null;
-      } else {
-         this._currToken = this._nodeCursor.nextToken();
-         if (this._currToken == null) {
-            this._currToken = this._nodeCursor.endToken();
-            this._nodeCursor = this._nodeCursor.getParent();
-            return this._currToken;
-         } else {
-            if (this._currToken == JsonToken.START_OBJECT || this._currToken == JsonToken.START_ARRAY) {
-               this._startContainer = true;
+            _nodeCursor = _nodeCursor.iterateChildren();
+            _currToken = _nodeCursor.nextToken();
+            if (_currToken == JsonToken.START_OBJECT || _currToken == JsonToken.START_ARRAY) {
+                _startContainer = true;
             }
+            return _currToken;
+        }
+        // No more content?
+        if (_nodeCursor == null) {
+            _closed = true; // if not already set
+            return null;
+        }
+        // Otherwise, next entry from current cursor
+        _currToken = _nodeCursor.nextToken();
+        if (_currToken != null) {
+            if (_currToken == JsonToken.START_OBJECT || _currToken == JsonToken.START_ARRAY) {
+                _startContainer = true;
+            }
+            return _currToken;
+        }
+        // null means no more children; need to return end marker
+        _currToken = _nodeCursor.endToken();
+        _nodeCursor = _nodeCursor.getParent();
+        return _currToken;
+    }
+    
+    // default works well here:
+    //public JsonToken nextValue() throws IOException, JsonParseException
 
-            return this._currToken;
-         }
-      }
-   }
+    @Override
+    public JsonParser skipChildren() throws IOException, JsonParseException
+    {
+        if (_currToken == JsonToken.START_OBJECT) {
+            _startContainer = false;
+            _currToken = JsonToken.END_OBJECT;
+        } else if (_currToken == JsonToken.START_ARRAY) {
+            _startContainer = false;
+            _currToken = JsonToken.END_ARRAY;
+        }
+        return this;
+    }
 
-   public JsonParser skipChildren() throws IOException, JsonParseException {
-      if (this._currToken == JsonToken.START_OBJECT) {
-         this._startContainer = false;
-         this._currToken = JsonToken.END_OBJECT;
-      } else if (this._currToken == JsonToken.START_ARRAY) {
-         this._startContainer = false;
-         this._currToken = JsonToken.END_ARRAY;
-      }
+    @Override
+    public boolean isClosed() {
+        return _closed;
+    }
 
-      return this;
-   }
+    /*
+    /**********************************************************
+    /* Public API, token accessors
+    /**********************************************************
+     */
 
-   public boolean isClosed() {
-      return this._closed;
-   }
+    @Override
+    public String getCurrentName() {
+        return (_nodeCursor == null) ? null : _nodeCursor.getCurrentName();
+    }
 
-   public String getCurrentName() {
-      return this._nodeCursor == null ? null : this._nodeCursor.getCurrentName();
-   }
+    @Override
+    public JsonStreamContext getParsingContext() {
+        return _nodeCursor;
+    }
 
-   public JsonStreamContext getParsingContext() {
-      return this._nodeCursor;
-   }
+    @Override
+    public JsonLocation getTokenLocation() {
+        return JsonLocation.NA;
+    }
 
-   public JsonLocation getTokenLocation() {
-      return JsonLocation.NA;
-   }
+    @Override
+    public JsonLocation getCurrentLocation() {
+        return JsonLocation.NA;
+    }
 
-   public JsonLocation getCurrentLocation() {
-      return JsonLocation.NA;
-   }
+    /*
+    /**********************************************************
+    /* Public API, access to textual content
+    /**********************************************************
+     */
 
-   public String getText() {
-      if (this._closed) {
-         return null;
-      } else {
-         switch(this._currToken) {
-         case FIELD_NAME:
-            return this._nodeCursor.getCurrentName();
-         case VALUE_STRING:
-            return this.currentNode().getTextValue();
-         case VALUE_NUMBER_INT:
-         case VALUE_NUMBER_FLOAT:
-            return String.valueOf(this.currentNode().getNumberValue());
-         case VALUE_EMBEDDED_OBJECT:
-            JsonNode n = this.currentNode();
+    @Override
+    public String getText()
+    {
+        if (_closed) {
+            return null;
+        }
+        // need to separate handling a bit...
+        switch (_currToken) {
+        case FIELD_NAME:
+            return _nodeCursor.getCurrentName();
+        case VALUE_STRING:
+            return currentNode().getTextValue();
+        case VALUE_NUMBER_INT:
+        case VALUE_NUMBER_FLOAT:
+            return String.valueOf(currentNode().getNumberValue());
+        case VALUE_EMBEDDED_OBJECT:
+            JsonNode n = currentNode();
             if (n != null && n.isBinary()) {
-               return n.getValueAsText();
+                // this will convert it to base64
+                return n.getValueAsText();
             }
-         default:
-            return this._currToken == null ? null : this._currToken.asString();
-         }
-      }
-   }
+        }
 
-   public char[] getTextCharacters() throws IOException, JsonParseException {
-      return this.getText().toCharArray();
-   }
+        return (_currToken == null) ? null : _currToken.asString();
+    }
 
-   public int getTextLength() throws IOException, JsonParseException {
-      return this.getText().length();
-   }
+    @Override
+    public char[] getTextCharacters() throws IOException, JsonParseException {
+        return getText().toCharArray();
+    }
 
-   public int getTextOffset() throws IOException, JsonParseException {
-      return 0;
-   }
+    @Override
+    public int getTextLength() throws IOException, JsonParseException {
+        return getText().length();
+    }
 
-   public boolean hasTextCharacters() {
-      return false;
-   }
+    @Override
+    public int getTextOffset() throws IOException, JsonParseException {
+        return 0;
+    }
 
-   public JsonParser.NumberType getNumberType() throws IOException, JsonParseException {
-      JsonNode n = this.currentNumericNode();
-      return n == null ? null : n.getNumberType();
-   }
+    @Override
+    public boolean hasTextCharacters() {
+        // generally we do not have efficient access as char[], hence:
+        return false;
+    }
+    
+    /*
+    /**********************************************************
+    /* Public API, typed non-text access
+    /**********************************************************
+     */
 
-   public BigInteger getBigIntegerValue() throws IOException, JsonParseException {
-      return this.currentNumericNode().getBigIntegerValue();
-   }
+    //public byte getByteValue() throws IOException, JsonParseException
 
-   public BigDecimal getDecimalValue() throws IOException, JsonParseException {
-      return this.currentNumericNode().getDecimalValue();
-   }
+    @Override
+    public NumberType getNumberType() throws IOException, JsonParseException {
+        JsonNode n = currentNumericNode();
+        return (n == null) ? null : n.getNumberType();
+    }
 
-   public double getDoubleValue() throws IOException, JsonParseException {
-      return this.currentNumericNode().getDoubleValue();
-   }
+    @Override
+    public BigInteger getBigIntegerValue() throws IOException, JsonParseException
+    {
+        return currentNumericNode().getBigIntegerValue();
+    }
 
-   public float getFloatValue() throws IOException, JsonParseException {
-      return (float)this.currentNumericNode().getDoubleValue();
-   }
+    @Override
+    public BigDecimal getDecimalValue() throws IOException, JsonParseException {
+        return currentNumericNode().getDecimalValue();
+    }
 
-   public long getLongValue() throws IOException, JsonParseException {
-      return this.currentNumericNode().getLongValue();
-   }
+    @Override
+    public double getDoubleValue() throws IOException, JsonParseException {
+        return currentNumericNode().getDoubleValue();
+    }
 
-   public int getIntValue() throws IOException, JsonParseException {
-      return this.currentNumericNode().getIntValue();
-   }
+    @Override
+    public float getFloatValue() throws IOException, JsonParseException {
+        return (float) currentNumericNode().getDoubleValue();
+    }
 
-   public Number getNumberValue() throws IOException, JsonParseException {
-      return this.currentNumericNode().getNumberValue();
-   }
+    @Override
+    public long getLongValue() throws IOException, JsonParseException {
+        return currentNumericNode().getLongValue();
+    }
 
-   public Object getEmbeddedObject() {
-      if (!this._closed) {
-         JsonNode n = this.currentNode();
-         if (n != null && n.isPojo()) {
-            return ((POJONode)n).getPojo();
-         }
-      }
+    @Override
+    public int getIntValue() throws IOException, JsonParseException {
+        return currentNumericNode().getIntValue();
+    }
 
-      return null;
-   }
+    @Override
+    public Number getNumberValue() throws IOException, JsonParseException {
+        return currentNumericNode().getNumberValue();
+    }
 
-   public byte[] getBinaryValue(Base64Variant b64variant) throws IOException, JsonParseException {
-      JsonNode n = this.currentNode();
-      if (n != null) {
-         byte[] data = n.getBinaryValue();
-         if (data != null) {
-            return data;
-         }
-
-         if (n.isPojo()) {
-            Object ob = ((POJONode)n).getPojo();
-            if (ob instanceof byte[]) {
-               return (byte[])((byte[])ob);
+    @Override
+    public Object getEmbeddedObject() {
+        if (!_closed) {
+            JsonNode n = currentNode();
+            if (n != null && n.isPojo()) {
+                return ((POJONode) n).getPojo();
             }
-         }
-      }
+        }
+        return null;
+    }
 
-      return null;
-   }
+    /*
+    /**********************************************************
+    /* Public API, typed binary (base64) access
+    /**********************************************************
+     */
 
-   protected JsonNode currentNode() {
-      return !this._closed && this._nodeCursor != null ? this._nodeCursor.currentNode() : null;
-   }
+    @Override
+    public byte[] getBinaryValue(Base64Variant b64variant)
+        throws IOException, JsonParseException
+    {
+        // Multiple possibilities...
+        JsonNode n = currentNode();
+        if (n != null) { // binary node?
+            byte[] data = n.getBinaryValue();
+            // (or TextNode, which can also convert automatically!)
+            if (data != null) {
+                return data;
+            }
+            // Or maybe byte[] as POJO?
+            if (n.isPojo()) {
+                Object ob = ((POJONode) n).getPojo();
+                if (ob instanceof byte[]) {
+                    return (byte[]) ob;
+                }
+            }
+        }
+        // otherwise return null to mark we have no binary content
+        return null;
+    }
 
-   protected JsonNode currentNumericNode() throws JsonParseException {
-      JsonNode n = this.currentNode();
-      if (n != null && n.isNumber()) {
-         return n;
-      } else {
-         JsonToken t = n == null ? null : n.asToken();
-         throw this._constructError("Current token (" + t + ") not numeric, can not use numeric value accessors");
-      }
-   }
+    /*
+    /**********************************************************
+    /* Internal methods
+    /**********************************************************
+     */
 
-   protected void _handleEOF() throws JsonParseException {
-      this._throwInternal();
-   }
+    protected JsonNode currentNode() {
+        if (_closed || _nodeCursor == null) {
+            return null;
+        }
+        return _nodeCursor.currentNode();
+    }
+
+    protected JsonNode currentNumericNode()
+        throws JsonParseException
+    {
+        JsonNode n = currentNode();
+        if (n == null || !n.isNumber()) {
+            JsonToken t = (n == null) ? null : n.asToken();
+            throw _constructError("Current token ("+t+") not numeric, can not use numeric value accessors");
+        }
+        return n;
+    }
+
+    @Override
+    protected void _handleEOF() throws JsonParseException {
+        _throwInternal(); // should never get called
+    }
 }

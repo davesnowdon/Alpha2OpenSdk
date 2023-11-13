@@ -3,72 +3,118 @@ package org.codehaus.jackson.map.introspect;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Member;
 import java.lang.reflect.Type;
+
 import org.codehaus.jackson.map.type.TypeBindings;
 import org.codehaus.jackson.type.JavaType;
 
-public final class AnnotatedConstructor extends AnnotatedWithParams {
-   protected final Constructor<?> _constructor;
+public final class AnnotatedConstructor
+    extends AnnotatedWithParams
+{
+    protected final Constructor<?> _constructor;
 
-   public AnnotatedConstructor(Constructor<?> constructor, AnnotationMap classAnn, AnnotationMap[] paramAnn) {
-      super(classAnn, paramAnn);
-      if (constructor == null) {
-         throw new IllegalArgumentException("Null constructor not allowed");
-      } else {
-         this._constructor = constructor;
-      }
-   }
+    /*
+    /**********************************************************
+    /* Life-cycle
+    /**********************************************************
+     */
 
-   public Constructor<?> getAnnotated() {
-      return this._constructor;
-   }
+    public AnnotatedConstructor(Constructor<?> constructor,
+            AnnotationMap classAnn, AnnotationMap[] paramAnn)
+    {
+        super(classAnn, paramAnn);
+        if (constructor == null) {
+            throw new IllegalArgumentException("Null constructor not allowed");
+        }
+        _constructor = constructor;
+    }
 
-   public int getModifiers() {
-      return this._constructor.getModifiers();
-   }
+    /*
+    /**********************************************************
+    /* Annotated impl
+    /**********************************************************
+     */
 
-   public String getName() {
-      return this._constructor.getName();
-   }
+    @Override
+    public Constructor<?> getAnnotated() { return _constructor; }
 
-   public Type getGenericType() {
-      return this.getRawType();
-   }
+    @Override
+    public int getModifiers() { return _constructor.getModifiers(); }
 
-   public Class<?> getRawType() {
-      return this._constructor.getDeclaringClass();
-   }
+    @Override
+    public String getName() { return _constructor.getName(); }
 
-   public JavaType getType(TypeBindings bindings) {
-      return this.getType(bindings, this._constructor.getTypeParameters());
-   }
+    @Override
+    public Type getGenericType() {
+        return getRawType();
+    }
 
-   public AnnotatedParameter getParameter(int index) {
-      return new AnnotatedParameter(this, this.getParameterType(index), this._paramAnnotations[index]);
-   }
+    @Override
+    public Class<?> getRawType() {
+        return _constructor.getDeclaringClass();
+    }
 
-   public int getParameterCount() {
-      return this._constructor.getParameterTypes().length;
-   }
+    // note: copied verbatim from AnnotatedMethod; hard to generalize
+    /**
+     * As per [JACKSON-468], we need to also allow declaration of local
+     * type bindings; mostly it will allow defining bounds.
+     */
+    @Override
+    public JavaType getType(TypeBindings bindings)
+    {
+        return getType(bindings, _constructor.getTypeParameters());
+    }
+    
+    /*
+    /**********************************************************
+    /* Extended API
+    /**********************************************************
+     */
 
-   public Class<?> getParameterClass(int index) {
-      Class<?>[] types = this._constructor.getParameterTypes();
-      return index >= types.length ? null : types[index];
-   }
+    @Override
+    public AnnotatedParameter getParameter(int index) {
+        return new AnnotatedParameter(this, getParameterType(index), _paramAnnotations[index]);
+    }
 
-   public Type getParameterType(int index) {
-      Type[] types = this._constructor.getGenericParameterTypes();
-      return index >= types.length ? null : types[index];
-   }
+    @Override
+    public int getParameterCount() {
+        return _constructor.getParameterTypes().length;
+    }
 
-   public Class<?> getDeclaringClass() {
-      return this._constructor.getDeclaringClass();
-   }
+    @Override
+    public Class<?> getParameterClass(int index)
+    {
+        Class<?>[] types = _constructor.getParameterTypes();
+        return (index >= types.length) ? null : types[index];
+    }
 
-   public Member getMember() {
-      return this._constructor;
-   }
+    @Override
+    public Type getParameterType(int index)
+    {
+        Type[] types = _constructor.getGenericParameterTypes();
+        return (index >= types.length) ? null : types[index];
+    }
 
-   public String toString() {
-      return "[constructor for " + this.getName() + ", annotations: " + this._annotations + "]";
-   }
+    /*
+    /**********************************************************
+    /* AnnotatedMember impl
+    /**********************************************************
+     */
+
+    @Override
+    public Class<?> getDeclaringClass() { return _constructor.getDeclaringClass(); }
+
+    @Override
+    public Member getMember() { return _constructor; }
+
+    /*
+    /**********************************************************
+    /* Extended API, specific annotations
+    /**********************************************************
+     */
+
+    @Override
+    public String toString() {
+        return "[constructor for "+getName()+", annotations: "+_annotations+"]";
+    }
 }
+

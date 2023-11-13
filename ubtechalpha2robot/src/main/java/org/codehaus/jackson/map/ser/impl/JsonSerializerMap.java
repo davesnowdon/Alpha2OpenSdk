@@ -1,74 +1,93 @@
 package org.codehaus.jackson.map.ser.impl;
 
-import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
+
 import org.codehaus.jackson.map.JsonSerializer;
-import org.codehaus.jackson.map.ser.SerializerCache;
+import org.codehaus.jackson.map.ser.SerializerCache.TypeKey;
 
-public class JsonSerializerMap {
-   private final JsonSerializerMap.Bucket[] _buckets;
-   private final int _size;
+/**
+ * Specialized read-only map used for storing and accessing serializers by type.
+ * 
+ * @since 1.7
+ */
+public class JsonSerializerMap
+{
+    private final Bucket[] _buckets;
 
-   public JsonSerializerMap(Map<SerializerCache.TypeKey, JsonSerializer<Object>> serializers) {
-      int size = findSize(serializers.size());
-      this._size = size;
-      int hashMask = size - 1;
-      JsonSerializerMap.Bucket[] buckets = new JsonSerializerMap.Bucket[size];
+    private final int _size;
+    
+    public JsonSerializerMap(Map<TypeKey,JsonSerializer<Object>> serializers)
+    {
+        int size = findSize(serializers.size());
+        _size = size;
+        int hashMask = (size-1);
+        Bucket[] buckets = new Bucket[size];
+        for (Map.Entry<TypeKey,JsonSerializer<Object>> entry : serializers.entrySet()) {
+            TypeKey key = entry.getKey();
+            int index = key.hashCode() & hashMask;
+            buckets[index] = new Bucket(buckets[index], key, entry.getValue());
+        }
+        _buckets = buckets;
+    }
+    
+    private final static int findSize(int size)
+    {
+        // For small enough results (64 or less), we'll require <= 50% fill rate; otherwise 80%
+        int needed = (size <= 64) ? (size + size) : (size + (size >> 2));
+        int result = 8;
+        while (result < needed) {
+            result += result;
+        }
+        return result;
+    }
 
-      Entry entry;
-      SerializerCache.TypeKey key;
-      int index;
-      for(Iterator i$ = serializers.entrySet().iterator(); i$.hasNext(); buckets[index] = new JsonSerializerMap.Bucket(buckets[index], key, (JsonSerializer)entry.getValue())) {
-         entry = (Entry)i$.next();
-         key = (SerializerCache.TypeKey)entry.getKey();
-         index = key.hashCode() & hashMask;
-      }
+    /*
+    /**********************************************************
+    /* Public API
+    /**********************************************************
+     */
 
-      this._buckets = buckets;
-   }
-
-   private static final int findSize(int size) {
-      int needed = size <= 64 ? size + size : size + (size >> 2);
-
-      int result;
-      for(result = 8; result < needed; result += result) {
-      }
-
-      return result;
-   }
-
-   public int size() {
-      return this._size;
-   }
-
-   public JsonSerializer<Object> find(SerializerCache.TypeKey key) {
-      int index = key.hashCode() & this._buckets.length - 1;
-      JsonSerializerMap.Bucket bucket = this._buckets[index];
-      if (bucket == null) {
-         return null;
-      } else if (key.equals(bucket.key)) {
-         return bucket.value;
-      } else {
-         do {
-            if ((bucket = bucket.next) == null) {
-               return null;
+    public int size() { return _size; }
+    
+    public JsonSerializer<Object> find(TypeKey key)
+    {
+        int index = key.hashCode() & (_buckets.length-1);
+        Bucket bucket = _buckets[index];
+        /* Ok let's actually try unrolling loop slightly as this shows up in profiler;
+         * and also because in vast majority of cases first entry is either null
+         * or matches.
+         */
+        if (bucket == null) {
+            return null;
+        }
+        if (key.equals(bucket.key)) {
+            return bucket.value;
+        }
+        while ((bucket = bucket.next) != null) {
+            if (key.equals(bucket.key)) {
+                return bucket.value;
             }
-         } while(!key.equals(bucket.key));
+        }
+        return null;
+    }
 
-         return bucket.value;
-      }
-   }
-
-   private static final class Bucket {
-      public final SerializerCache.TypeKey key;
-      public final JsonSerializer<Object> value;
-      public final JsonSerializerMap.Bucket next;
-
-      public Bucket(JsonSerializerMap.Bucket next, SerializerCache.TypeKey key, JsonSerializer<Object> value) {
-         this.next = next;
-         this.key = key;
-         this.value = value;
-      }
-   }
+    /*
+    /**********************************************************
+    /* Helper beans
+    /**********************************************************
+     */
+    
+    private final static class Bucket
+    {
+        public final TypeKey key;
+        public final JsonSerializer<Object> value;
+        public final Bucket next;
+        
+        public Bucket(Bucket next, TypeKey key, JsonSerializer<Object> value)
+        {
+            this.next = next;
+            this.key = key;
+            this.value = value;
+        }
+    }
 }

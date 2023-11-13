@@ -1,27 +1,49 @@
 package org.codehaus.jackson.util;
 
+import java.util.Map;
 import java.util.LinkedHashMap;
-import java.util.Map.Entry;
 
-public final class InternCache extends LinkedHashMap<String, String> {
-   private static final int MAX_ENTRIES = 192;
-   public static final InternCache instance = new InternCache();
+/**
+ * Singleton class that adds a simple first-level cache in front of
+ * regular String.intern() functionality. This is done as a minor
+ * performance optimization, to avoid calling native intern() method
+ * in cases where same String is being interned multiple times.
+ *<p>
+ * Note: that this class extends {@link LinkedHashMap} is an implementation
+ * detail -- no code should ever directly call Map methods.
+ */
+@SuppressWarnings("serial")
+public final class InternCache
+    extends LinkedHashMap<String,String>
+{
+    /**
+     * Size to use is somewhat arbitrary, so let's choose something that's
+     * neither too small (low hit ratio) nor too large (waste of memory)
+     */
+    private final static int MAX_ENTRIES = 192;
 
-   private InternCache() {
-      super(192, 0.8F, true);
-   }
+    public final static InternCache instance = new InternCache();
 
-   protected boolean removeEldestEntry(Entry<String, String> eldest) {
-      return this.size() > 192;
-   }
+    private InternCache() {
+        super(MAX_ENTRIES, 0.8f, true);
+    }
 
-   public synchronized String intern(String input) {
-      String result = (String)this.get(input);
-      if (result == null) {
-         result = input.intern();
-         this.put(result, result);
-      }
+    @Override
+    protected boolean removeEldestEntry(Map.Entry<String,String> eldest)
+    {
+        return size() > MAX_ENTRIES;
+    }
 
-      return result;
-   }
+    public synchronized String intern(String input)
+    {
+        String result = get(input);
+        if (result == null) {
+            result = input.intern();
+            put(result, result);
+        }
+        return result;
+    }
+
+
 }
+

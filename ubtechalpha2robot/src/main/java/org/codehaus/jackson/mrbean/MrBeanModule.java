@@ -2,30 +2,47 @@ package org.codehaus.jackson.mrbean;
 
 import org.codehaus.jackson.Version;
 import org.codehaus.jackson.map.Module;
+import org.codehaus.jackson.mrbean.AbstractTypeMaterializer;
 
-public class MrBeanModule extends Module {
-   private final String NAME;
-   private static final Version VERSION = new Version(1, 8, 0, (String)null);
-   protected AbstractTypeMaterializer _materializer;
+public class MrBeanModule extends Module
+{
+    private final String NAME = "MrBeanModule";
 
-   public MrBeanModule() {
-      this(new AbstractTypeMaterializer());
-   }
+    // TODO: externalize
+    private final static Version VERSION = new Version(1, 8, 0, null);
 
-   public MrBeanModule(AbstractTypeMaterializer materializer) {
-      this.NAME = "MrBeanModule";
-      this._materializer = materializer;
-   }
+    /**
+     * Configured materializer instance to register with deserializer factory.
+     */
+    protected AbstractTypeMaterializer _materializer;
+    
+    /*
+    /**********************************************************
+    /* Life-cycle
+    /**********************************************************
+     */
+    
+    public MrBeanModule() {
+        this(new AbstractTypeMaterializer());
+    }
 
-   public String getModuleName() {
-      return "MrBeanModule";
-   }
+    public MrBeanModule(AbstractTypeMaterializer materializer) {
+        _materializer = materializer;
+    }
 
-   public Version version() {
-      return VERSION;
-   }
+    @Override public String getModuleName() { return NAME; }
+    @Override public Version version() { return VERSION; }
+    
+    @Override
+    public void setupModule(SetupContext context)
+    {
+        // All we really need to for now is to register materializer:
+        context.addAbstractTypeResolver(_materializer);
+    }
 
-   public void setupModule(Module.SetupContext context) {
-      context.addAbstractTypeResolver(this._materializer);
-   }
+    /*
+    /**********************************************************
+    /* Extended API, configuration
+    /**********************************************************
+     */
 }

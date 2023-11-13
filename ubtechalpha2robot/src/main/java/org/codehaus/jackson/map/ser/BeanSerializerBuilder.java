@@ -1,63 +1,124 @@
 package org.codehaus.jackson.map.ser;
 
-import java.util.List;
-import org.codehaus.jackson.map.JsonSerializer;
+import java.util.*;
+
+import org.codehaus.jackson.map.*;
 import org.codehaus.jackson.map.introspect.BasicBeanDescription;
 
-public class BeanSerializerBuilder {
-   private static final BeanPropertyWriter[] NO_PROPERTIES = new BeanPropertyWriter[0];
-   protected final BasicBeanDescription _beanDesc;
-   protected List<BeanPropertyWriter> _properties;
-   protected BeanPropertyWriter[] _filteredProperties;
-   protected AnyGetterWriter _anyGetter;
-   protected Object _filterId;
+/**
+ * Builder class used for aggregating deserialization information about
+ * a POJO, in order to build a {@link JsonSerializer} for serializing
+ * intances.
+ * Main reason for using separate builder class is that this makes it easier
+ * to make actual serializer class fully immutable.
+ * 
+ * @since 1.7
+ */
+public class BeanSerializerBuilder
+{
+    private final static BeanPropertyWriter[] NO_PROPERTIES = new BeanPropertyWriter[0];
 
-   public BeanSerializerBuilder(BasicBeanDescription beanDesc) {
-      this._beanDesc = beanDesc;
-   }
+    /*
+    /**********************************************************
+    /* General information about POJO
+    /**********************************************************
+     */
 
-   protected BeanSerializerBuilder(BeanSerializerBuilder src) {
-      this._beanDesc = src._beanDesc;
-      this._properties = src._properties;
-      this._filteredProperties = src._filteredProperties;
-      this._anyGetter = src._anyGetter;
-      this._filterId = src._filterId;
-   }
+    final protected BasicBeanDescription _beanDesc;
 
-   public BasicBeanDescription getBeanDescription() {
-      return this._beanDesc;
-   }
+    /*
+    /**********************************************************
+    /* Accumulated information about properties
+    /**********************************************************
+     */
 
-   public List<BeanPropertyWriter> getProperties() {
-      return this._properties;
-   }
+    /**
+     * Bean properties, in order of serialization
+     */
+    protected List<BeanPropertyWriter> _properties;
 
-   public BeanPropertyWriter[] getFilteredProperties() {
-      return this._filteredProperties;
-   }
+    /**
+     * Optional array of filtered property writers; if null, no
+     * view-based filtering is performed.
+     */
+    protected BeanPropertyWriter[] _filteredProperties;
+    
+    /**
+     * Writer used for "any getter" properties, if any.
+     */
+    protected AnyGetterWriter _anyGetter;
 
-   public void setProperties(List<BeanPropertyWriter> properties) {
-      this._properties = properties;
-   }
+    /**
+     * Id of the property filter to use for POJO, if any.
+     */
+    protected Object _filterId;
 
-   public void setFilteredProperties(BeanPropertyWriter[] properties) {
-      this._filteredProperties = properties;
-   }
+    /*
+    /**********************************************************
+    /* Construction and setter methods
+    /**********************************************************
+     */
+    
+    public BeanSerializerBuilder(BasicBeanDescription beanDesc) {
+        _beanDesc = beanDesc;
+    }
 
-   public void setAnyGetter(AnyGetterWriter anyGetter) {
-      this._anyGetter = anyGetter;
-   }
+    /**
+     * Copy-constructor that may be used for sub-classing
+     */
+    protected BeanSerializerBuilder(BeanSerializerBuilder src) {
+        _beanDesc = src._beanDesc;
+        _properties = src._properties;
+        _filteredProperties = src._filteredProperties;
+        _anyGetter = src._anyGetter;
+        _filterId = src._filterId;
+    }
+    
+    public BasicBeanDescription getBeanDescription() { return _beanDesc; }
+    public List<BeanPropertyWriter> getProperties() { return _properties; }
+    public BeanPropertyWriter[] getFilteredProperties() { return _filteredProperties; }
 
-   public void setFilterId(Object filterId) {
-      this._filterId = filterId;
-   }
+    public void setProperties(List<BeanPropertyWriter> properties) {
+        _properties = properties;
+    }
 
-   public JsonSerializer<?> build() {
-      BeanPropertyWriter[] properties = this._properties != null && !this._properties.isEmpty() ? (BeanPropertyWriter[])this._properties.toArray(new BeanPropertyWriter[this._properties.size()]) : NO_PROPERTIES;
-      return new BeanSerializer(this._beanDesc.getType(), properties, this._filteredProperties, this._anyGetter, this._filterId);
-   }
+    public void setFilteredProperties(BeanPropertyWriter[] properties) {
+        _filteredProperties = properties;
+    }
+    
+    public void setAnyGetter(AnyGetterWriter anyGetter) {
+        _anyGetter = anyGetter;
+    }
 
-   public BeanSerializer createDummy() {
-      return BeanSerializer.createDummy(this._beanDesc.getBeanClass());
-   }
+    public void setFilterId(Object filterId) {
+        _filterId = filterId;
+    }
+    
+    /*
+    /**********************************************************
+    /* Build methods for actually creating serializer instance
+    /**********************************************************
+     */
+    
+    /**
+     * Method called to create {@link BeanSerializer} instance with
+     * all accumulated information.
+     */
+    public JsonSerializer<?> build()
+    {
+        BeanPropertyWriter[] properties = (_properties == null || _properties.isEmpty()) ?
+                NO_PROPERTIES : _properties.toArray(new BeanPropertyWriter[_properties.size()]);
+        return new BeanSerializer(_beanDesc.getType(), properties, _filteredProperties,
+                _anyGetter, _filterId);
+    }
+    
+    /**
+     * Factory method for constructing an "empty" serializer; one that
+     * outputs no properties (but handles JSON objects properly, including
+     * type information)
+     */
+    public BeanSerializer createDummy() {
+        return BeanSerializer.createDummy(_beanDesc.getBeanClass());
+    }
 }
+

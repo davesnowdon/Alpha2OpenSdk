@@ -1,132 +1,222 @@
 package org.codehaus.jackson.map.ser;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.lang.reflect.Type;
-import java.net.URI;
-import java.net.URL;
-import java.util.Collection;
-import java.util.Currency;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.UUID;
-import java.util.Map.Entry;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.regex.Pattern;
+import java.util.*;
+import java.util.concurrent.atomic.*;
+
 import org.codehaus.jackson.JsonGenerationException;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.map.SerializerProvider;
+import org.codehaus.jackson.map.*;
 import org.codehaus.jackson.map.util.Provider;
 
-public class JdkSerializers implements Provider<Entry<Class<?>, Object>> {
-   public JdkSerializers() {
-   }
+/**
+ * Class that providers access to serializers user for non-structured JDK types that
+ * are serializer as scalars; some using basic {@link ToStringSerializer},
+ * others explicit serializers.
+ */
+public class JdkSerializers
+    implements Provider<Map.Entry<Class<?>,Object>>
+{
+    /**
+     * Method called by {@link BasicSerializerFactory} to access
+     * all serializers this class provides.
+     */
+    public Collection<Map.Entry<Class<?>, Object>> provide()
+    {
+        HashMap<Class<?>,Object> sers = new HashMap<Class<?>,Object>();
 
-   public Collection<Entry<Class<?>, Object>> provide() {
-      HashMap<Class<?>, Object> sers = new HashMap();
-      ToStringSerializer sls = ToStringSerializer.instance;
-      sers.put(URL.class, sls);
-      sers.put(URI.class, sls);
-      sers.put(Currency.class, sls);
-      sers.put(UUID.class, sls);
-      sers.put(Pattern.class, sls);
-      sers.put(Locale.class, sls);
-      sers.put(Locale.class, sls);
-      sers.put(AtomicReference.class, JdkSerializers.AtomicReferenceSerializer.class);
-      sers.put(AtomicBoolean.class, JdkSerializers.AtomicBooleanSerializer.class);
-      sers.put(AtomicInteger.class, JdkSerializers.AtomicIntegerSerializer.class);
-      sers.put(AtomicLong.class, JdkSerializers.AtomicLongSerializer.class);
-      sers.put(File.class, JdkSerializers.FileSerializer.class);
-      sers.put(Class.class, JdkSerializers.ClassSerializer.class);
-      sers.put(Void.TYPE, NullSerializer.class);
-      return sers.entrySet();
-   }
+        // First things that 'toString()' can handle
+        final ToStringSerializer sls = ToStringSerializer.instance;
 
-   public static final class ClassSerializer extends ScalarSerializerBase<Class> {
-      public ClassSerializer() {
-         super(Class.class);
-      }
+        sers.put(java.net.URL.class, sls);
+        sers.put(java.net.URI.class, sls);
 
-      public void serialize(Class value, JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonGenerationException {
-         jgen.writeString(value.getName());
-      }
+        sers.put(Currency.class, sls);
+        sers.put(UUID.class, sls);
+        sers.put(java.util.regex.Pattern.class, sls);
+        sers.put(Locale.class, sls);
 
-      public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-         return this.createSchemaNode("string", true);
-      }
-   }
+        // starting with 1.7, use compact String for Locale
+        sers.put(Locale.class, sls);
+        
+        // then atomic types
+        sers.put(AtomicReference.class, AtomicReferenceSerializer.class);
+        sers.put(AtomicBoolean.class, AtomicBooleanSerializer.class);
+        sers.put(AtomicInteger.class, AtomicIntegerSerializer.class);
+        sers.put(AtomicLong.class, AtomicLongSerializer.class);
+        
+        // then types that need specialized serializers
+        sers.put(File.class, FileSerializer.class);
+        sers.put(Class.class, ClassSerializer.class);
 
-   public static final class FileSerializer extends ScalarSerializerBase<File> {
-      public FileSerializer() {
-         super(File.class);
-      }
+        // And then some stranger types... not 100% they are needed but:
+        sers.put(Void.TYPE, NullSerializer.class);
+        
+        return sers.entrySet();
+    }
 
-      public void serialize(File value, JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonGenerationException {
-         jgen.writeString(value.getAbsolutePath());
-      }
+    /*
+     ********************************************************
+     * Serializers for atomic types
+     ********************************************************
+     */
 
-      public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-         return this.createSchemaNode("string", true);
-      }
-   }
+    public final static class AtomicBooleanSerializer
+        extends ScalarSerializerBase<AtomicBoolean>
+    {
+        public AtomicBooleanSerializer() { super(AtomicBoolean.class, false); }
+    
+        @Override
+        public void serialize(AtomicBoolean value, JsonGenerator jgen, SerializerProvider provider)
+            throws IOException, JsonGenerationException
+        {
+            jgen.writeBoolean(value.get());
+        }
+    
+        @Override
+        public JsonNode getSchema(SerializerProvider provider, Type typeHint)
+        {
+            return createSchemaNode("boolean", true);
+        }
+    }
+    
+    public final static class AtomicIntegerSerializer
+        extends ScalarSerializerBase<AtomicInteger>
+    {
+        public AtomicIntegerSerializer() { super(AtomicInteger.class, false); }
+    
+        @Override
+        public void serialize(AtomicInteger value, JsonGenerator jgen, SerializerProvider provider)
+            throws IOException, JsonGenerationException
+        {
+            jgen.writeNumber(value.get());
+        }
+    
+        @Override
+        public JsonNode getSchema(SerializerProvider provider, Type typeHint)
+        {
+            return createSchemaNode("integer", true);
+        }
+    }
 
-   public static final class AtomicReferenceSerializer extends SerializerBase<AtomicReference<?>> {
-      public AtomicReferenceSerializer() {
-         super(AtomicReference.class, false);
-      }
+    public final static class AtomicLongSerializer
+        extends ScalarSerializerBase<AtomicLong>
+    {
+        public AtomicLongSerializer() { super(AtomicLong.class, false); }
+    
+        @Override
+        public void serialize(AtomicLong value, JsonGenerator jgen, SerializerProvider provider)
+            throws IOException, JsonGenerationException
+        {
+            jgen.writeNumber(value.get());
+        }
+    
+        @Override
+        public JsonNode getSchema(SerializerProvider provider, Type typeHint)
+        {
+            return createSchemaNode("integer", true);
+        }
+    }
+    
+    public final static class AtomicReferenceSerializer
+        extends SerializerBase<AtomicReference<?>>
+    {
+        public AtomicReferenceSerializer() { super(AtomicReference.class, false); }
 
-      public void serialize(AtomicReference<?> value, JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonGenerationException {
-         provider.defaultSerializeValue(value.get(), jgen);
-      }
+        @Override
+        public void serialize(AtomicReference<?> value, JsonGenerator jgen, SerializerProvider provider)
+            throws IOException, JsonGenerationException
+        {
+            provider.defaultSerializeValue(value.get(), jgen);
+        }
 
-      public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-         return this.createSchemaNode("any", true);
-      }
-   }
+        @Override
+        public JsonNode getSchema(SerializerProvider provider, Type typeHint)
+        {
+            return createSchemaNode("any", true);
+        }
+    }
+    
+    /*
+    /**********************************************************
+    /* Specialized serializers, referential types
+    /**********************************************************
+     */
 
-   public static final class AtomicLongSerializer extends ScalarSerializerBase<AtomicLong> {
-      public AtomicLongSerializer() {
-         super(AtomicLong.class, false);
-      }
+    /**
+     * For now, File objects get serialized by just outputting
+     * absolute (but not canonical) name as String value
+     */
+    public final static class FileSerializer
+        extends ScalarSerializerBase<File>
+    {
+        public FileSerializer() { super(File.class); }
 
-      public void serialize(AtomicLong value, JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonGenerationException {
-         jgen.writeNumber(value.get());
-      }
+        @Override
+        public void serialize(File value, JsonGenerator jgen, SerializerProvider provider)
+            throws IOException, JsonGenerationException
+        {
+            jgen.writeString(value.getAbsolutePath());
+        }
 
-      public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-         return this.createSchemaNode("integer", true);
-      }
-   }
+        @Override
+        public JsonNode getSchema(SerializerProvider provider, Type typeHint)
+        {
+            return createSchemaNode("string", true);
+        }
+    }
 
-   public static final class AtomicIntegerSerializer extends ScalarSerializerBase<AtomicInteger> {
-      public AtomicIntegerSerializer() {
-         super(AtomicInteger.class, false);
-      }
+    /**
+     * Also: default bean access will not do much good with Class.class. But
+     * we can just serialize the class name and that should be enough.
+     */
+    @SuppressWarnings("unchecked")
+    public final static class ClassSerializer
+        extends ScalarSerializerBase<Class>
+    {
+        public ClassSerializer() { super(Class.class); }
 
-      public void serialize(AtomicInteger value, JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonGenerationException {
-         jgen.writeNumber(value.get());
-      }
+        @Override
+        public void serialize(Class value, JsonGenerator jgen, SerializerProvider provider)
+            throws IOException, JsonGenerationException
+        {
+            jgen.writeString(value.getName());
+        }
 
-      public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-         return this.createSchemaNode("integer", true);
-      }
-   }
+        @Override
+        public JsonNode getSchema(SerializerProvider provider, Type typeHint)
+        {
+            return createSchemaNode("string", true);
+        }
+    }
 
-   public static final class AtomicBooleanSerializer extends ScalarSerializerBase<AtomicBoolean> {
-      public AtomicBooleanSerializer() {
-         super(AtomicBoolean.class, false);
-      }
+    /*
+    /**********************************************************
+    /* Other serializers
+    /**********************************************************
+     */
+    
+    /*
+    public final static class LocaleSerializer
+        extends ScalarSerializerBase<Locale>
+    {
+        public LocaleSerializer() { super(Locale.class); }
 
-      public void serialize(AtomicBoolean value, JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonGenerationException {
-         jgen.writeBoolean(value.get());
-      }
+        @Override
+        public void serialize(Locale value, JsonGenerator jgen, SerializerProvider provider)
+            throws IOException, JsonGenerationException
+        {
+            jgen.writeString(value.toString());
+        }
 
-      public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-         return this.createSchemaNode("boolean", true);
-      }
-   }
+        @Override
+        public JsonNode getSchema(SerializerProvider provider, Type typeHint)
+            throws JsonMappingException
+        {
+            return createSchemaNode("string", true);
+        }
+    }
+    */
 }

@@ -1,101 +1,180 @@
 package org.codehaus.jackson.map.util;
 
-public abstract class PrimitiveArrayBuilder<T> {
-   static final int INITIAL_CHUNK_SIZE = 12;
-   static final int SMALL_CHUNK_SIZE = 16384;
-   static final int MAX_CHUNK_SIZE = 262144;
-   T _freeBuffer;
-   PrimitiveArrayBuilder.Node<T> _bufferHead;
-   PrimitiveArrayBuilder.Node<T> _bufferTail;
-   int _bufferedEntryCount;
+/**
+ * Base class for specialized primitive array builders.
+ */
+public abstract class PrimitiveArrayBuilder<T>
+{
+    /**
+     * Let's start with small chunks; typical usage is for small arrays anyway.
+     */
+    final static int INITIAL_CHUNK_SIZE = 12;
 
-   protected PrimitiveArrayBuilder() {
-   }
+    /**
+     * Also: let's expand by doubling up until 64k chunks (which is 16k entries for
+     * 32-bit machines)
+     */
+    final static int SMALL_CHUNK_SIZE = (1 << 14);
 
-   public T resetAndStart() {
-      this._reset();
-      return this._freeBuffer == null ? this._constructArray(12) : this._freeBuffer;
-   }
+    /**
+     * Let's limit maximum size of chunks we use; helps avoid excessive allocation
+     * overhead for huge data sets.
+     * For now, let's limit to quarter million entries, 1 meg chunks for 32-bit
+     * machines.
+     */
+    final static int MAX_CHUNK_SIZE = (1 << 18);
 
-   public final T appendCompletedChunk(T fullChunk, int fullChunkLength) {
-      PrimitiveArrayBuilder.Node<T> next = new PrimitiveArrayBuilder.Node(fullChunk, fullChunkLength);
-      if (this._bufferHead == null) {
-         this._bufferHead = this._bufferTail = next;
-      } else {
-         this._bufferTail.linkNext(next);
-         this._bufferTail = next;
-      }
+    // // // Data storage
 
-      this._bufferedEntryCount += fullChunkLength;
-      int nextLen;
-      if (fullChunkLength < 16384) {
-         nextLen = fullChunkLength + fullChunkLength;
-      } else {
-         nextLen = fullChunkLength + (fullChunkLength >> 2);
-      }
+    T _freeBuffer;
 
-      return this._constructArray(nextLen);
-   }
+    Node<T> _bufferHead;
 
-   public T completeAndClearBuffer(T lastChunk, int lastChunkEntries) {
-      int totalSize = lastChunkEntries + this._bufferedEntryCount;
-      T resultArray = this._constructArray(totalSize);
-      int ptr = 0;
+    Node<T> _bufferTail;
 
-      for(PrimitiveArrayBuilder.Node n = this._bufferHead; n != null; n = n.next()) {
-         ptr = n.copyData(resultArray, ptr);
-      }
+    /**
+     * Number of total buffered entries in this buffer, counting all instances
+     * within linked list formed by following {@link #_bufferHead}.
+     */
+    int _bufferedEntryCount;
 
-      System.arraycopy(lastChunk, 0, resultArray, ptr, lastChunkEntries);
-      ptr += lastChunkEntries;
-      if (ptr != totalSize) {
-         throw new IllegalStateException("Should have gotten " + totalSize + " entries, got " + ptr);
-      } else {
-         return resultArray;
-      }
-   }
+    // // // Recycled instances of sub-classes
 
-   protected abstract T _constructArray(int var1);
+    // // // Life-cycle
 
-   protected void _reset() {
-      if (this._bufferTail != null) {
-         this._freeBuffer = this._bufferTail.getData();
-      }
+    protected PrimitiveArrayBuilder() { }
 
-      this._bufferHead = this._bufferTail = null;
-      this._bufferedEntryCount = 0;
-   }
+    /*
+    ////////////////////////////////////////////////////////////////////////
+    // Public API
+    ////////////////////////////////////////////////////////////////////////
+     */
 
-   static final class Node<T> {
-      final T _data;
-      final int _dataLength;
-      PrimitiveArrayBuilder.Node<T> _next;
+    public T resetAndStart()
+    {
+        _reset();
+        return (_freeBuffer == null) ?
+            _constructArray(INITIAL_CHUNK_SIZE) : _freeBuffer;
+    }
 
-      public Node(T data, int dataLen) {
-         this._data = data;
-         this._dataLength = dataLen;
-      }
+    /**
+     * @return Length of the next chunk to allocate
+     */
+    public final T appendCompletedChunk(T fullChunk, int fullChunkLength)
+    {
+        Node<T> next = new Node<T>(fullChunk, fullChunkLength);
+        if (_bufferHead == null) { // first chunk
+            _bufferHead = _bufferTail = next;
+        } else { // have something already
+            _bufferTail.linkNext(next);
+            _bufferTail = next;
+        }
+        _bufferedEntryCount += fullChunkLength;
+        int nextLen = fullChunkLength; // start with last chunk size
+        // double the size for small chunks
+        if (nextLen < SMALL_CHUNK_SIZE) {
+            nextLen += nextLen;
+        } else { // but by +25% for larger (to limit overhead)
+            nextLen += (nextLen >> 2);
+        }
+        return _constructArray(nextLen);
+    }
 
-      public T getData() {
-         return this._data;
-      }
+    public T completeAndClearBuffer(T lastChunk, int lastChunkEntries)
+    {
+        int totalSize = lastChunkEntries + _bufferedEntryCount;
+        T resultArray = _constructArray(totalSize);
 
-      public int copyData(T dst, int ptr) {
-         System.arraycopy(this._data, 0, dst, ptr, this._dataLength);
-         ptr += this._dataLength;
-         return ptr;
-      }
+        int ptr = 0;
 
-      public PrimitiveArrayBuilder.Node<T> next() {
-         return this._next;
-      }
+        for (Node<T> n = _bufferHead; n != null; n = n.next()) {
+            ptr = n.copyData(resultArray, ptr);
+        }
+        System.arraycopy(lastChunk, 0, resultArray, ptr, lastChunkEntries);
+        ptr += lastChunkEntries;
 
-      public void linkNext(PrimitiveArrayBuilder.Node<T> next) {
-         if (this._next != null) {
-            throw new IllegalStateException();
-         } else {
-            this._next = next;
-         }
-      }
-   }
+        // sanity check (could have failed earlier due to out-of-bounds, too)
+        if (ptr != totalSize) {
+            throw new IllegalStateException("Should have gotten "+totalSize+" entries, got "+ptr);
+        }
+        return resultArray;
+    }
+
+    /*
+    ////////////////////////////////////////////////////////////////////////
+    // Abstract methods for sub-classes to implement
+    ////////////////////////////////////////////////////////////////////////
+     */
+
+    protected abstract T _constructArray(int len);
+
+    /*
+    ////////////////////////////////////////////////////////////////////////
+    // Internal methods
+    ////////////////////////////////////////////////////////////////////////
+     */
+
+    protected void _reset()
+    {
+        // can we reuse the last (and thereby biggest) array for next time?
+        if (_bufferTail != null) {
+            _freeBuffer = _bufferTail.getData();
+        }
+        // either way, must discard current contents
+        _bufferHead = _bufferTail = null;
+        _bufferedEntryCount = 0;
+    }
+
+    /*
+    ////////////////////////////////////////////////////////////////////////
+    // Helper classes
+    ////////////////////////////////////////////////////////////////////////
+     */
+
+    /**
+     * For actual buffering beyond the current buffer, we can actually
+     * use shared class which only deals with opaque "untyped" chunks.
+     * This works because {@link java.lang.System#arraycopy} does not
+     * take type; hence we can implement some aspects of primitive data
+     * handling in generic fashion.
+     */
+    final static class Node<T>
+    {
+        /**
+         * Data stored in this node.
+         */
+        final T _data;
+
+        /**
+         * Number entries in the (untyped) array. Offset is assumed to be 0.
+         */
+        final int _dataLength;
+
+        Node<T> _next;
+
+        public Node(T data, int dataLen)
+        {
+            _data = data;
+            _dataLength = dataLen;
+        }
+
+        public T getData() { return _data; }
+
+        public int copyData(T dst, int ptr)
+        {
+            System.arraycopy(_data, 0, dst, ptr, _dataLength);
+            ptr += _dataLength;
+            return ptr;
+        }
+
+        public Node<T> next() { return _next; }
+
+        public void linkNext(Node<T> next)
+        {
+            if (_next != null) { // sanity check
+                throw new IllegalStateException();
+            }
+            _next = next;
+        }
+    }
 }

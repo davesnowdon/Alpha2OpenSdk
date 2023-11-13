@@ -1,104 +1,180 @@
 package org.codehaus.jackson.impl;
 
-import org.codehaus.jackson.JsonLocation;
-import org.codehaus.jackson.JsonStreamContext;
+import org.codehaus.jackson.*;
 import org.codehaus.jackson.util.CharTypes;
 
-public final class JsonReadContext extends JsonStreamContext {
-   protected final JsonReadContext _parent;
-   protected int _lineNr;
-   protected int _columnNr;
-   protected String _currentName;
-   protected JsonReadContext _child = null;
+/**
+ * Extension of {@link JsonStreamContext}, which implements
+ * core methods needed, and also exposes
+ * more complete API to parser implementation classes.
+ */
+public final class JsonReadContext
+    extends JsonStreamContext
+{
+    // // // Configuration
 
-   public JsonReadContext(JsonReadContext parent, int type, int lineNr, int colNr) {
-      this._type = type;
-      this._parent = parent;
-      this._lineNr = lineNr;
-      this._columnNr = colNr;
-      this._index = -1;
-   }
+    protected final JsonReadContext _parent;
 
-   protected final void reset(int type, int lineNr, int colNr) {
-      this._type = type;
-      this._index = -1;
-      this._lineNr = lineNr;
-      this._columnNr = colNr;
-      this._currentName = null;
-   }
+    // // // Location information (minus source reference)
 
-   public static JsonReadContext createRootContext(int lineNr, int colNr) {
-      return new JsonReadContext((JsonReadContext)null, 0, lineNr, colNr);
-   }
+    protected int _lineNr;
+    protected int _columnNr;
 
-   public final JsonReadContext createChildArrayContext(int lineNr, int colNr) {
-      JsonReadContext ctxt = this._child;
-      if (ctxt == null) {
-         this._child = ctxt = new JsonReadContext(this, 1, lineNr, colNr);
-         return ctxt;
-      } else {
-         ctxt.reset(1, lineNr, colNr);
-         return ctxt;
-      }
-   }
+    protected String _currentName;
 
-   public final JsonReadContext createChildObjectContext(int lineNr, int colNr) {
-      JsonReadContext ctxt = this._child;
-      if (ctxt == null) {
-         this._child = ctxt = new JsonReadContext(this, 2, lineNr, colNr);
-         return ctxt;
-      } else {
-         ctxt.reset(2, lineNr, colNr);
-         return ctxt;
-      }
-   }
+    /*
+    /**********************************************************
+    /* Simple instance reuse slots; speeds up things
+    /* a bit (10-15%) for docs with lots of small
+    /* arrays/objects (for which allocation was
+    /* visible in profile stack frames)
+    /**********************************************************
+     */
 
-   public final String getCurrentName() {
-      return this._currentName;
-   }
+    protected JsonReadContext _child = null;
 
-   public final JsonReadContext getParent() {
-      return this._parent;
-   }
+    /*
+    /**********************************************************
+    /* Instance construction, reuse
+    /**********************************************************
+     */
 
-   public final JsonLocation getStartLocation(Object srcRef) {
-      long totalChars = -1L;
-      return new JsonLocation(srcRef, totalChars, this._lineNr, this._columnNr);
-   }
+    public JsonReadContext(JsonReadContext parent, int type, int lineNr, int colNr)
+    {
+        super();
+        _type = type;
+        _parent = parent;
+        _lineNr = lineNr;
+        _columnNr = colNr;
+        _index = -1;
+    }
 
-   public final boolean expectComma() {
-      int ix = ++this._index;
-      return this._type != 0 && ix > 0;
-   }
+    protected final void reset(int type, int lineNr, int colNr)
+    {
+        _type = type;
+        _index = -1;
+        _lineNr = lineNr;
+        _columnNr = colNr;
+        _currentName = null;
+    }
 
-   public void setCurrentName(String name) {
-      this._currentName = name;
-   }
+    // // // Factory methods
 
-   public final String toString() {
-      StringBuilder sb = new StringBuilder(64);
-      switch(this._type) {
-      case 0:
-         sb.append("/");
-         break;
-      case 1:
-         sb.append('[');
-         sb.append(this.getCurrentIndex());
-         sb.append(']');
-         break;
-      case 2:
-         sb.append('{');
-         if (this._currentName != null) {
-            sb.append('"');
-            CharTypes.appendQuoted(sb, this._currentName);
-            sb.append('"');
-         } else {
-            sb.append('?');
-         }
+    public static JsonReadContext createRootContext(int lineNr, int colNr)
+    {
+        return new JsonReadContext(null, TYPE_ROOT, lineNr, colNr);
+    }
 
-         sb.append(']');
-      }
+    public final JsonReadContext createChildArrayContext(int lineNr, int colNr)
+    {
+        JsonReadContext ctxt = _child;
+        if (ctxt == null) {
+            _child = ctxt = new JsonReadContext(this, TYPE_ARRAY, lineNr, colNr);
+            return ctxt;
+        }
+        ctxt.reset(TYPE_ARRAY, lineNr, colNr);
+        return ctxt;
+    }
 
-      return sb.toString();
-   }
+    public final JsonReadContext createChildObjectContext(int lineNr, int colNr)
+    {
+        JsonReadContext ctxt = _child;
+        if (ctxt == null) {
+            _child = ctxt = new JsonReadContext(this, TYPE_OBJECT, lineNr, colNr);
+            return ctxt;
+        }
+        ctxt.reset(TYPE_OBJECT, lineNr, colNr);
+        return ctxt;
+    }
+
+    /*
+    /**********************************************************
+    /* Abstract method implementation
+    /**********************************************************
+     */
+
+    @Override
+    public final String getCurrentName() { return _currentName; }
+
+    @Override
+    public final JsonReadContext getParent() { return _parent; }
+
+    /*
+    /**********************************************************
+    /* Extended API
+    /**********************************************************
+     */
+
+    /**
+     * @return Location pointing to the point where the context
+     *   start marker was found
+     */
+    public final JsonLocation getStartLocation(Object srcRef)
+    {
+        /* We don't keep track of offsets at this level (only
+         * reader does)
+         */
+        long totalChars = -1L;
+
+        return new JsonLocation(srcRef, totalChars, _lineNr, _columnNr);
+    }
+
+    /*
+    /**********************************************************
+    /* State changes
+    /**********************************************************
+     */
+
+    public final boolean expectComma()
+    {
+        /* Assumption here is that we will be getting a value (at least
+         * before calling this method again), and
+         * so will auto-increment index to avoid having to do another call
+         */
+        int ix = ++_index; // starts from -1
+        return (_type != TYPE_ROOT && ix > 0);
+    }
+
+    public void setCurrentName(String name)
+    {
+        _currentName = name;
+    }
+
+    /*
+    /**********************************************************
+    /* Overridden standard methods
+    /**********************************************************
+     */
+
+    /**
+     * Overridden to provide developer readable "JsonPath" representation
+     * of the context.
+     */
+    @Override
+    public final String toString()
+    {
+        StringBuilder sb = new StringBuilder(64);
+        switch (_type) {
+        case TYPE_ROOT:
+            sb.append("/");
+            break;
+        case TYPE_ARRAY:
+            sb.append('[');
+            sb.append(getCurrentIndex());
+            sb.append(']');
+            break;
+        case TYPE_OBJECT:
+            sb.append('{');
+            if (_currentName != null) {
+                sb.append('"');
+                CharTypes.appendQuoted(sb, _currentName);
+                sb.append('"');
+            } else {
+                sb.append('?');
+            }
+            sb.append(']');
+            break;
+        }
+        return sb.toString();
+    }
 }
