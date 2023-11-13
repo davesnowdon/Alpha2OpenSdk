@@ -1,403 +1,438 @@
+//
+// MessagePack for Java
+//
+// Copyright (C) 2009 - 2013 FURUHASHI Sadayuki
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//
 package org.msgpack.unpacker;
 
-import java.io.EOFException;
 import java.io.IOException;
+import java.io.EOFException;
 import java.math.BigInteger;
+
 import org.msgpack.MessagePack;
 import org.msgpack.MessageTypeException;
 import org.msgpack.packer.Unconverter;
-import org.msgpack.type.ArrayValue;
-import org.msgpack.type.MapValue;
 import org.msgpack.type.Value;
 import org.msgpack.type.ValueType;
+import org.msgpack.type.ArrayValue;
+import org.msgpack.type.MapValue;
 
 public class Converter extends AbstractUnpacker {
-   private final UnpackerStack stack;
-   private Object[] values;
-   protected Value value;
+    private final UnpackerStack stack;
+    private Object[] values;
+    protected Value value;
 
-   public Converter(Value value) {
-      this(new MessagePack(), value);
-   }
+    public Converter(Value value) {
+        this(new MessagePack(), value);
+    }
 
-   public Converter(MessagePack msgpack, Value value) {
-      super(msgpack);
-      this.stack = new UnpackerStack();
-      this.values = new Object[128];
-      this.value = value;
-   }
+    public Converter(MessagePack msgpack, Value value) {
+        super(msgpack);
+        this.stack = new UnpackerStack();
+        this.values = new Object[UnpackerStack.MAX_STACK_SIZE];
+        this.value = value;
+    }
 
-   protected Value nextValue() throws IOException {
-      throw new EOFException();
-   }
+    protected Value nextValue() throws IOException {
+        throw new EOFException();
+    }
 
-   private void ensureValue() throws IOException {
-      if (this.value == null) {
-         this.value = this.nextValue();
-      }
+    private void ensureValue() throws IOException {
+        if (value == null) {
+            value = nextValue();
+        }
+    }
 
-   }
+    @Override
+    public boolean tryReadNil() throws IOException {
+        stack.checkCount();
+        if (getTop().isNilValue()) {
+            stack.reduceCount();
+            if (stack.getDepth() == 0) {
+                value = null;
+            }
+            return true;
+        }
+        return false;
+    }
 
-   public boolean tryReadNil() throws IOException {
-      this.stack.checkCount();
-      if (this.getTop().isNilValue()) {
-         this.stack.reduceCount();
-         if (this.stack.getDepth() == 0) {
-            this.value = null;
-         }
+    @Override
+    public boolean trySkipNil() throws IOException {
+        ensureValue();
 
-         return true;
-      } else {
-         return false;
-      }
-   }
+        if (stack.getDepth() > 0 && stack.getTopCount() <= 0) {
+            // end of array or map
+            return true;
+        }
 
-   public boolean trySkipNil() throws IOException {
-      this.ensureValue();
-      if (this.stack.getDepth() > 0 && this.stack.getTopCount() <= 0) {
-         return true;
-      } else if (this.getTop().isNilValue()) {
-         this.stack.reduceCount();
-         if (this.stack.getDepth() == 0) {
-            this.value = null;
-         }
+        if (getTop().isNilValue()) {
+            stack.reduceCount();
+            if (stack.getDepth() == 0) {
+                value = null;
+            }
+            return true;
+        }
+        return false;
+    }
 
-         return true;
-      } else {
-         return false;
-      }
-   }
+    @Override
+    public void readNil() throws IOException {
+        if (!getTop().isNilValue()) {
+            throw new MessageTypeException("Expected nil but got not nil value");
+        }
+        stack.reduceCount();
+        if (stack.getDepth() == 0) {
+            value = null;
+        }
+    }
 
-   public void readNil() throws IOException {
-      if (!this.getTop().isNilValue()) {
-         throw new MessageTypeException("Expected nil but got not nil value");
-      } else {
-         this.stack.reduceCount();
-         if (this.stack.getDepth() == 0) {
-            this.value = null;
-         }
+    @Override
+    public boolean readBoolean() throws IOException {
+        boolean v = getTop().asBooleanValue().getBoolean();
+        stack.reduceCount();
+        return v;
+    }
 
-      }
-   }
+    @Override
+    public byte readByte() throws IOException {
+        byte v = getTop().asIntegerValue().getByte();
+        stack.reduceCount();
+        if (stack.getDepth() == 0) {
+            value = null;
+        }
+        return v;
+    }
 
-   public boolean readBoolean() throws IOException {
-      boolean v = this.getTop().asBooleanValue().getBoolean();
-      this.stack.reduceCount();
-      return v;
-   }
+    @Override
+    public short readShort() throws IOException {
+        short v = getTop().asIntegerValue().getShort();
+        stack.reduceCount();
+        if (stack.getDepth() == 0) {
+            value = null;
+        }
+        return v;
+    }
 
-   public byte readByte() throws IOException {
-      byte v = this.getTop().asIntegerValue().getByte();
-      this.stack.reduceCount();
-      if (this.stack.getDepth() == 0) {
-         this.value = null;
-      }
+    @Override
+    public int readInt() throws IOException {
+        int v = getTop().asIntegerValue().getInt();
+        stack.reduceCount();
+        if (stack.getDepth() == 0) {
+            value = null;
+        }
+        return v;
+    }
 
-      return v;
-   }
+    @Override
+    public long readLong() throws IOException {
+        long v = getTop().asIntegerValue().getLong();
+        stack.reduceCount();
+        if (stack.getDepth() == 0) {
+            value = null;
+        }
+        return v;
+    }
 
-   public short readShort() throws IOException {
-      short v = this.getTop().asIntegerValue().getShort();
-      this.stack.reduceCount();
-      if (this.stack.getDepth() == 0) {
-         this.value = null;
-      }
+    @Override
+    public BigInteger readBigInteger() throws IOException {
+        BigInteger v = getTop().asIntegerValue().getBigInteger();
+        stack.reduceCount();
+        if (stack.getDepth() == 0) {
+            value = null;
+        }
+        return v;
+    }
 
-      return v;
-   }
+    @Override
+    public float readFloat() throws IOException {
+        float v = getTop().asFloatValue().getFloat();
+        stack.reduceCount();
+        if (stack.getDepth() == 0) {
+            value = null;
+        }
+        return v;
+    }
 
-   public int readInt() throws IOException {
-      int v = this.getTop().asIntegerValue().getInt();
-      this.stack.reduceCount();
-      if (this.stack.getDepth() == 0) {
-         this.value = null;
-      }
+    @Override
+    public double readDouble() throws IOException {
+        double v = getTop().asFloatValue().getDouble();
+        stack.reduceCount();
+        if (stack.getDepth() == 0) {
+            value = null;
+        }
+        return v;
+    }
 
-      return v;
-   }
+    @Override
+    public byte[] readByteArray() throws IOException {
+        byte[] raw = getTop().asRawValue().getByteArray();
+        stack.reduceCount();
+        if (stack.getDepth() == 0) {
+            value = null;
+        }
+        return raw;
+    }
 
-   public long readLong() throws IOException {
-      long v = this.getTop().asIntegerValue().getLong();
-      this.stack.reduceCount();
-      if (this.stack.getDepth() == 0) {
-         this.value = null;
-      }
+    @Override
+    public String readString() throws IOException {
+        String str = getTop().asRawValue().getString();
+        stack.reduceCount();
+        if (stack.getDepth() == 0) {
+            value = null;
+        }
+        return str;
+    }
 
-      return v;
-   }
+    @Override
+    public int readArrayBegin() throws IOException {
+        Value v = getTop();
+        if (!v.isArrayValue()) {
+            throw new MessageTypeException(
+                    "Expected array but got not array value");
+        }
+        ArrayValue a = v.asArrayValue();
+        stack.reduceCount();
+        stack.pushArray(a.size());
+        values[stack.getDepth()] = a.getElementArray();
+        return a.size();
+    }
 
-   public BigInteger readBigInteger() throws IOException {
-      BigInteger v = this.getTop().asIntegerValue().getBigInteger();
-      this.stack.reduceCount();
-      if (this.stack.getDepth() == 0) {
-         this.value = null;
-      }
+    @Override
+    public void readArrayEnd(boolean check) throws IOException {
+        if (!stack.topIsArray()) {
+            throw new MessageTypeException(
+                    "readArrayEnd() is called but readArrayBegin() is not called");
+        }
 
-      return v;
-   }
-
-   public float readFloat() throws IOException {
-      float v = this.getTop().asFloatValue().getFloat();
-      this.stack.reduceCount();
-      if (this.stack.getDepth() == 0) {
-         this.value = null;
-      }
-
-      return v;
-   }
-
-   public double readDouble() throws IOException {
-      double v = this.getTop().asFloatValue().getDouble();
-      this.stack.reduceCount();
-      if (this.stack.getDepth() == 0) {
-         this.value = null;
-      }
-
-      return v;
-   }
-
-   public byte[] readByteArray() throws IOException {
-      byte[] raw = this.getTop().asRawValue().getByteArray();
-      this.stack.reduceCount();
-      if (this.stack.getDepth() == 0) {
-         this.value = null;
-      }
-
-      return raw;
-   }
-
-   public String readString() throws IOException {
-      String str = this.getTop().asRawValue().getString();
-      this.stack.reduceCount();
-      if (this.stack.getDepth() == 0) {
-         this.value = null;
-      }
-
-      return str;
-   }
-
-   public int readArrayBegin() throws IOException {
-      Value v = this.getTop();
-      if (!v.isArrayValue()) {
-         throw new MessageTypeException("Expected array but got not array value");
-      } else {
-         ArrayValue a = v.asArrayValue();
-         this.stack.reduceCount();
-         this.stack.pushArray(a.size());
-         this.values[this.stack.getDepth()] = a.getElementArray();
-         return a.size();
-      }
-   }
-
-   public void readArrayEnd(boolean check) throws IOException {
-      if (!this.stack.topIsArray()) {
-         throw new MessageTypeException("readArrayEnd() is called but readArrayBegin() is not called");
-      } else {
-         int remain = this.stack.getTopCount();
-         if (remain > 0) {
+        int remain = stack.getTopCount();
+        if (remain > 0) {
             if (check) {
-               throw new MessageTypeException("readArrayEnd(check=true) is called but the array is not end");
+                throw new MessageTypeException(
+                        "readArrayEnd(check=true) is called but the array is not end");
             }
-
-            for(int i = 0; i < remain; ++i) {
-               this.skip();
+            for (int i = 0; i < remain; i++) {
+                skip();
             }
-         }
+        }
+        stack.pop();
 
-         this.stack.pop();
-         if (this.stack.getDepth() == 0) {
-            this.value = null;
-         }
+        if (stack.getDepth() == 0) {
+            value = null;
+        }
+    }
 
-      }
-   }
+    @Override
+    public int readMapBegin() throws IOException {
+        Value v = getTop();
+        if (!v.isMapValue()) {
+            throw new MessageTypeException("Expected map but got not map value");
+        }
+        MapValue m = v.asMapValue();
+        stack.reduceCount();
+        stack.pushMap(m.size());
+        values[stack.getDepth()] = m.getKeyValueArray();
+        return m.size();
+    }
 
-   public int readMapBegin() throws IOException {
-      Value v = this.getTop();
-      if (!v.isMapValue()) {
-         throw new MessageTypeException("Expected map but got not map value");
-      } else {
-         MapValue m = v.asMapValue();
-         this.stack.reduceCount();
-         this.stack.pushMap(m.size());
-         this.values[this.stack.getDepth()] = m.getKeyValueArray();
-         return m.size();
-      }
-   }
+    @Override
+    public void readMapEnd(boolean check) throws IOException {
+        if (!stack.topIsMap()) {
+            throw new MessageTypeException(
+                    "readMapEnd() is called but readMapBegin() is not called");
+        }
 
-   public void readMapEnd(boolean check) throws IOException {
-      if (!this.stack.topIsMap()) {
-         throw new MessageTypeException("readMapEnd() is called but readMapBegin() is not called");
-      } else {
-         int remain = this.stack.getTopCount();
-         if (remain > 0) {
+        int remain = stack.getTopCount();
+        if (remain > 0) {
             if (check) {
-               throw new MessageTypeException("readMapEnd(check=true) is called but the map is not end");
+                throw new MessageTypeException(
+                        "readMapEnd(check=true) is called but the map is not end");
             }
-
-            for(int i = 0; i < remain; ++i) {
-               this.skip();
+            for (int i = 0; i < remain; i++) {
+                skip();
             }
-         }
+        }
+        stack.pop();
 
-         this.stack.pop();
-         if (this.stack.getDepth() == 0) {
-            this.value = null;
-         }
+        if (stack.getDepth() == 0) {
+            value = null;
+        }
+    }
 
-      }
-   }
+    private Value getTop() throws IOException {
+        ensureValue();
 
-   private Value getTop() throws IOException {
-      this.ensureValue();
-      this.stack.checkCount();
-      if (this.stack.getDepth() == 0) {
-         return this.value;
-      } else {
-         Value[] array = (Value[])((Value[])this.values[this.stack.getDepth()]);
-         return array[array.length - this.stack.getTopCount()];
-      }
-   }
+        stack.checkCount();
+        if (stack.getDepth() == 0) {
+            // if(stack.getTopCount() < 0) {
+            // //throw new EOFException(); // TODO
+            // throw new RuntimeException(new EOFException());
+            // }
+            return value;
+        }
+        Value[] array = (Value[]) values[stack.getDepth()];
+        return array[array.length - stack.getTopCount()];
+    }
 
-   public Value readValue() throws IOException {
-      if (this.stack.getDepth() == 0) {
-         if (this.value == null) {
-            return this.nextValue();
-         } else {
-            Value v = this.value;
-            this.value = null;
-            return v;
-         }
-      } else {
-         return super.readValue();
-      }
-   }
-
-   protected void readValue(Unconverter uc) throws IOException {
-      if (uc.getResult() != null) {
-         uc.resetResult();
-      }
-
-      this.stack.checkCount();
-      Value v = this.getTop();
-      if (!v.isArrayValue() && !v.isMapValue()) {
-         uc.write(v);
-         this.stack.reduceCount();
-         if (this.stack.getDepth() == 0) {
-            this.value = null;
-         }
-
-         if (uc.getResult() != null) {
-            return;
-         }
-      }
-
-      do {
-         while(this.stack.getDepth() == 0 || this.stack.getTopCount() != 0) {
-            this.stack.checkCount();
-            v = this.getTop();
-            if (v.isArrayValue()) {
-               ArrayValue a = v.asArrayValue();
-               uc.writeArrayBegin(a.size());
-               this.stack.reduceCount();
-               this.stack.pushArray(a.size());
-               this.values[this.stack.getDepth()] = a.getElementArray();
-            } else if (v.isMapValue()) {
-               MapValue m = v.asMapValue();
-               uc.writeMapBegin(m.size());
-               this.stack.reduceCount();
-               this.stack.pushMap(m.size());
-               this.values[this.stack.getDepth()] = m.getKeyValueArray();
+    @Override
+    public Value readValue() throws IOException {
+        if (stack.getDepth() == 0) {
+            if (value == null) {
+                return nextValue();
             } else {
-               uc.write(v);
-               this.stack.reduceCount();
+                Value v = value;
+                value = null;
+                return v;
             }
-         }
+        }
+        return super.readValue();
+    }
 
-         if (this.stack.topIsArray()) {
-            uc.writeArrayEnd(true);
-            this.stack.pop();
-         } else {
-            if (!this.stack.topIsMap()) {
-               throw new RuntimeException("invalid stack");
+    @Override
+    protected void readValue(Unconverter uc) throws IOException {
+        if (uc.getResult() != null) {
+            uc.resetResult();
+        }
+
+        stack.checkCount();
+        Value v = getTop();
+        if (!v.isArrayValue() && !v.isMapValue()) {
+            uc.write(v);
+            stack.reduceCount();
+            if (stack.getDepth() == 0) {
+                value = null;
             }
+            if (uc.getResult() != null) {
+                return;
+            }
+        }
 
-            uc.writeMapEnd(true);
-            this.stack.pop();
-         }
-
-         if (this.stack.getDepth() == 0) {
-            this.value = null;
-         }
-      } while(uc.getResult() == null);
-
-   }
-
-   public void skip() throws IOException {
-      this.stack.checkCount();
-      Value v = this.getTop();
-      if (!v.isArrayValue() && !v.isMapValue()) {
-         this.stack.reduceCount();
-         if (this.stack.getDepth() == 0) {
-            this.value = null;
-         }
-
-      } else {
-         int targetDepth = this.stack.getDepth();
-
-         do {
-            while(this.stack.getTopCount() != 0) {
-               this.stack.checkCount();
-               v = this.getTop();
-               if (v.isArrayValue()) {
-                  ArrayValue a = v.asArrayValue();
-                  this.stack.reduceCount();
-                  this.stack.pushArray(a.size());
-                  this.values[this.stack.getDepth()] = a.getElementArray();
-               } else if (v.isMapValue()) {
-                  MapValue m = v.asMapValue();
-                  this.stack.reduceCount();
-                  this.stack.pushMap(m.size());
-                  this.values[this.stack.getDepth()] = m.getKeyValueArray();
-               } else {
-                  this.stack.reduceCount();
-               }
+        while (true) {
+            while (stack.getDepth() != 0 && stack.getTopCount() == 0) {
+                if (stack.topIsArray()) {
+                    uc.writeArrayEnd(true);
+                    stack.pop();
+                } else if (stack.topIsMap()) {
+                    uc.writeMapEnd(true);
+                    stack.pop();
+                } else {
+                    throw new RuntimeException("invalid stack"); // FIXME error?
+                }
+                if (stack.getDepth() == 0) {
+                    value = null;
+                }
+                if (uc.getResult() != null) {
+                    return;
+                }
             }
 
-            this.stack.pop();
-            if (this.stack.getDepth() == 0) {
-               this.value = null;
+            stack.checkCount();
+            v = getTop();
+            if (v.isArrayValue()) {
+                ArrayValue a = v.asArrayValue();
+                uc.writeArrayBegin(a.size());
+                stack.reduceCount();
+                stack.pushArray(a.size());
+                values[stack.getDepth()] = a.getElementArray();
+
+            } else if (v.isMapValue()) {
+                MapValue m = v.asMapValue();
+                uc.writeMapBegin(m.size());
+                stack.reduceCount();
+                stack.pushMap(m.size());
+                values[stack.getDepth()] = m.getKeyValueArray();
+
+            } else {
+                uc.write(v);
+                stack.reduceCount();
             }
-         } while(this.stack.getDepth() > targetDepth);
+        }
+    }
 
-      }
-   }
+    @Override
+    public void skip() throws IOException {
+        stack.checkCount();
+        Value v = getTop();
+        if (!v.isArrayValue() && !v.isMapValue()) {
+            stack.reduceCount();
+            if (stack.getDepth() == 0) {
+                value = null;
+            }
+            return;
+        }
+        int targetDepth = stack.getDepth();
+        while (true) {
+            while (stack.getTopCount() == 0) {
+                stack.pop();
+                if (stack.getDepth() == 0) {
+                    value = null;
+                }
+                if (stack.getDepth() <= targetDepth) {
+                    return;
+                }
+            }
 
-   public ValueType getNextType() throws IOException {
-      return this.getTop().getType();
-   }
+            stack.checkCount();
+            v = getTop();
+            if (v.isArrayValue()) {
+                ArrayValue a = v.asArrayValue();
+                stack.reduceCount();
+                stack.pushArray(a.size());
+                values[stack.getDepth()] = a.getElementArray();
 
-   public void reset() {
-      this.stack.clear();
-      this.value = null;
-   }
+            } else if (v.isMapValue()) {
+                MapValue m = v.asMapValue();
+                stack.reduceCount();
+                stack.pushMap(m.size());
+                values[stack.getDepth()] = m.getKeyValueArray();
 
-   public void close() throws IOException {
-   }
+            } else {
+                stack.reduceCount();
+            }
+        }
+    }
 
-   public int getReadByteCount() {
-      throw new UnsupportedOperationException("Not implemented yet");
-   }
+    public ValueType getNextType() throws IOException {
+        return getTop().getType();
+    }
 
-   public void setRawSizeLimit(int size) {
-      throw new UnsupportedOperationException("Not implemented yet");
-   }
+    public void reset() {
+        stack.clear();
+        value = null;
+    }
 
-   public void setArraySizeLimit(int size) {
-      throw new UnsupportedOperationException("Not implemented yet");
-   }
+    @Override
+    public void close() throws IOException {
+    }
 
-   public void setMapSizeLimit(int size) {
-      throw new UnsupportedOperationException("Not implemented yet");
-   }
+    @Override
+    public int getReadByteCount() {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    @Override
+    public void setRawSizeLimit(int size) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    @Override
+    public void setArraySizeLimit(int size) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    @Override
+    public void setMapSizeLimit(int size) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
 }

@@ -1,66 +1,83 @@
+//
+// MessagePack for Java
+//
+// Copyright (C) 2009 - 2013 FURUHASHI Sadayuki
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//
 package org.msgpack.template;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.ArrayList;
 
 public class FieldList {
-   private ArrayList<FieldList.Entry> list = new ArrayList();
+    public static class Entry {
+        private String name;
 
-   public FieldList() {
-   }
+        private FieldOption option;
 
-   public void add(String name) {
-      this.add(name, FieldOption.DEFAULT);
-   }
+        public Entry() {
+            this(null, FieldOption.IGNORE);
+        }
 
-   public void add(String name, FieldOption option) {
-      this.list.add(new FieldList.Entry(name, option));
-   }
+        public Entry(final String name, final FieldOption option) {
+            this.name = name;
+            this.option = option;
+        }
 
-   public void put(int index, String name) {
-      this.put(index, name, FieldOption.DEFAULT);
-   }
+        public String getName() {
+            return name;
+        }
 
-   public void put(int index, String name, FieldOption option) {
-      if (this.list.size() < index) {
-         do {
-            this.list.add(new FieldList.Entry());
-         } while(this.list.size() < index);
+        public FieldOption getOption() {
+            return option;
+        }
 
-         this.list.add(new FieldList.Entry(name, option));
-      } else {
-         this.list.set(index, new FieldList.Entry(name, option));
-      }
+        public boolean isAvailable() {
+            return option != FieldOption.IGNORE;
+        }
+    }
 
-   }
+    private ArrayList<Entry> list;
 
-   public List<FieldList.Entry> getList() {
-      return this.list;
-   }
+    public FieldList() {
+        list = new ArrayList<Entry>();
+    }
 
-   public static class Entry {
-      private String name;
-      private FieldOption option;
+    public void add(final String name) {
+        add(name, FieldOption.DEFAULT);
+    }
 
-      public Entry() {
-         this((String)null, FieldOption.IGNORE);
-      }
+    public void add(final String name, final FieldOption option) {
+        list.add(new Entry(name, option));
+    }
 
-      public Entry(String name, FieldOption option) {
-         this.name = name;
-         this.option = option;
-      }
+    public void put(final int index, final String name) {
+        put(index, name, FieldOption.DEFAULT);
+    }
 
-      public String getName() {
-         return this.name;
-      }
+    public void put(final int index, final String name, final FieldOption option) {
+        if (list.size() < index) {
+            do {
+                list.add(new Entry());
+            } while (list.size() < index);
+            list.add(new Entry(name, option));
+        } else {
+            list.set(index, new Entry(name, option));
+        }
+    }
 
-      public FieldOption getOption() {
-         return this.option;
-      }
-
-      public boolean isAvailable() {
-         return this.option != FieldOption.IGNORE;
-      }
-   }
+    public List<Entry> getList() {
+        return list;
+    }
 }

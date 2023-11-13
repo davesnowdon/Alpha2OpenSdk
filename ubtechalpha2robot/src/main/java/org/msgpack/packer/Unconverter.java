@@ -1,196 +1,230 @@
+//
+// MessagePack for Java
+//
+// Copyright (C) 2009 - 2013 FURUHASHI Sadayuki
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//
 package org.msgpack.packer;
 
 import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+
 import org.msgpack.MessagePack;
 import org.msgpack.MessageTypeException;
 import org.msgpack.type.Value;
 import org.msgpack.type.ValueFactory;
 
 public class Unconverter extends AbstractPacker {
-   private PackerStack stack;
-   private Object[] values;
-   private Value result;
+    private PackerStack stack;
+    private Object[] values;
+    private Value result;
 
-   public Unconverter() {
-      this(new MessagePack());
-   }
+    // private Value topContainer;
 
-   public Unconverter(MessagePack msgpack) {
-      super(msgpack);
-      this.stack = new PackerStack();
-      this.values = new Object[128];
-   }
+    public Unconverter() {
+        this(new MessagePack());
+    }
 
-   public Value getResult() {
-      return this.result;
-   }
+    public Unconverter(MessagePack msgpack) {
+        super(msgpack);
+        this.stack = new PackerStack();
+        this.values = new Object[PackerStack.MAX_STACK_SIZE];
+    }
 
-   public void resetResult() {
-      this.result = null;
-   }
+    public Value getResult() {
+        return result;
+    }
 
-   public void writeBoolean(boolean v) throws IOException {
-      this.put(ValueFactory.createBooleanValue(v));
-   }
+    public void resetResult() {
+        this.result = null;
+    }
 
-   public void writeByte(byte v) throws IOException {
-      this.put(ValueFactory.createIntegerValue(v));
-   }
+    @Override
+    public void writeBoolean(boolean v) throws IOException {
+        put(ValueFactory.createBooleanValue(v));
+    }
 
-   public void writeShort(short v) throws IOException {
-      this.put(ValueFactory.createIntegerValue(v));
-   }
+    @Override
+    public void writeByte(byte v) throws IOException {
+        put(ValueFactory.createIntegerValue(v));
+    }
 
-   public void writeInt(int v) throws IOException {
-      this.put(ValueFactory.createIntegerValue(v));
-   }
+    @Override
+    public void writeShort(short v) throws IOException {
+        put(ValueFactory.createIntegerValue(v));
+    }
 
-   public void writeBigInteger(BigInteger v) throws IOException {
-      this.put(ValueFactory.createIntegerValue(v));
-   }
+    @Override
+    public void writeInt(int v) throws IOException {
+        put(ValueFactory.createIntegerValue(v));
+    }
 
-   public void writeLong(long v) throws IOException {
-      this.put(ValueFactory.createIntegerValue(v));
-   }
+    @Override
+    public void writeBigInteger(BigInteger v) throws IOException {
+        put(ValueFactory.createIntegerValue(v));
+    }
 
-   public void writeFloat(float v) throws IOException {
-      this.put(ValueFactory.createFloatValue(v));
-   }
+    @Override
+    public void writeLong(long v) throws IOException {
+        put(ValueFactory.createIntegerValue(v));
+    }
 
-   public void writeDouble(double v) throws IOException {
-      this.put(ValueFactory.createFloatValue(v));
-   }
+    @Override
+    public void writeFloat(float v) throws IOException {
+        put(ValueFactory.createFloatValue(v));
+    }
 
-   public void writeByteArray(byte[] b, int off, int len) throws IOException {
-      this.put(ValueFactory.createRawValue(b, off, len));
-   }
+    @Override
+    public void writeDouble(double v) throws IOException {
+        put(ValueFactory.createFloatValue(v));
+    }
 
-   public void writeByteBuffer(ByteBuffer bb) throws IOException {
-      this.put(ValueFactory.createRawValue(bb));
-   }
+    @Override
+    public void writeByteArray(byte[] b, int off, int len) throws IOException {
+        put(ValueFactory.createRawValue(b, off, len));
+    }
 
-   public void writeString(String s) throws IOException {
-      this.put(ValueFactory.createRawValue(s));
-   }
+    @Override
+    public void writeByteBuffer(ByteBuffer bb) throws IOException {
+        put(ValueFactory.createRawValue(bb));
+    }
 
-   public Packer writeNil() throws IOException {
-      this.put(ValueFactory.createNilValue());
-      return this;
-   }
+    @Override
+    public void writeString(String s) throws IOException {
+        put(ValueFactory.createRawValue(s));
+    }
 
-   public Packer writeArrayBegin(int size) throws IOException {
-      if (size == 0) {
-         this.putContainer(ValueFactory.createArrayValue());
-         this.stack.pushArray(0);
-         this.values[this.stack.getDepth()] = null;
-      } else {
-         Value[] array = new Value[size];
-         this.putContainer(ValueFactory.createArrayValue(array, true));
-         this.stack.pushArray(size);
-         this.values[this.stack.getDepth()] = array;
-      }
+    @Override
+    public Packer writeNil() throws IOException {
+        put(ValueFactory.createNilValue());
+        return this;
+    }
 
-      return this;
-   }
+    @Override
+    public Packer writeArrayBegin(int size) throws IOException {
+        if (size == 0) {
+            // Value[] array = new Value[size];
+            putContainer(ValueFactory.createArrayValue());
+            stack.pushArray(0);
+            values[stack.getDepth()] = null;
+        } else {
+            Value[] array = new Value[size];
+            putContainer(ValueFactory.createArrayValue(array, true));
+            stack.pushArray(size);
+            values[stack.getDepth()] = array;
+        }
+        return this;
+    }
 
-   public Packer writeArrayEnd(boolean check) throws IOException {
-      if (!this.stack.topIsArray()) {
-         throw new MessageTypeException("writeArrayEnd() is called but writeArrayBegin() is not called");
-      } else {
-         int remain = this.stack.getTopCount();
-         if (remain > 0) {
+    @Override
+    public Packer writeArrayEnd(boolean check) throws IOException {
+        if (!stack.topIsArray()) {
+            throw new MessageTypeException(
+                    "writeArrayEnd() is called but writeArrayBegin() is not called");
+        }
+
+        int remain = stack.getTopCount();
+        if (remain > 0) {
             if (check) {
-               throw new MessageTypeException("writeArrayEnd(check=true) is called but the array is not end");
+                throw new MessageTypeException(
+                        "writeArrayEnd(check=true) is called but the array is not end");
             }
-
-            for(int i = 0; i < remain; ++i) {
-               this.writeNil();
+            for (int i = 0; i < remain; i++) {
+                writeNil();
             }
-         }
+        }
+        stack.pop();
+        if (stack.getDepth() <= 0) {
+            this.result = (Value) values[0];
+        }
+        return this;
+    }
 
-         this.stack.pop();
-         if (this.stack.getDepth() <= 0) {
-            this.result = (Value)this.values[0];
-         }
+    @Override
+    public Packer writeMapBegin(int size) throws IOException {
+        stack.checkCount();
+        if (size == 0) {
+            putContainer(ValueFactory.createMapValue());
+            stack.pushMap(0);
+            values[stack.getDepth()] = null;
+        } else {
+            Value[] array = new Value[size * 2];
+            putContainer(ValueFactory.createMapValue(array, true));
+            stack.pushMap(size);
+            values[stack.getDepth()] = array;
+        }
+        return this;
+    }
 
-         return this;
-      }
-   }
+    @Override
+    public Packer writeMapEnd(boolean check) throws IOException {
+        if (!stack.topIsMap()) {
+            throw new MessageTypeException(
+                    "writeMapEnd() is called but writeMapBegin() is not called");
+        }
 
-   public Packer writeMapBegin(int size) throws IOException {
-      this.stack.checkCount();
-      if (size == 0) {
-         this.putContainer(ValueFactory.createMapValue());
-         this.stack.pushMap(0);
-         this.values[this.stack.getDepth()] = null;
-      } else {
-         Value[] array = new Value[size * 2];
-         this.putContainer(ValueFactory.createMapValue(array, true));
-         this.stack.pushMap(size);
-         this.values[this.stack.getDepth()] = array;
-      }
-
-      return this;
-   }
-
-   public Packer writeMapEnd(boolean check) throws IOException {
-      if (!this.stack.topIsMap()) {
-         throw new MessageTypeException("writeMapEnd() is called but writeMapBegin() is not called");
-      } else {
-         int remain = this.stack.getTopCount();
-         if (remain > 0) {
+        int remain = stack.getTopCount();
+        if (remain > 0) {
             if (check) {
-               throw new MessageTypeException("writeMapEnd(check=true) is called but the map is not end");
+                throw new MessageTypeException(
+                        "writeMapEnd(check=true) is called but the map is not end");
             }
-
-            for(int i = 0; i < remain; ++i) {
-               this.writeNil();
+            for (int i = 0; i < remain; i++) {
+                writeNil();
             }
-         }
+        }
+        stack.pop();
+        if (stack.getDepth() <= 0) {
+            this.result = (Value) values[0];
+        }
+        return this;
+    }
 
-         this.stack.pop();
-         if (this.stack.getDepth() <= 0) {
-            this.result = (Value)this.values[0];
-         }
+    @Override
+    public Packer write(Value v) throws IOException {
+        put(v);
+        return this;
+    }
 
-         return this;
-      }
-   }
+    private void put(Value v) {
+        if (stack.getDepth() <= 0) {
+            this.result = v;
+        } else {
+            stack.checkCount();
+            Value[] array = (Value[]) values[stack.getDepth()];
+            array[array.length - stack.getTopCount()] = v;
+            stack.reduceCount();
+        }
+    }
 
-   public Packer write(Value v) throws IOException {
-      this.put(v);
-      return this;
-   }
+    private void putContainer(Value v) {
+        if (stack.getDepth() <= 0) {
+            values[0] = (Object) v;
+        } else {
+            stack.checkCount();
+            Value[] array = (Value[]) values[stack.getDepth()];
+            array[array.length - stack.getTopCount()] = v;
+            stack.reduceCount();
+        }
+    }
 
-   private void put(Value v) {
-      if (this.stack.getDepth() <= 0) {
-         this.result = v;
-      } else {
-         this.stack.checkCount();
-         Value[] array = (Value[])((Value[])this.values[this.stack.getDepth()]);
-         array[array.length - this.stack.getTopCount()] = v;
-         this.stack.reduceCount();
-      }
+    @Override
+    public void flush() throws IOException {
+    }
 
-   }
-
-   private void putContainer(Value v) {
-      if (this.stack.getDepth() <= 0) {
-         this.values[0] = v;
-      } else {
-         this.stack.checkCount();
-         Value[] array = (Value[])((Value[])this.values[this.stack.getDepth()]);
-         array[array.length - this.stack.getTopCount()] = v;
-         this.stack.reduceCount();
-      }
-
-   }
-
-   public void flush() throws IOException {
-   }
-
-   public void close() throws IOException {
-   }
+    @Override
+    public void close() throws IOException {
+    }
 }

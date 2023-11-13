@@ -2,54 +2,59 @@ package org.msgpack.template;
 
 import java.io.IOException;
 import java.lang.reflect.Array;
+
 import org.msgpack.MessageTypeException;
 import org.msgpack.packer.Packer;
 import org.msgpack.unpacker.Unpacker;
 
+@SuppressWarnings({ "rawtypes", "unchecked" })
 public class ObjectArrayTemplate extends AbstractTemplate {
-   protected Class componentClass;
-   protected Template componentTemplate;
+    protected Class componentClass;
 
-   public ObjectArrayTemplate(Class componentClass, Template componentTemplate) {
-      this.componentClass = componentClass;
-      this.componentTemplate = componentTemplate;
-   }
+    protected Template componentTemplate;
 
-   public void write(Packer packer, Object v, boolean required) throws IOException {
-      if (v == null) {
-         if (required) {
-            throw new MessageTypeException("Attempted to write null");
-         } else {
+    public ObjectArrayTemplate(Class componentClass, Template componentTemplate) {
+        this.componentClass = componentClass;
+        this.componentTemplate = componentTemplate;
+    }
+
+    @Override
+    public void write(Packer packer, Object v, boolean required)
+            throws IOException {
+        if (v == null) {
+            if (required) {
+                throw new MessageTypeException("Attempted to write null");
+            }
             packer.writeNil();
-         }
-      } else if (v instanceof Object[] && this.componentClass.isAssignableFrom(v.getClass().getComponentType())) {
-         Object[] array = (Object[])((Object[])v);
-         int length = array.length;
-         packer.writeArrayBegin(length);
+            return;
+        }
+        if (!(v instanceof Object[]) ||
+                !componentClass.isAssignableFrom(v.getClass().getComponentType())) {
+            throw new MessageTypeException();
+        }
 
-         for(int i = 0; i < length; ++i) {
-            this.componentTemplate.write(packer, array[i], required);
-         }
+        Object[] array = (Object[]) v;
+        int length = array.length;
+        packer.writeArrayBegin(length);
+        for (int i = 0; i < length; i++) {
+            componentTemplate.write(packer, array[i], required);
+        }
+        packer.writeArrayEnd();
+    }
 
-         packer.writeArrayEnd();
-      } else {
-         throw new MessageTypeException();
-      }
-   }
+    @Override
+    public Object read(Unpacker unpacker, Object to, boolean required)
+            throws IOException {
+        if (!required && unpacker.trySkipNil()) {
+            return null;
+        }
 
-   public Object read(Unpacker unpacker, Object to, boolean required) throws IOException {
-      if (!required && unpacker.trySkipNil()) {
-         return null;
-      } else {
-         int length = unpacker.readArrayBegin();
-         Object[] array = (Object[])((Object[])Array.newInstance(this.componentClass, length));
-
-         for(int i = 0; i < length; ++i) {
-            array[i] = this.componentTemplate.read(unpacker, (Object)null, required);
-         }
-
-         unpacker.readArrayEnd();
-         return array;
-      }
-   }
+        int length = unpacker.readArrayBegin();
+        Object[] array = (Object[]) Array.newInstance(componentClass, length);
+        for (int i = 0; i < length; i++) {
+            array[i] = componentTemplate.read(unpacker, null, required);
+        }
+        unpacker.readArrayEnd();
+        return array;
+    }
 }

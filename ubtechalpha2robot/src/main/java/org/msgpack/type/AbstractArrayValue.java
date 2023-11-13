@@ -1,69 +1,98 @@
+//
+// MessagePack for Java
+//
+// Copyright (C) 2009 - 2013 FURUHASHI Sadayuki
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//
 package org.msgpack.type;
 
 import java.util.AbstractList;
 import org.msgpack.MessageTypeException;
 
 abstract class AbstractArrayValue extends AbstractList<Value> implements ArrayValue {
-   AbstractArrayValue() {
-   }
+    @Override
+    public ValueType getType() {
+        return ValueType.ARRAY;
+    }
 
-   public ValueType getType() {
-      return ValueType.ARRAY;
-   }
+    @Override
+    public boolean isArrayValue() {
+        return true;
+    }
 
-   public boolean isArrayValue() {
-      return true;
-   }
+    @Override
+    public ArrayValue asArrayValue() {
+        return this;
+    }
 
-   public ArrayValue asArrayValue() {
-      return this;
-   }
+    @Override
+    public boolean isNilValue() {
+        return false;
+    }
 
-   public boolean isNilValue() {
-      return false;
-   }
+    @Override
+    public boolean isBooleanValue() {
+        return false;
+    }
 
-   public boolean isBooleanValue() {
-      return false;
-   }
+    @Override
+    public boolean isIntegerValue() {
+        return false;
+    }
 
-   public boolean isIntegerValue() {
-      return false;
-   }
+    @Override
+    public boolean isFloatValue() {
+        return false;
+    }
 
-   public boolean isFloatValue() {
-      return false;
-   }
+    @Override
+    public boolean isMapValue() {
+        return false;
+    }
 
-   public boolean isMapValue() {
-      return false;
-   }
+    @Override
+    public boolean isRawValue() {
+        return false;
+    }
 
-   public boolean isRawValue() {
-      return false;
-   }
+    @Override
+    public NilValue asNilValue() {
+        throw new MessageTypeException();
+    }
 
-   public NilValue asNilValue() {
-      throw new MessageTypeException();
-   }
+    @Override
+    public BooleanValue asBooleanValue() {
+        throw new MessageTypeException();
+    }
 
-   public BooleanValue asBooleanValue() {
-      throw new MessageTypeException();
-   }
+    @Override
+    public IntegerValue asIntegerValue() {
+        throw new MessageTypeException();
+    }
 
-   public IntegerValue asIntegerValue() {
-      throw new MessageTypeException();
-   }
+    @Override
+    public FloatValue asFloatValue() {
+        throw new MessageTypeException();
+    }
 
-   public FloatValue asFloatValue() {
-      throw new MessageTypeException();
-   }
+    @Override
+    public MapValue asMapValue() {
+        throw new MessageTypeException();
+    }
 
-   public MapValue asMapValue() {
-      throw new MessageTypeException();
-   }
-
-   public RawValue asRawValue() {
-      throw new MessageTypeException();
-   }
+    @Override
+    public RawValue asRawValue() {
+        throw new MessageTypeException();
+    }
 }

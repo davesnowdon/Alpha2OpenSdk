@@ -1,5 +1,29 @@
+//
+// MessagePack for Java
+//
+// Copyright (C) 2009 - 2013 FURUHASHI Sadayuki
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//
 package org.msgpack.template;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Set;
 import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -8,556 +32,592 @@ import java.lang.reflect.WildcardType;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+
 import org.msgpack.MessagePackable;
 import org.msgpack.MessageTypeException;
+import org.msgpack.template.BigIntegerTemplate;
+import org.msgpack.template.BooleanTemplate;
+import org.msgpack.template.ByteArrayTemplate;
+import org.msgpack.template.ByteTemplate;
+import org.msgpack.template.DoubleArrayTemplate;
+import org.msgpack.template.DoubleTemplate;
+import org.msgpack.template.FieldList;
+import org.msgpack.template.FloatArrayTemplate;
+import org.msgpack.template.FloatTemplate;
+import org.msgpack.template.GenericTemplate;
+import org.msgpack.template.IntegerArrayTemplate;
+import org.msgpack.template.IntegerTemplate;
+import org.msgpack.template.LongArrayTemplate;
+import org.msgpack.template.LongTemplate;
+import org.msgpack.template.ShortArrayTemplate;
+import org.msgpack.template.ShortTemplate;
+import org.msgpack.template.StringTemplate;
+import org.msgpack.template.Template;
+import org.msgpack.template.ValueTemplate;
+import org.msgpack.template.builder.ArrayTemplateBuilder;
 import org.msgpack.template.builder.TemplateBuilder;
 import org.msgpack.template.builder.TemplateBuilderChain;
 import org.msgpack.type.Value;
 
+@SuppressWarnings({ "rawtypes", "unchecked" })
 public class TemplateRegistry {
-   private TemplateRegistry parent = null;
-   private TemplateBuilderChain chain;
-   Map<Type, Template<Type>> cache;
-   private Map<Type, GenericTemplate> genericCache;
 
-   private TemplateRegistry() {
-      this.parent = null;
-      this.chain = this.createTemplateBuilderChain();
-      this.genericCache = new HashMap();
-      this.cache = new HashMap();
-      this.registerTemplates();
-      this.cache = Collections.unmodifiableMap(this.cache);
-   }
+    private TemplateRegistry parent = null;
 
-   public TemplateRegistry(TemplateRegistry registry) {
-      if (registry != null) {
-         this.parent = registry;
-      } else {
-         this.parent = new TemplateRegistry();
-      }
+    private TemplateBuilderChain chain;
 
-      this.chain = this.createTemplateBuilderChain();
-      this.cache = new HashMap();
-      this.genericCache = new HashMap();
-      this.registerTemplatesWhichRefersRegistry();
-   }
+    Map<Type, Template<Type>> cache;
 
-   protected TemplateBuilderChain createTemplateBuilderChain() {
-      return new TemplateBuilderChain(this);
-   }
+    private Map<Type, GenericTemplate> genericCache;
 
-   public void setClassLoader(ClassLoader cl) {
-      this.chain = new TemplateBuilderChain(this, cl);
-   }
+    /**
+     * create <code>TemplateRegistry</code> object of root.
+     */
+    private TemplateRegistry() {
+        parent = null;
+        chain = createTemplateBuilderChain();
+        genericCache = new HashMap<Type, GenericTemplate>();
+        cache = new HashMap<Type, Template<Type>>();
+        registerTemplates();
+        cache = Collections.unmodifiableMap(cache);
+    }
 
-   private void registerTemplates() {
-      this.register((Type)Boolean.TYPE, (Template)BooleanTemplate.getInstance());
-      this.register((Type)Boolean.class, (Template)BooleanTemplate.getInstance());
-      this.register((Type)Byte.TYPE, (Template)ByteTemplate.getInstance());
-      this.register((Type)Byte.class, (Template)ByteTemplate.getInstance());
-      this.register((Type)Short.TYPE, (Template)ShortTemplate.getInstance());
-      this.register((Type)Short.class, (Template)ShortTemplate.getInstance());
-      this.register((Type)Integer.TYPE, (Template)IntegerTemplate.getInstance());
-      this.register((Type)Integer.class, (Template)IntegerTemplate.getInstance());
-      this.register((Type)Long.TYPE, (Template)LongTemplate.getInstance());
-      this.register((Type)Long.class, (Template)LongTemplate.getInstance());
-      this.register((Type)Float.TYPE, (Template)FloatTemplate.getInstance());
-      this.register((Type)Float.class, (Template)FloatTemplate.getInstance());
-      this.register((Type)Double.TYPE, (Template)DoubleTemplate.getInstance());
-      this.register((Type)Double.class, (Template)DoubleTemplate.getInstance());
-      this.register((Type)BigInteger.class, (Template)BigIntegerTemplate.getInstance());
-      this.register((Type)Character.TYPE, (Template)CharacterTemplate.getInstance());
-      this.register((Type)Character.class, (Template)CharacterTemplate.getInstance());
-      this.register((Type)boolean[].class, (Template)BooleanArrayTemplate.getInstance());
-      this.register((Type)short[].class, (Template)ShortArrayTemplate.getInstance());
-      this.register((Type)int[].class, (Template)IntegerArrayTemplate.getInstance());
-      this.register((Type)long[].class, (Template)LongArrayTemplate.getInstance());
-      this.register((Type)float[].class, (Template)FloatArrayTemplate.getInstance());
-      this.register((Type)double[].class, (Template)DoubleArrayTemplate.getInstance());
-      this.register((Type)String.class, (Template)StringTemplate.getInstance());
-      this.register((Type)byte[].class, (Template)ByteArrayTemplate.getInstance());
-      this.register((Type)ByteBuffer.class, (Template)ByteBufferTemplate.getInstance());
-      this.register((Type)Value.class, (Template)ValueTemplate.getInstance());
-      this.register((Type)BigDecimal.class, (Template)BigDecimalTemplate.getInstance());
-      this.register((Type)Date.class, (Template)DateTemplate.getInstance());
-      this.registerTemplatesWhichRefersRegistry();
-   }
+    /**
+     *
+     * @param registry
+     */
+    public TemplateRegistry(TemplateRegistry registry) {
+        if (registry != null) {
+            parent = registry;
+        } else {
+            parent = new TemplateRegistry();
+        }
+        chain = createTemplateBuilderChain();
+        cache = new HashMap<Type, Template<Type>>();
+        genericCache = new HashMap<Type, GenericTemplate>();
+        registerTemplatesWhichRefersRegistry();
+    }
 
-   protected void registerTemplatesWhichRefersRegistry() {
-      AnyTemplate anyTemplate = new AnyTemplate(this);
-      this.register((Type)List.class, (Template)(new ListTemplate(anyTemplate)));
-      this.register((Type)Set.class, (Template)(new SetTemplate(anyTemplate)));
-      this.register((Type)Collection.class, (Template)(new CollectionTemplate(anyTemplate)));
-      this.register((Type)Map.class, (Template)(new MapTemplate(anyTemplate, anyTemplate)));
-      this.registerGeneric(List.class, new GenericCollectionTemplate(this, ListTemplate.class));
-      this.registerGeneric(Set.class, new GenericCollectionTemplate(this, SetTemplate.class));
-      this.registerGeneric(Collection.class, new GenericCollectionTemplate(this, CollectionTemplate.class));
-      this.registerGeneric(Map.class, new GenericMapTemplate(this, MapTemplate.class));
-   }
+    protected TemplateBuilderChain createTemplateBuilderChain() {
+        return new TemplateBuilderChain(this);
+    }
 
-   public void register(Class<?> targetClass) {
-      this.buildAndRegister((TemplateBuilder)null, targetClass, false, (FieldList)null);
-   }
+    public void setClassLoader(final ClassLoader cl) {
+        chain = new TemplateBuilderChain(this, cl);
+    }
 
-   public void register(Class<?> targetClass, FieldList flist) {
-      if (flist == null) {
-         throw new NullPointerException("FieldList object is null");
-      } else {
-         this.buildAndRegister((TemplateBuilder)null, targetClass, false, flist);
-      }
-   }
+    private void registerTemplates() {
+        register(boolean.class, BooleanTemplate.getInstance());
+        register(Boolean.class, BooleanTemplate.getInstance());
+        register(byte.class, ByteTemplate.getInstance());
+        register(Byte.class, ByteTemplate.getInstance());
+        register(short.class, ShortTemplate.getInstance());
+        register(Short.class, ShortTemplate.getInstance());
+        register(int.class, IntegerTemplate.getInstance());
+        register(Integer.class, IntegerTemplate.getInstance());
+        register(long.class, LongTemplate.getInstance());
+        register(Long.class, LongTemplate.getInstance());
+        register(float.class, FloatTemplate.getInstance());
+        register(Float.class, FloatTemplate.getInstance());
+        register(double.class, DoubleTemplate.getInstance());
+        register(Double.class, DoubleTemplate.getInstance());
+        register(BigInteger.class, BigIntegerTemplate.getInstance());
+        register(char.class, CharacterTemplate.getInstance());
+        register(Character.class, CharacterTemplate.getInstance());
+        register(boolean[].class, BooleanArrayTemplate.getInstance());
+        register(short[].class, ShortArrayTemplate.getInstance());
+        register(int[].class, IntegerArrayTemplate.getInstance());
+        register(long[].class, LongArrayTemplate.getInstance());
+        register(float[].class, FloatArrayTemplate.getInstance());
+        register(double[].class, DoubleArrayTemplate.getInstance());
+        register(String.class, StringTemplate.getInstance());
+        register(byte[].class, ByteArrayTemplate.getInstance());
+        register(ByteBuffer.class, ByteBufferTemplate.getInstance());
+        register(Value.class, ValueTemplate.getInstance());
+        register(BigDecimal.class, BigDecimalTemplate.getInstance());
+        register(Date.class, DateTemplate.getInstance());
 
-   public synchronized void register(Type targetType, Template tmpl) {
-      if (tmpl == null) {
-         throw new NullPointerException("Template object is null");
-      } else {
-         if (targetType instanceof ParameterizedType) {
-            this.cache.put(((ParameterizedType)targetType).getRawType(), tmpl);
-         } else {
-            this.cache.put(targetType, tmpl);
-         }
+        registerTemplatesWhichRefersRegistry();
 
-      }
-   }
+    }
 
-   public synchronized void registerGeneric(Type targetType, GenericTemplate tmpl) {
-      if (targetType instanceof ParameterizedType) {
-         this.genericCache.put(((ParameterizedType)targetType).getRawType(), tmpl);
-      } else {
-         this.genericCache.put(targetType, tmpl);
-      }
+    protected void registerTemplatesWhichRefersRegistry() {
+        AnyTemplate anyTemplate = new AnyTemplate(this);
 
-   }
+        register(List.class, new ListTemplate(anyTemplate));
+        register(Set.class, new SetTemplate(anyTemplate));
+        register(Collection.class, new CollectionTemplate(anyTemplate));
+        register(Map.class, new MapTemplate(anyTemplate, anyTemplate));
+        registerGeneric(List.class, new GenericCollectionTemplate(this, ListTemplate.class));
+        registerGeneric(Set.class, new GenericCollectionTemplate(this, SetTemplate.class));
+        registerGeneric(Collection.class, new GenericCollectionTemplate(this, CollectionTemplate.class));
+        registerGeneric(Map.class, new GenericMapTemplate(this, MapTemplate.class));
+    }
 
-   public synchronized boolean unregister(Type targetType) {
-      Template<Type> tmpl = (Template)this.cache.remove(targetType);
-      return tmpl != null;
-   }
+    public void register(final Class<?> targetClass) {
+        buildAndRegister(null, targetClass, false, null);
+    }
 
-   public synchronized void unregister() {
-      this.cache.clear();
-   }
+    public void register(final Class<?> targetClass, final FieldList flist) {
+        if (flist == null) {
+            throw new NullPointerException("FieldList object is null");
+        }
 
-   public synchronized Template lookup(Type targetType) {
-      Template tmpl;
-      if (targetType instanceof ParameterizedType) {
-         ParameterizedType paramedType = (ParameterizedType)targetType;
-         tmpl = this.lookupGenericType(paramedType);
-         if (tmpl != null) {
-            return tmpl;
-         }
+        buildAndRegister(null, targetClass, false, flist);
+    }
 
-         targetType = paramedType.getRawType();
-      }
+    public synchronized void register(final Type targetType, final Template tmpl) {
+        if (tmpl == null) {
+            throw new NullPointerException("Template object is null");
+        }
 
-      tmpl = this.lookupGenericArrayType(targetType);
-      if (tmpl != null) {
-         return tmpl;
-      } else {
-         tmpl = this.lookupCache(targetType);
-         if (tmpl != null) {
-            return tmpl;
-         } else {
-            AnyTemplate tmpl;
-            if (!(targetType instanceof WildcardType) && !(targetType instanceof TypeVariable)) {
-               Class<?> targetClass = (Class)targetType;
-               if (MessagePackable.class.isAssignableFrom(targetClass)) {
-                  Template tmpl = new MessagePackableTemplate(targetClass);
-                  this.register((Type)targetClass, (Template)tmpl);
-                  return tmpl;
-               } else if (targetClass.isInterface()) {
-                  tmpl = new AnyTemplate(this);
-                  this.register((Type)targetType, (Template)tmpl);
-                  return tmpl;
-               } else {
-                  tmpl = this.lookupAfterBuilding(targetClass);
-                  if (tmpl != null) {
-                     return tmpl;
-                  } else {
-                     tmpl = this.lookupInterfaceTypes(targetClass);
-                     if (tmpl != null) {
-                        return tmpl;
-                     } else {
-                        tmpl = this.lookupSuperclasses(targetClass);
-                        if (tmpl != null) {
-                           return tmpl;
-                        } else {
-                           tmpl = this.lookupSuperclassInterfaceTypes(targetClass);
-                           if (tmpl != null) {
-                              return tmpl;
-                           } else {
-                              throw new MessageTypeException("Cannot find template for " + targetClass + " class.  " + "Try to add @Message annotation to the class or call MessagePack.register(Type).");
-                           }
-                        }
-                     }
-                  }
-               }
-            } else {
-               tmpl = new AnyTemplate(this);
-               this.register((Type)targetType, (Template)tmpl);
-               return tmpl;
-            }
-         }
-      }
-   }
+        if (targetType instanceof ParameterizedType) {
+            cache.put(((ParameterizedType) targetType).getRawType(), tmpl);
+        } else {
+            cache.put(targetType, tmpl);
+        }
+    }
 
-   private Template<Type> lookupGenericType(ParameterizedType paramedType) {
-      Template<Type> tmpl = this.lookupGenericTypeImpl(paramedType);
-      if (tmpl != null) {
-         return tmpl;
-      } else {
-         try {
-            tmpl = this.parent.lookupGenericTypeImpl(paramedType);
+    public synchronized void registerGeneric(final Type targetType, final GenericTemplate tmpl) {
+        if (targetType instanceof ParameterizedType) {
+            genericCache.put(((ParameterizedType) targetType).getRawType(),
+                    tmpl);
+        } else {
+            genericCache.put(targetType, tmpl);
+        }
+    }
+
+    public synchronized boolean unregister(final Type targetType) {
+        Template<Type> tmpl = cache.remove(targetType);
+        return tmpl != null;
+    }
+
+    public synchronized void unregister() {
+        cache.clear();
+    }
+
+    public synchronized Template lookup(Type targetType) {
+        Template tmpl;
+
+        if (targetType instanceof ParameterizedType) {
+            // ParameterizedType is not a Class<?>
+            ParameterizedType paramedType = (ParameterizedType) targetType;
+            tmpl = lookupGenericType(paramedType);
             if (tmpl != null) {
-               return tmpl;
+                return tmpl;
             }
-         } catch (NullPointerException var4) {
-         }
+            targetType = paramedType.getRawType();
+        }
 
-         tmpl = this.lookupGenericInterfaceTypes(paramedType);
-         if (tmpl != null) {
+        tmpl = lookupGenericArrayType(targetType);
+        if (tmpl != null) {
             return tmpl;
-         } else {
-            tmpl = this.lookupGenericSuperclasses(paramedType);
-            return tmpl != null ? tmpl : null;
-         }
-      }
-   }
+        }
 
-   private Template lookupGenericTypeImpl(ParameterizedType targetType) {
-      Type rawType = targetType.getRawType();
-      return this.lookupGenericTypeImpl0(targetType, rawType);
-   }
+        tmpl = lookupCache(targetType);
+        if (tmpl != null) {
+            return tmpl;
+        }
 
-   private Template lookupGenericTypeImpl0(ParameterizedType targetType, Type rawType) {
-      GenericTemplate gtmpl = (GenericTemplate)this.genericCache.get(rawType);
-      if (gtmpl == null) {
-         return null;
-      } else {
-         Type[] types = targetType.getActualTypeArguments();
-         Template[] tmpls = new Template[types.length];
+        if (targetType instanceof WildcardType ||
+                targetType instanceof TypeVariable) {
+            // WildcardType is not a Class<?>
+            tmpl = new AnyTemplate<Object>(this);
+            register(targetType, tmpl);
+            return tmpl;
+        }
 
-         for(int i = 0; i < types.length; ++i) {
-            tmpls[i] = this.lookup(types[i]);
-         }
+        Class<?> targetClass = (Class<?>) targetType;
 
-         return gtmpl.build(tmpls);
-      }
-   }
+        // MessagePackable interface is implemented
+        if (MessagePackable.class.isAssignableFrom(targetClass)) {
+            // FIXME #MN
+            // following processing should be merged into lookAfterBuilding
+            // or lookupInterfaceTypes method in next version
+            tmpl = new MessagePackableTemplate(targetClass);
+            register(targetClass, tmpl);
+            return tmpl;
+        }
 
-   private Objectemplate lookupGenericInterfaceTypes(ParameterizedType targetType) {
-      Type rawType = targetType.getRawType();
-      Template tmpl = null;
+        if (targetClass.isInterface()) {
+            // writing interfaces will succeed
+            // reading into interfaces will fail
+            tmpl = new AnyTemplate<Object>(this);
+            register(targetType, tmpl);
+            return tmpl;
+        }
 
-      try {
-         Class<?>[] infTypes = ((Class)rawType).getInterfaces();
-         Class[] arr$ = infTypes;
-         int len$ = infTypes.length;
+        // find matched template builder and build template
+        tmpl = lookupAfterBuilding(targetClass);
+        if (tmpl != null) {
+            return tmpl;
+        }
 
-         for(int i$ = 0; i$ < len$; ++i$) {
-            Class<?> infType = arr$[i$];
-            tmpl = this.lookupGenericTypeImpl0(targetType, infType);
+        // lookup template of interface type
+        tmpl = lookupInterfaceTypes(targetClass);
+        if (tmpl != null) {
+            return tmpl;
+        }
+
+        // lookup template of superclass type
+        tmpl = lookupSuperclasses(targetClass);
+        if (tmpl != null) {
+            return tmpl;
+        }
+
+        // lookup template of interface type of superclasss
+        tmpl = lookupSuperclassInterfaceTypes(targetClass);
+        if (tmpl != null) {
+            return tmpl;
+        }
+
+        throw new MessageTypeException(
+                "Cannot find template for " + targetClass + " class.  " +
+                "Try to add @Message annotation to the class or call MessagePack.register(Type).");
+    }
+
+    private Template<Type> lookupGenericType(ParameterizedType paramedType) {
+        Template<Type> tmpl = lookupGenericTypeImpl(paramedType);
+        if (tmpl != null) {
+            return tmpl;
+        }
+
+        try {
+            tmpl = parent.lookupGenericTypeImpl(paramedType);
             if (tmpl != null) {
-               return tmpl;
+                return tmpl;
             }
-         }
-      } catch (ClassCastException var9) {
-      }
+        } catch (NullPointerException e) { // ignore
+        }
 
-      return tmpl;
-   }
+        tmpl = lookupGenericInterfaceTypes(paramedType);
+        if (tmpl != null) {
+            return tmpl;
+        }
 
-   private Objectemplate lookupGenericSuperclasses(ParameterizedType targetType) {
-      Type rawType = targetType.getRawType();
-      Template tmpl = null;
+        tmpl = lookupGenericSuperclasses(paramedType);
+        if (tmpl != null) {
+            return tmpl;
+        }
 
-      try {
-         Class<?> superClass = ((Class)rawType).getSuperclass();
-         if (superClass == null) {
+        return null;
+    }
+
+    private Template lookupGenericTypeImpl(ParameterizedType targetType) {
+        Type rawType = targetType.getRawType();
+        return lookupGenericTypeImpl0(targetType, rawType);
+    }
+
+    private Template lookupGenericTypeImpl0(ParameterizedType targetType, Type rawType) {
+        GenericTemplate gtmpl = genericCache.get(rawType);
+        if (gtmpl == null) {
             return null;
-         }
+        }
 
-         while(superClass != Object.class) {
-            tmpl = this.lookupGenericTypeImpl0(targetType, superClass);
-            if (tmpl != null) {
-               this.register((Type)targetType, (Template)tmpl);
-               return tmpl;
+        Type[] types = targetType.getActualTypeArguments();
+        Template[] tmpls = new Template[types.length];
+        for (int i = 0; i < types.length; ++i) {
+            tmpls[i] = lookup(types[i]);
+        }
+
+        return gtmpl.build(tmpls);
+    }
+
+    private <T> Template<T> lookupGenericInterfaceTypes(ParameterizedType targetType) {
+        Type rawType = targetType.getRawType();
+        Template<T> tmpl = null;
+
+        try {
+            Class<?>[] infTypes = ((Class) rawType).getInterfaces();
+            for (Class<?> infType : infTypes) {
+                tmpl = lookupGenericTypeImpl0(targetType, infType);
+                if (tmpl != null) {
+                    return tmpl;
+                }
+            }
+        } catch (ClassCastException e) { // ignore
+        }
+
+        return tmpl;
+    }
+
+    private <T> Template<T> lookupGenericSuperclasses(ParameterizedType targetType) {
+        Type rawType = targetType.getRawType();
+        Template<T> tmpl = null;
+
+        try {
+            Class<?> superClass = ((Class) rawType).getSuperclass();
+            if (superClass == null) {
+                return null;
             }
 
-            superClass = superClass.getSuperclass();
-         }
-      } catch (ClassCastException var5) {
-      }
-
-      return tmpl;
-   }
-
-   private Template<Type> lookupGenericArrayType(Type targetType) {
-      if (!(targetType instanceof GenericArrayType)) {
-         return null;
-      } else {
-         GenericArrayType genericArrayType = (GenericArrayType)targetType;
-         Template<Type> tmpl = this.lookupGenericArrayTypeImpl(genericArrayType);
-         if (tmpl != null) {
-            return tmpl;
-         } else {
-            try {
-               tmpl = this.parent.lookupGenericArrayTypeImpl(genericArrayType);
-               if (tmpl != null) {
-                  return tmpl;
-               }
-            } catch (NullPointerException var5) {
+            for (; superClass != Object.class; superClass = superClass.getSuperclass()) {
+                tmpl = lookupGenericTypeImpl0(targetType, superClass);
+                if (tmpl != null) {
+                    register(targetType, tmpl);
+                    return tmpl;
+                }
             }
+        } catch (ClassCastException e) { // ignore
+        }
 
+        return tmpl;
+    }
+
+    private Template<Type> lookupGenericArrayType(Type targetType) {
+        // TODO GenericArrayType is not a Class<?> => buildArrayTemplate
+        if (! (targetType instanceof GenericArrayType)) {
             return null;
-         }
-      }
-   }
+        }
 
-   private Template lookupGenericArrayTypeImpl(GenericArrayType genericArrayType) {
-      String genericArrayTypeName = "" + genericArrayType;
-      int dim = genericArrayTypeName.split("\\[").length - 1;
-      if (dim <= 0) {
-         throw new MessageTypeException(String.format("fatal error: type=", genericArrayTypeName));
-      } else if (dim > 1) {
-         throw new UnsupportedOperationException(String.format("Not implemented template generation of %s", genericArrayTypeName));
-      } else {
-         String genericCompTypeName = "" + genericArrayType.getGenericComponentType();
-         boolean isPrimitiveType = isPrimitiveType(genericCompTypeName);
-         StringBuffer sbuf = new StringBuffer();
+        GenericArrayType genericArrayType = (GenericArrayType) targetType;
+        Template<Type> tmpl = lookupGenericArrayTypeImpl(genericArrayType);
+        if (tmpl != null) {
+            return tmpl;
+        }
 
-         for(int i = 0; i < dim; ++i) {
+        try {
+            tmpl = parent.lookupGenericArrayTypeImpl(genericArrayType);
+            if (tmpl != null) {
+                return tmpl;
+            }
+        } catch (NullPointerException e) { // ignore
+        }
+
+        return null;
+    }
+
+    private Template lookupGenericArrayTypeImpl(GenericArrayType genericArrayType) {
+        String genericArrayTypeName = "" + genericArrayType;
+        int dim = genericArrayTypeName.split("\\[").length - 1;
+        if (dim <= 0) {
+            throw new MessageTypeException(
+                    String.format("fatal error: type=", genericArrayTypeName));
+        } else if (dim > 1) {
+            throw new UnsupportedOperationException(String.format(
+                    "Not implemented template generation of %s", genericArrayTypeName));
+        }
+
+        String genericCompTypeName = "" + genericArrayType.getGenericComponentType();
+        boolean isPrimitiveType = isPrimitiveType(genericCompTypeName);
+        StringBuffer sbuf = new StringBuffer();
+        for (int i = 0; i < dim; i++) {
             sbuf.append('[');
-         }
-
-         if (!isPrimitiveType) {
+        }
+        if (!isPrimitiveType) {
             sbuf.append('L');
             sbuf.append(toJvmReferenceTypeName(genericCompTypeName));
             sbuf.append(';');
-         } else {
+        } else {
             sbuf.append(toJvmPrimitiveTypeName(genericCompTypeName));
-         }
+        }
 
-         String jvmArrayClassName = sbuf.toString();
-         Class jvmArrayClass = null;
-         ClassLoader cl = null;
-
-         try {
+        String jvmArrayClassName = sbuf.toString();
+        Class jvmArrayClass = null;
+        ClassLoader cl = null;
+        try {
             cl = Thread.currentThread().getContextClassLoader();
             if (cl != null) {
-               jvmArrayClass = cl.loadClass(jvmArrayClassName);
-               if (jvmArrayClass != null) {
-                  return this.lookupAfterBuilding(jvmArrayClass);
-               }
+                jvmArrayClass = cl.loadClass(jvmArrayClassName);
+                if (jvmArrayClass != null) {
+                    return lookupAfterBuilding(jvmArrayClass);
+                }
             }
-         } catch (ClassNotFoundException var13) {
-         }
+        } catch (ClassNotFoundException e) {} // ignore
 
-         try {
-            cl = this.getClass().getClassLoader();
+        try {
+            cl = getClass().getClassLoader();
             if (cl != null) {
-               jvmArrayClass = cl.loadClass(jvmArrayClassName);
-               if (jvmArrayClass != null) {
-                  return this.lookupAfterBuilding(jvmArrayClass);
-               }
+                jvmArrayClass = cl.loadClass(jvmArrayClassName);
+                if (jvmArrayClass != null) {
+                    return lookupAfterBuilding(jvmArrayClass);
+                }
             }
-         } catch (ClassNotFoundException var12) {
-         }
+        } catch (ClassNotFoundException e) {} // ignore
 
-         try {
+        try {
             jvmArrayClass = Class.forName(jvmArrayClassName);
             if (jvmArrayClass != null) {
-               return this.lookupAfterBuilding(jvmArrayClass);
+                return lookupAfterBuilding(jvmArrayClass);
             }
-         } catch (ClassNotFoundException var11) {
-         }
+        } catch (ClassNotFoundException e) {} // ignore
 
-         throw new MessageTypeException(String.format("cannot find template of %s", jvmArrayClassName));
-      }
-   }
+        throw new MessageTypeException(String.format(
+                "cannot find template of %s", jvmArrayClassName));
+    }
 
-   private Template<Type> lookupCache(Type targetType) {
-      Template<Type> tmpl = (Template)this.cache.get(targetType);
-      if (tmpl != null) {
-         return tmpl;
-      } else {
-         try {
-            tmpl = this.parent.lookupCache(targetType);
-         } catch (NullPointerException var4) {
-         }
-
-         return tmpl;
-      }
-   }
-
-   private Objectemplate lookupAfterBuilding(Class targetClass) {
-      TemplateBuilder builder = this.chain.select(targetClass, true);
-      Template tmpl = null;
-      if (builder != null) {
-         tmpl = this.chain.getForceBuilder().loadTemplate(targetClass);
-         if (tmpl != null) {
-            this.register((Type)targetClass, (Template)tmpl);
+    private Template<Type> lookupCache(Type targetType) {
+        Template<Type> tmpl = cache.get(targetType);
+        if (tmpl != null) {
             return tmpl;
-         }
+        }
 
-         tmpl = this.buildAndRegister(builder, targetClass, true, (FieldList)null);
-      }
+        try {
+            tmpl = parent.lookupCache(targetType);
+        } catch (NullPointerException e) { // ignore
+        }
+        return tmpl;
+    }
 
-      return tmpl;
-   }
-
-   private Objectemplate lookupInterfaceTypes(Class targetClass) {
-      Class<?>[] infTypes = targetClass.getInterfaces();
-      Template tmpl = null;
-      Class[] arr$ = infTypes;
-      int len$ = infTypes.length;
-
-      for(int i$ = 0; i$ < len$; ++i$) {
-         Class<?> infType = arr$[i$];
-         tmpl = (Template)this.cache.get(infType);
-         if (tmpl != null) {
-            this.register((Type)targetClass, (Template)tmpl);
-            return tmpl;
-         }
-
-         try {
-            tmpl = this.parent.lookupCache(infType);
+    private <T> Template<T> lookupAfterBuilding(Class<T> targetClass) {
+        TemplateBuilder builder = chain.select(targetClass, true);
+        Template<T> tmpl = null;
+        if (builder != null) {
+            // TODO #MN for Android, we should modify here
+            tmpl = chain.getForceBuilder().loadTemplate(targetClass);
             if (tmpl != null) {
-               this.register((Type)targetClass, (Template)tmpl);
-               return tmpl;
+                register(targetClass, tmpl);
+                return tmpl;
             }
-         } catch (NullPointerException var9) {
-         }
-      }
+            tmpl = buildAndRegister(builder, targetClass, true, null);
+        }
+        return tmpl;
+    }
 
-      return tmpl;
-   }
-
-   private Objectemplate lookupSuperclasses(Class targetClass) {
-      Class<?> superClass = targetClass.getSuperclass();
-      Template tmpl = null;
-      if (superClass != null) {
-         for(; superClass != Object.class; superClass = superClass.getSuperclass()) {
-            tmpl = (Template)this.cache.get(superClass);
+    private <T> Template<T> lookupInterfaceTypes(Class<T> targetClass) {
+        Class<?>[] infTypes = targetClass.getInterfaces();
+        Template<T> tmpl = null;
+        for (Class<?> infType : infTypes) {
+            tmpl = (Template<T>) cache.get(infType);
             if (tmpl != null) {
-               this.register((Type)targetClass, (Template)tmpl);
-               return tmpl;
+                register(targetClass, tmpl);
+                return tmpl;
+            } else {
+                try {
+                    tmpl = (Template<T>) parent.lookupCache(infType);
+                    if (tmpl != null) {
+                        register(targetClass, tmpl);
+                        return tmpl;
+                    }
+                } catch (NullPointerException e) { // ignore
+                }
             }
+        }
+        return tmpl;
+    }
 
-            try {
-               tmpl = this.parent.lookupCache(superClass);
-               if (tmpl != null) {
-                  this.register((Type)targetClass, (Template)tmpl);
-                  return tmpl;
-               }
-            } catch (NullPointerException var5) {
+    private <T> Template<T> lookupSuperclasses(Class<T> targetClass) {
+        Class<?> superClass = targetClass.getSuperclass();
+        Template<T> tmpl = null;
+        if (superClass != null) {
+            for (; superClass != Object.class; superClass = superClass
+                    .getSuperclass()) {
+                tmpl = (Template<T>) cache.get(superClass);
+                if (tmpl != null) {
+                    register(targetClass, tmpl);
+                    return tmpl;
+                } else {
+                    try {
+                        tmpl = (Template<T>) parent.lookupCache(superClass);
+                        if (tmpl != null) {
+                            register(targetClass, tmpl);
+                            return tmpl;
+                        }
+                    } catch (NullPointerException e) { // ignore
+                    }
+                }
             }
-         }
-      }
+        }
+        return tmpl;
+    }
 
-      return tmpl;
-   }
-
-   private Objectemplate lookupSuperclassInterfaceTypes(Class targetClass) {
-      Class<?> superClass = targetClass.getSuperclass();
-      Template tmpl = null;
-      if (superClass != null) {
-         for(; superClass != Object.class; superClass = superClass.getSuperclass()) {
-            tmpl = this.lookupInterfaceTypes(superClass);
-            if (tmpl != null) {
-               this.register((Type)targetClass, (Template)tmpl);
-               return tmpl;
+    private <T> Template<T> lookupSuperclassInterfaceTypes(Class<T> targetClass) {
+        Class<?> superClass = targetClass.getSuperclass();
+        Template<T> tmpl = null;
+        if (superClass != null) {
+            for (; superClass != Object.class; superClass = superClass.getSuperclass()) {
+                tmpl = (Template<T>) lookupInterfaceTypes(superClass);
+                if (tmpl != null) {
+                    register(targetClass, tmpl);
+                    return tmpl;
+                } else {
+                    try {
+                        tmpl = (Template<T>) parent.lookupCache(superClass);
+                        if (tmpl != null) {
+                            register(targetClass, tmpl);
+                            return tmpl;
+                        }
+                    } catch (NullPointerException e) { // ignore
+                    }
+                }
             }
+        }
+        return tmpl;
+    }
 
-            try {
-               tmpl = this.parent.lookupCache(superClass);
-               if (tmpl != null) {
-                  this.register((Type)targetClass, (Template)tmpl);
-                  return tmpl;
-               }
-            } catch (NullPointerException var5) {
+    private synchronized Template buildAndRegister(TemplateBuilder builder,
+            final Class targetClass, final boolean hasAnnotation,
+            final FieldList flist) {
+        Template newTmpl = null;
+        Template oldTmpl = null;
+        try {
+            if (cache.containsKey(targetClass)) {
+                oldTmpl = cache.get(targetClass);
             }
-         }
-      }
+            newTmpl = new TemplateReference(this, targetClass);
+            cache.put(targetClass, newTmpl);
+            if (builder == null) {
+                builder = chain.select(targetClass, hasAnnotation);
+            }
+            newTmpl = flist != null ?
+                    builder.buildTemplate(targetClass, flist) : builder.buildTemplate(targetClass);
+            return newTmpl;
+        } catch (Exception e) {
+            if (oldTmpl != null) {
+                cache.put(targetClass, oldTmpl);
+            } else {
+                cache.remove(targetClass);
+            }
+            newTmpl = null;
+            if (e instanceof MessageTypeException) {
+                throw (MessageTypeException) e;
+            } else {
+                throw new MessageTypeException(e);
+            }
+        } finally {
+            if (newTmpl != null) {
+                cache.put(targetClass, newTmpl);
+            }
+        }
+    }
 
-      return tmpl;
-   }
+    private static boolean isPrimitiveType(String genericCompTypeName) {
+        return (genericCompTypeName.equals("byte")
+                || genericCompTypeName.equals("short")
+                || genericCompTypeName.equals("int")
+                || genericCompTypeName.equals("long")
+                || genericCompTypeName.equals("float")
+                || genericCompTypeName.equals("double")
+                || genericCompTypeName.equals("boolean")
+                || genericCompTypeName.equals("char"));
+    }
 
-   private synchronized Template buildAndRegister(TemplateBuilder builder, Class targetClass, boolean hasAnnotation, FieldList flist) {
-      Template newTmpl = null;
-      Template oldTmpl = null;
+    private static String toJvmReferenceTypeName(String typeName) {
+        // delete "class " from class name
+        // e.g. "class Foo" to "Foo" by this method
+        return typeName.substring(6);
+    }
 
-      Template var7;
-      try {
-         if (this.cache.containsKey(targetClass)) {
-            oldTmpl = (Template)this.cache.get(targetClass);
-         }
-
-         Template newTmpl = new TemplateReference(this, targetClass);
-         this.cache.put(targetClass, newTmpl);
-         if (builder == null) {
-            builder = this.chain.select(targetClass, hasAnnotation);
-         }
-
-         newTmpl = flist != null ? builder.buildTemplate(targetClass, flist) : builder.buildTemplate(targetClass);
-         var7 = newTmpl;
-      } catch (Exception var11) {
-         if (oldTmpl != null) {
-            this.cache.put(targetClass, oldTmpl);
-         } else {
-            this.cache.remove(targetClass);
-         }
-
-         newTmpl = null;
-         if (var11 instanceof MessageTypeException) {
-            throw (MessageTypeException)var11;
-         }
-
-         throw new MessageTypeException(var11);
-      } finally {
-         if (newTmpl != null) {
-            this.cache.put(targetClass, newTmpl);
-         }
-
-      }
-
-      return var7;
-   }
-
-   private static boolean isPrimitiveType(String genericCompTypeName) {
-      return genericCompTypeName.equals("byte") || genericCompTypeName.equals("short") || genericCompTypeName.equals("int") || genericCompTypeName.equals("long") || genericCompTypeName.equals("float") || genericCompTypeName.equals("double") || genericCompTypeName.equals("boolean") || genericCompTypeName.equals("char");
-   }
-
-   private static String toJvmReferenceTypeName(String typeName) {
-      return typeName.substring(6);
-   }
-
-   private static String toJvmPrimitiveTypeName(String typeName) {
-      if (typeName.equals("byte")) {
-         return "B";
-      } else if (typeName.equals("short")) {
-         return "S";
-      } else if (typeName.equals("int")) {
-         return "I";
-      } else if (typeName.equals("long")) {
-         return "J";
-      } else if (typeName.equals("float")) {
-         return "F";
-      } else if (typeName.equals("double")) {
-         return "D";
-      } else if (typeName.equals("boolean")) {
-         return "Z";
-      } else if (typeName.equals("char")) {
-         return "C";
-      } else {
-         throw new MessageTypeException(String.format("fatal error: type=%s", typeName));
-      }
-   }
+    private static String toJvmPrimitiveTypeName(String typeName) {
+        if (typeName.equals("byte")) {
+            return "B";
+        } else if (typeName.equals("short")) {
+            return "S";
+        } else if (typeName.equals("int")) {
+            return "I";
+        } else if (typeName.equals("long")) {
+            return "J";
+        } else if (typeName.equals("float")) {
+            return "F";
+        } else if (typeName.equals("double")) {
+            return "D";
+        } else if (typeName.equals("boolean")) {
+            return "Z";
+        } else if (typeName.equals("char")) {
+            return "C";
+        } else {
+            throw new MessageTypeException(String.format(
+                    "fatal error: type=%s", typeName));
+        }
+    }
 }

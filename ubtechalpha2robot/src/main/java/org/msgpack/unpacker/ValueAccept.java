@@ -1,101 +1,135 @@
+//
+// MessagePack for Java
+//
+// Copyright (C) 2009 - 2013 FURUHASHI Sadayuki
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//
 package org.msgpack.unpacker;
 
 import java.io.IOException;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import org.msgpack.packer.Unconverter;
+import java.math.BigInteger;
 import org.msgpack.type.ValueFactory;
+import org.msgpack.packer.Unconverter;
 
 final class ValueAccept extends Accept {
-   private Unconverter uc = null;
+    private Unconverter uc = null;
 
-   ValueAccept() {
-      super((String)null);
-   }
+    ValueAccept() {
+        super(null);
+    }
 
-   void setUnconverter(Unconverter uc) throws IOException {
-      this.uc = uc;
-   }
+    void setUnconverter(Unconverter uc) throws IOException {
+        this.uc = uc;
+    }
 
-   void acceptBoolean(boolean v) throws IOException {
-      this.uc.write(ValueFactory.createBooleanValue(v));
-   }
+    @Override
+    void acceptBoolean(boolean v) throws IOException {
+        uc.write(ValueFactory.createBooleanValue(v));
+    }
 
-   void acceptInteger(byte v) throws IOException {
-      this.uc.write(ValueFactory.createIntegerValue(v));
-   }
+    @Override
+    void acceptInteger(byte v) throws IOException {
+        uc.write(ValueFactory.createIntegerValue(v));
+    }
 
-   void acceptInteger(short v) throws IOException {
-      this.uc.write(ValueFactory.createIntegerValue(v));
-   }
+    @Override
+    void acceptInteger(short v) throws IOException {
+        uc.write(ValueFactory.createIntegerValue(v));
+    }
 
-   void acceptInteger(int v) throws IOException {
-      this.uc.write(ValueFactory.createIntegerValue(v));
-   }
+    @Override
+    void acceptInteger(int v) throws IOException {
+        uc.write(ValueFactory.createIntegerValue(v));
+    }
 
-   void acceptInteger(long v) throws IOException {
-      this.uc.write(ValueFactory.createIntegerValue(v));
-   }
+    @Override
+    void acceptInteger(long v) throws IOException {
+        uc.write(ValueFactory.createIntegerValue(v));
+    }
 
-   void acceptUnsignedInteger(byte v) throws IOException {
-      this.uc.write(ValueFactory.createIntegerValue(v & 255));
-   }
+    @Override
+    void acceptUnsignedInteger(byte v) throws IOException {
+        uc.write(ValueFactory.createIntegerValue(v & 0xff));
+    }
 
-   void acceptUnsignedInteger(short v) throws IOException {
-      this.uc.write(ValueFactory.createIntegerValue(v & '\uffff'));
-   }
+    @Override
+    void acceptUnsignedInteger(short v) throws IOException {
+        uc.write(ValueFactory.createIntegerValue(v & 0xffff));
+    }
 
-   void acceptUnsignedInteger(int v) throws IOException {
-      if (v < 0) {
-         long value = (long)(v & 2147483647) + 2147483648L;
-         this.uc.write(ValueFactory.createIntegerValue(value));
-      } else {
-         this.uc.write(ValueFactory.createIntegerValue(v));
-      }
+    @Override
+    void acceptUnsignedInteger(int v) throws IOException {
+        if (v < 0) {
+            long value = (long) (v & 0x7fffffff) + 0x80000000L;
+            uc.write(ValueFactory.createIntegerValue(value));
+        } else {
+            uc.write(ValueFactory.createIntegerValue(v));
+        }
+    }
 
-   }
+    @Override
+    void acceptUnsignedInteger(long v) throws IOException {
+        if (v < 0L) {
+            BigInteger value = BigInteger.valueOf(v + Long.MAX_VALUE + 1L)
+                    .setBit(63);
+            uc.write(ValueFactory.createIntegerValue(value));
+        } else {
+            uc.write(ValueFactory.createIntegerValue(v));
+        }
+    }
 
-   void acceptUnsignedInteger(long v) throws IOException {
-      if (v < 0L) {
-         BigInteger value = BigInteger.valueOf(v + 9223372036854775807L + 1L).setBit(63);
-         this.uc.write(ValueFactory.createIntegerValue(value));
-      } else {
-         this.uc.write(ValueFactory.createIntegerValue(v));
-      }
+    @Override
+    void acceptRaw(byte[] raw) throws IOException {
+        uc.write(ValueFactory.createRawValue(raw));
+    }
 
-   }
+    @Override
+    void acceptEmptyRaw() throws IOException {
+        uc.write(ValueFactory.createRawValue());
+    }
 
-   void acceptRaw(byte[] raw) throws IOException {
-      this.uc.write(ValueFactory.createRawValue(raw));
-   }
+    @Override
+    public void refer(ByteBuffer bb, boolean gift) throws IOException {
+        // TODO gift
+        byte[] raw = new byte[bb.remaining()];
+        bb.get(raw);
+        uc.write(ValueFactory.createRawValue(raw, true));
+    }
 
-   void acceptEmptyRaw() throws IOException {
-      this.uc.write(ValueFactory.createRawValue());
-   }
+    @Override
+    void acceptArray(int size) throws IOException {
+        uc.writeArrayBegin(size);
+    }
 
-   public void refer(ByteBuffer bb, boolean gift) throws IOException {
-      byte[] raw = new byte[bb.remaining()];
-      bb.get(raw);
-      this.uc.write(ValueFactory.createRawValue(raw, true));
-   }
+    @Override
+    void acceptMap(int size) throws IOException {
+        uc.writeMapBegin(size);
+    }
 
-   void acceptArray(int size) throws IOException {
-      this.uc.writeArrayBegin(size);
-   }
+    @Override
+    void acceptNil() throws IOException {
+        uc.write(ValueFactory.createNilValue());
+    }
 
-   void acceptMap(int size) throws IOException {
-      this.uc.writeMapBegin(size);
-   }
+    @Override
+    void acceptFloat(float v) throws IOException {
+        uc.write(ValueFactory.createFloatValue(v));
+    }
 
-   void acceptNil() throws IOException {
-      this.uc.write(ValueFactory.createNilValue());
-   }
-
-   void acceptFloat(float v) throws IOException {
-      this.uc.write(ValueFactory.createFloatValue(v));
-   }
-
-   void acceptDouble(double v) throws IOException {
-      this.uc.write(ValueFactory.createFloatValue(v));
-   }
+    @Override
+    void acceptDouble(double v) throws IOException {
+        uc.write(ValueFactory.createFloatValue(v));
+    }
 }

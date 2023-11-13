@@ -1,3 +1,20 @@
+//
+// MessagePack for Java
+//
+// Copyright (C) 2009 - 2013 FURUHASHI Sadayuki
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//
 package org.msgpack.template.builder;
 
 import java.io.IOException;
@@ -6,179 +23,182 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import org.msgpack.MessageTypeException;
 import org.msgpack.packer.Packer;
-import org.msgpack.template.AbstractTemplate;
 import org.msgpack.template.Template;
+import org.msgpack.template.AbstractTemplate;
 import org.msgpack.template.TemplateRegistry;
 import org.msgpack.unpacker.Unpacker;
 
+@SuppressWarnings({ "rawtypes", "unchecked" })
 public class ReflectionTemplateBuilder extends AbstractTemplateBuilder {
-   private static Logger LOG = Logger.getLogger(ReflectionBeansTemplateBuilder.class.getName());
 
-   public ReflectionTemplateBuilder(TemplateRegistry registry) {
-      this(registry, (ClassLoader)null);
-   }
+    private static Logger LOG = Logger.getLogger(ReflectionBeansTemplateBuilder.class.getName());
 
-   public ReflectionTemplateBuilder(TemplateRegistry registry, ClassLoader cl) {
-      super(registry);
-   }
+    protected static abstract class ReflectionFieldTemplate extends AbstractTemplate<Object> {
+        protected FieldEntry entry;
 
-   public boolean matchType(Type targetType, boolean hasAnnotation) {
-      Class<?> targetClass = (Class)targetType;
-      boolean matched = matchAtClassTemplateBuilder(targetClass, hasAnnotation);
-      if (matched && LOG.isLoggable(Level.FINE)) {
-         LOG.fine("matched type: " + targetClass.getName());
-      }
+        ReflectionFieldTemplate(final FieldEntry entry) {
+            this.entry = entry;
+        }
 
-      return matched;
-   }
+        void setNil(Object v) {
+            entry.set(v, null);
+        }
+    }
 
-   public Objectemplate buildTemplate(Class targetClass, FieldEntry[] entries) {
-      if (entries == null) {
-         throw new NullPointerException("entries is null: " + targetClass);
-      } else {
-         ReflectionTemplateBuilder.ReflectionFieldTemplate[] tmpls = this.toTemplates(entries);
-         return new ReflectionTemplateBuilder.ReflectionClassTemplate(targetClass, tmpls);
-      }
-   }
+    static final class FieldTemplateImpl extends ReflectionFieldTemplate {
+        private Template template;
 
-   protected ReflectionTemplateBuilder.ReflectionFieldTemplate[] toTemplates(FieldEntry[] entries) {
-      FieldEntry[] arr$ = entries;
-      int i = entries.length;
+        public FieldTemplateImpl(final FieldEntry entry, final Template template) {
+            super(entry);
+            this.template = template;
+        }
 
-      for(int i$ = 0; i$ < i; ++i$) {
-         FieldEntry entry = arr$[i$];
-         Field field = ((DefaultFieldEntry)entry).getField();
-         int mod = field.getModifiers();
-         if (!Modifier.isPublic(mod)) {
-            field.setAccessible(true);
-         }
-      }
+        @Override
+        public void write(Packer packer, Object v, boolean required)
+                throws IOException {
+            template.write(packer, v, required);
+        }
 
-      ReflectionTemplateBuilder.ReflectionFieldTemplate[] templates = new ReflectionTemplateBuilder.ReflectionFieldTemplate[entries.length];
-
-      for(i = 0; i < entries.length; ++i) {
-         FieldEntry entry = entries[i];
-         Template template = this.registry.lookup(entry.getGenericType());
-         templates[i] = new ReflectionTemplateBuilder.FieldTemplateImpl(entry, template);
-      }
-
-      return templates;
-   }
-
-   protected static class ReflectionClassTemplate extends AbstractTemplate {
-      protected Class targetClass;
-      protected ReflectionTemplateBuilder.ReflectionFieldTemplate[] templates;
-
-      protected ReflectionClassTemplate(Class targetClass, ReflectionTemplateBuilder.ReflectionFieldTemplate[] templates) {
-         this.targetClass = targetClass;
-         this.templates = templates;
-      }
-
-      public void write(Packer packer, T target, boolean required) throws IOException {
-         if (target == null) {
-            if (required) {
-               throw new MessageTypeException("attempted to write null");
-            } else {
-               packer.writeNil();
+        @Override
+        public Object read(Unpacker unpacker, Object to, boolean required)
+                throws IOException {
+            // Class<Object> type = (Class<Object>) entry.getType();
+            Object f = entry.get(to);
+            Object o = template.read(unpacker, f, required);
+            if (o != f) {
+                entry.set(to, o);
             }
-         } else {
+            return o;
+        }
+    }
+
+    protected static class ReflectionClassTemplate<T> extends AbstractTemplate<T> {
+        protected Class<T> targetClass;
+
+        protected ReflectionFieldTemplate[] templates;
+
+        protected ReflectionClassTemplate(Class<T> targetClass, ReflectionFieldTemplate[] templates) {
+            this.targetClass = targetClass;
+            this.templates = templates;
+        }
+
+        @Override
+        public void write(Packer packer, T target, boolean required)
+                throws IOException {
+            if (target == null) {
+                if (required) {
+                    throw new MessageTypeException("attempted to write null");
+                }
+                packer.writeNil();
+                return;
+            }
             try {
-               packer.writeArrayBegin(this.templates.length);
-               ReflectionTemplateBuilder.ReflectionFieldTemplate[] arr$ = this.templates;
-               int len$ = arr$.length;
-
-               for(int i$ = 0; i$ < len$; ++i$) {
-                  ReflectionTemplateBuilder.ReflectionFieldTemplate tmpl = arr$[i$];
-                  if (!tmpl.entry.isAvailable()) {
-                     packer.writeNil();
-                  } else {
-                     Object obj = tmpl.entry.get(target);
-                     if (obj == null) {
-                        if (tmpl.entry.isNotNullable()) {
-                           throw new MessageTypeException(tmpl.entry.getName() + " cannot be null by @NotNullable");
-                        }
-
+                packer.writeArrayBegin(templates.length);
+                for (ReflectionFieldTemplate tmpl : templates) {
+                    if (!tmpl.entry.isAvailable()) {
                         packer.writeNil();
-                     } else {
+                        continue;
+                    }
+                    Object obj = tmpl.entry.get(target);
+                    if (obj == null) {
+                        if (tmpl.entry.isNotNullable()) {
+                            throw new MessageTypeException(tmpl.entry.getName()
+                                    + " cannot be null by @NotNullable");
+                        }
+                        packer.writeNil();
+                    } else {
                         tmpl.write(packer, obj, true);
-                     }
-                  }
-               }
-
-               packer.writeArrayEnd();
-            } catch (IOException var9) {
-               throw var9;
-            } catch (Exception var10) {
-               throw new MessageTypeException(var10);
+                    }
+                }
+                packer.writeArrayEnd();
+            } catch (IOException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new MessageTypeException(e);
             }
-         }
-      }
+        }
 
-      public T read(Unpacker unpacker, T to, boolean required) throws IOException {
-         if (!required && unpacker.trySkipNil()) {
-            return null;
-         } else {
+        @Override
+        public T read(Unpacker unpacker, T to, boolean required)
+                throws IOException {
+            if (!required && unpacker.trySkipNil()) {
+                return null;
+            }
             try {
-               if (to == null) {
-                  to = this.targetClass.newInstance();
-               }
+                if (to == null) {
+                    to = targetClass.newInstance();
+                }
 
-               unpacker.readArrayBegin();
+                unpacker.readArrayBegin();
+                for (int i = 0; i < templates.length; i++) {
+                    ReflectionFieldTemplate tmpl = templates[i];
+                    if (!tmpl.entry.isAvailable()) {
+                        unpacker.skip();
+                    } else if (tmpl.entry.isOptional() && unpacker.trySkipNil()) {
+                        // if Optional + nil, than keep default value
+                    } else {
+                        tmpl.read(unpacker, to, false);
+                    }
+                }
 
-               for(int i = 0; i < this.templates.length; ++i) {
-                  ReflectionTemplateBuilder.ReflectionFieldTemplate tmpl = this.templates[i];
-                  if (!tmpl.entry.isAvailable()) {
-                     unpacker.skip();
-                  } else if (!tmpl.entry.isOptional() || !unpacker.trySkipNil()) {
-                     tmpl.read(unpacker, to, false);
-                  }
-               }
-
-               unpacker.readArrayEnd();
-               return to;
-            } catch (IOException var6) {
-               throw var6;
-            } catch (Exception var7) {
-               throw new MessageTypeException(var7);
+                unpacker.readArrayEnd();
+                return to;
+            } catch (IOException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new MessageTypeException(e);
             }
-         }
-      }
-   }
+        }
+    }
 
-   static final class FieldTemplateImpl extends ReflectionTemplateBuilder.ReflectionFieldTemplate {
-      private Template template;
+    public ReflectionTemplateBuilder(TemplateRegistry registry) {
+        this(registry, null);
+    }
 
-      public FieldTemplateImpl(FieldEntry entry, Template template) {
-         super(entry);
-         this.template = template;
-      }
+    public ReflectionTemplateBuilder(TemplateRegistry registry, ClassLoader cl) {
+        super(registry);
+    }
 
-      public void write(Packer packer, Object v, boolean required) throws IOException {
-         this.template.write(packer, v, required);
-      }
+    @Override
+    public boolean matchType(Type targetType, boolean hasAnnotation) {
+        Class<?> targetClass = (Class<?>) targetType;
+        boolean matched = matchAtClassTemplateBuilder(targetClass, hasAnnotation);
+        if (matched && LOG.isLoggable(Level.FINE)) {
+            LOG.fine("matched type: " + targetClass.getName());
+        }
+        return matched;
+    }
 
-      public Object read(Unpacker unpacker, Object to, boolean required) throws IOException {
-         Object f = this.entry.get(to);
-         Object o = this.template.read(unpacker, f, required);
-         if (o != f) {
-            this.entry.set(to, o);
-         }
+    @Override
+    public <T> Template<T> buildTemplate(Class<T> targetClass, FieldEntry[] entries) {
+        if (entries == null) {
+            throw new NullPointerException("entries is null: " + targetClass);
+        }
 
-         return o;
-      }
-   }
+        ReflectionFieldTemplate[] tmpls = toTemplates(entries);
+        return new ReflectionClassTemplate<T>(targetClass, tmpls);
+    }
 
-   protected abstract static class ReflectionFieldTemplate extends AbstractTemplate<Object> {
-      protected FieldEntry entry;
+    protected ReflectionFieldTemplate[] toTemplates(FieldEntry[] entries) {
+        // TODO Now it is simply cast. #SF
+        for (FieldEntry entry : entries) {
+            Field field = ((DefaultFieldEntry) entry).getField();
+            int mod = field.getModifiers();
+            if (!Modifier.isPublic(mod)) {
+                field.setAccessible(true);
+            }
+        }
 
-      ReflectionFieldTemplate(FieldEntry entry) {
-         this.entry = entry;
-      }
-
-      void setNil(Object v) {
-         this.entry.set(v, (Object)null);
-      }
-   }
+        ReflectionFieldTemplate[] templates = new ReflectionFieldTemplate[entries.length];
+        for (int i = 0; i < entries.length; i++) {
+            FieldEntry entry = entries[i];
+            // Class<?> t = entry.getType();
+            Template template = registry.lookup(entry.getGenericType());
+            templates[i] = new FieldTemplateImpl(entry, template);
+        }
+        return templates;
+    }
 }

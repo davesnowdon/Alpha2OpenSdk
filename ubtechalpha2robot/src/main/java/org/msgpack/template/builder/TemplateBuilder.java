@@ -1,17 +1,38 @@
+//
+// MessagePack for Java
+//
+// Copyright (C) 2009 - 2013 FURUHASHI Sadayuki
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+//
 package org.msgpack.template.builder;
 
 import java.lang.reflect.Type;
+
 import org.msgpack.template.FieldList;
 import org.msgpack.template.Template;
 
 public interface TemplateBuilder {
-   boolean matchType(Type var1, boolean var2);
 
-   Objectemplate buildTemplate(Type var1) throws TemplateBuildException;
+    boolean matchType(Type targetType, boolean forceBuild);
 
-   Objectemplate buildTemplate(Class var1, FieldList var2) throws TemplateBuildException;
+    <T> Template<T> buildTemplate(Type targetType)
+            throws TemplateBuildException;
 
-   void writeTemplate(Type var1, String var2);
+    <T> Template<T> buildTemplate(Class<T> targetClass, FieldList flist)
+            throws TemplateBuildException;
 
-   Objectemplate loadTemplate(Type var1);
+    void writeTemplate(Type targetType, String directoryName);
+
+    <T> Template<T> loadTemplate(Type targetType);
 }

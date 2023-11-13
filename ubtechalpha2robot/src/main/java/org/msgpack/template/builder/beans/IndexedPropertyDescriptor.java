@@ -1,248 +1,383 @@
+// MODIFIED FOR THE MSGPACK PROJECT
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+// 
+// http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
+//
+
 package org.msgpack.template.builder.beans;
 
 import java.lang.reflect.Method;
+
 import org.apache.harmony.beans.BeansUtils;
 import org.apache.harmony.beans.internal.nls.Messages;
 
 public class IndexedPropertyDescriptor extends PropertyDescriptor {
-   private Class<?> indexedPropertyType;
-   private Method indexedGetter;
-   private Method indexedSetter;
 
-   public IndexedPropertyDescriptor(String propertyName, Class<?> beanClass, String getterName, String setterName, String indexedGetterName, String indexedSetterName) throws IntrospectionException {
-      super(propertyName, beanClass, getterName, setterName);
-      this.setIndexedByName(beanClass, indexedGetterName, indexedSetterName);
-   }
+    private Class<?> indexedPropertyType;
 
-   private void setIndexedByName(Class<?> beanClass, String indexedGetterName, String indexedSetterName) throws IntrospectionException {
-      String theIndexedGetterName = indexedGetterName;
-      if (indexedGetterName == null) {
-         if (indexedSetterName != null) {
-            this.setIndexedWriteMethod(beanClass, indexedSetterName);
-         }
-      } else {
-         if (indexedGetterName.length() == 0) {
-            theIndexedGetterName = "get" + this.name;
-         }
+    private Method indexedGetter;
 
-         this.setIndexedReadMethod(beanClass, theIndexedGetterName);
-         if (indexedSetterName != null) {
-            this.setIndexedWriteMethod(beanClass, indexedSetterName, this.indexedPropertyType);
-         }
-      }
+    private Method indexedSetter;
 
-      if (!this.isCompatible()) {
-         throw new IntrospectionException(Messages.getString("custom.beans.57"));
-      }
-   }
+    /**
+     * Constructs a new instance of <code>IndexedPropertyDescriptor</code>.
+     * 
+     * @param propertyName
+     *            the specified indexed property's name.
+     * @param beanClass
+     *            the bean class
+     * @param getterName
+     *            the name of the array getter
+     * @param setterName
+     *            the name of the array setter
+     * @param indexedGetterName
+     *            the name of the indexed getter.
+     * @param indexedSetterName
+     *            the name of the indexed setter.
+     * @throws IntrospectionException
+     */
+    public IndexedPropertyDescriptor(String propertyName, Class<?> beanClass,
+            String getterName, String setterName, String indexedGetterName,
+            String indexedSetterName) throws IntrospectionException {
+        super(propertyName, beanClass, getterName, setterName);
+        setIndexedByName(beanClass, indexedGetterName, indexedSetterName);
+    }
 
-   private boolean isCompatible() {
-      Class<?> propertyType = this.getPropertyType();
-      if (propertyType == null) {
-         return true;
-      } else {
-         Class<?> componentTypeOfProperty = propertyType.getComponentType();
-         if (componentTypeOfProperty == null) {
+    private void setIndexedByName(Class<?> beanClass, String indexedGetterName,
+            String indexedSetterName) throws IntrospectionException {
+
+        String theIndexedGetterName = indexedGetterName;
+        if (theIndexedGetterName == null) {
+            if (indexedSetterName != null) {
+                setIndexedWriteMethod(beanClass, indexedSetterName);
+            }
+        } else {
+            if (theIndexedGetterName.length() == 0) {
+                theIndexedGetterName = "get" + name; //$NON-NLS-1$
+            }
+            setIndexedReadMethod(beanClass, theIndexedGetterName);
+            if (indexedSetterName != null) {
+                setIndexedWriteMethod(beanClass, indexedSetterName,
+                        indexedPropertyType);
+            }
+        }
+
+        if (!isCompatible()) {
+            // custom.beans.57=Property type is incompatible with the indexed property type
+            throw new IntrospectionException(Messages.getString("custom.beans.57")); //$NON-NLS-1$
+        }
+    }
+
+    private boolean isCompatible() {
+        Class<?> propertyType = getPropertyType();
+
+        if (propertyType == null) {
+            return true;
+        }
+        Class<?> componentTypeOfProperty = propertyType.getComponentType();
+        if (componentTypeOfProperty == null) {
             return false;
-         } else {
-            return this.indexedPropertyType == null ? false : componentTypeOfProperty.getName().equals(this.indexedPropertyType.getName());
-         }
-      }
-   }
+        }
+        if (indexedPropertyType == null) {
+            return false;
+        }
 
-   public IndexedPropertyDescriptor(String propertyName, Method getter, Method setter, Method indexedGetter, Method indexedSetter) throws IntrospectionException {
-      super(propertyName, getter, setter);
-      if (indexedGetter != null) {
-         this.internalSetIndexedReadMethod(indexedGetter);
-         this.internalSetIndexedWriteMethod(indexedSetter, true);
-      } else {
-         this.internalSetIndexedWriteMethod(indexedSetter, true);
-         this.internalSetIndexedReadMethod(indexedGetter);
-      }
+        return componentTypeOfProperty.getName().equals(
+                indexedPropertyType.getName());
+    }
 
-      if (!this.isCompatible()) {
-         throw new IntrospectionException(Messages.getString("custom.beans.57"));
-      }
-   }
+    /**
+     * Constructs a new instance of <code>IndexedPropertyDescriptor</code>.
+     * 
+     * @param propertyName
+     *            the specified indexed property's name.
+     * @param getter
+     *            the array getter
+     * @param setter
+     *            the array setter
+     * @param indexedGetter
+     *            the indexed getter
+     * @param indexedSetter
+     *            the indexed setter
+     * @throws IntrospectionException
+     */
+    public IndexedPropertyDescriptor(String propertyName, Method getter,
+            Method setter, Method indexedGetter, Method indexedSetter)
+            throws IntrospectionException {
+        super(propertyName, getter, setter);
+        if (indexedGetter != null) {
+            internalSetIndexedReadMethod(indexedGetter);
+            internalSetIndexedWriteMethod(indexedSetter, true);
+        } else {
+            internalSetIndexedWriteMethod(indexedSetter, true);
+            internalSetIndexedReadMethod(indexedGetter);
+        }
 
-   public IndexedPropertyDescriptor(String propertyName, Class<?> beanClass) throws IntrospectionException {
-      super(propertyName, beanClass);
-      this.setIndexedByName(beanClass, "get".concat(initialUpperCase(propertyName)), "set".concat(initialUpperCase(propertyName)));
-   }
+        if (!isCompatible()) {
+            // custom.beans.57=Property type is incompatible with the indexed property type
+            throw new IntrospectionException(Messages.getString("custom.beans.57")); //$NON-NLS-1$
+        }
+    }
 
-   public void setIndexedReadMethod(Method indexedGetter) throws IntrospectionException {
-      this.internalSetIndexedReadMethod(indexedGetter);
-   }
+    /**
+     * Constructs a new instance of <code>IndexedPropertyDescriptor</code>.
+     * 
+     * @param propertyName
+     *            the specified indexed property's name.
+     * @param beanClass
+     *            the bean class.
+     * @throws IntrospectionException
+     */
+    public IndexedPropertyDescriptor(String propertyName, Class<?> beanClass)
+            throws IntrospectionException {
+        super(propertyName, beanClass);
+        setIndexedByName(beanClass, "get" //$NON-NLS-1$
+                .concat(initialUpperCase(propertyName)), "set" //$NON-NLS-1$
+                .concat(initialUpperCase(propertyName)));
+    }
 
-   public void setIndexedWriteMethod(Method indexedSetter) throws IntrospectionException {
-      this.internalSetIndexedWriteMethod(indexedSetter, false);
-   }
+    /**
+     * Sets the indexed getter as the specified method.
+     * 
+     * @param indexedGetter
+     *            the specified indexed getter.
+     * @throws IntrospectionException
+     */
+    public void setIndexedReadMethod(Method indexedGetter)
+            throws IntrospectionException {
+        this.internalSetIndexedReadMethod(indexedGetter);
+    }
 
-   public Method getIndexedWriteMethod() {
-      return this.indexedSetter;
-   }
+    /**
+     * Sets the indexed setter as the specified method.
+     * 
+     * @param indexedSetter
+     *            the specified indexed setter.
+     * @throws IntrospectionException
+     */
+    public void setIndexedWriteMethod(Method indexedSetter)
+            throws IntrospectionException {
+        this.internalSetIndexedWriteMethod(indexedSetter, false);
+    }
 
-   public Method getIndexedReadMethod() {
-      return this.indexedGetter;
-   }
+    /**
+     * Obtains the indexed setter.
+     * 
+     * @return the indexed setter.
+     */
+    public Method getIndexedWriteMethod() {
+        return indexedSetter;
+    }
 
-   public boolean equals(Object obj) {
-      if (!(obj instanceof IndexedPropertyDescriptor)) {
-         return false;
-      } else {
-         boolean var10000;
-         label52: {
-            IndexedPropertyDescriptor other = (IndexedPropertyDescriptor)obj;
-            if (super.equals(other)) {
-               label46: {
-                  if (this.indexedPropertyType == null) {
-                     if (other.indexedPropertyType != null) {
-                        break label46;
-                     }
-                  } else if (!this.indexedPropertyType.equals(other.indexedPropertyType)) {
-                     break label46;
-                  }
+    /**
+     * Obtains the indexed getter.
+     * 
+     * @return the indexed getter.
+     */
+    public Method getIndexedReadMethod() {
+        return indexedGetter;
+    }
 
-                  if (this.indexedGetter == null) {
-                     if (other.indexedGetter != null) {
-                        break label46;
-                     }
-                  } else if (!this.indexedGetter.equals(other.indexedGetter)) {
-                     break label46;
-                  }
+    /**
+     * Determines if this <code>IndexedPropertyDescriptor</code> is equal to
+     * the specified object. Two <code>IndexedPropertyDescriptor</code> s are
+     * equal if the reader, indexed reader, writer, indexed writer, property
+     * types, indexed property type, property editor and flags are equal.
+     * 
+     * @param obj
+     * @return true if this indexed property descriptor is equal to the
+     *         specified object.
+     */
+    @Override
+    public boolean equals(Object obj) {
+        if (!(obj instanceof IndexedPropertyDescriptor)) {
+            return false;
+        }
 
-                  if (this.indexedSetter == null) {
-                     if (other.indexedSetter == null) {
-                        break label52;
-                     }
-                  } else if (this.indexedSetter.equals(other.indexedSetter)) {
-                     break label52;
-                  }
-               }
+        IndexedPropertyDescriptor other = (IndexedPropertyDescriptor) obj;
+
+        return (super.equals(other)
+                && (indexedPropertyType == null ? other.indexedPropertyType == null
+                        : indexedPropertyType.equals(other.indexedPropertyType))
+                && (indexedGetter == null ? other.indexedGetter == null
+                        : indexedGetter.equals(other.indexedGetter)) && (indexedSetter == null ? other.indexedSetter == null
+                : indexedSetter.equals(other.indexedSetter)));
+    }
+
+    /**
+     * HashCode of the IndexedPropertyDescriptor
+     */
+    @Override
+    public int hashCode() {
+        return super.hashCode() + BeansUtils.getHashCode(indexedPropertyType)
+                + BeansUtils.getHashCode(indexedGetter)
+                + BeansUtils.getHashCode(indexedSetter);
+    }
+
+    /**
+     * Obtains the Class object of the indexed property type.
+     * 
+     * @return the Class object of the indexed property type.
+     */
+    public Class<?> getIndexedPropertyType() {
+        return indexedPropertyType;
+    }
+
+    private void setIndexedReadMethod(Class<?> beanClass, String indexedGetterName)
+            throws IntrospectionException {
+        Method getter;
+        try {
+            getter = beanClass.getMethod(indexedGetterName,
+                    new Class[] { Integer.TYPE });
+        } catch (NoSuchMethodException exception) {
+            // custom.beans.58=No such indexed read method
+            throw new IntrospectionException(Messages.getString("custom.beans.58")); //$NON-NLS-1$
+        } catch (SecurityException exception) {
+            // custom.beans.59=Security violation accessing indexed read method
+            throw new IntrospectionException(Messages.getString("custom.beans.59")); //$NON-NLS-1$
+        }
+        internalSetIndexedReadMethod(getter);
+    }
+
+    private void internalSetIndexedReadMethod(Method indexGetter)
+            throws IntrospectionException {
+        // Clearing the indexed read method.
+        if (indexGetter == null) {
+            if (indexedSetter == null) {
+                if (getPropertyType() != null) {
+                    // custom.beans.5A=Indexed method is not compatible with non indexed method
+                    throw new IntrospectionException(Messages
+                            .getString("custom.beans.5A")); //$NON-NLS-1$
+                }
+                indexedPropertyType = null;
             }
+            this.indexedGetter = null;
+            return;
+        }
+        // Validate the indexed getter.
+        if ((indexGetter.getParameterTypes().length != 1)
+                || (indexGetter.getParameterTypes()[0] != Integer.TYPE)) {
+            // custom.beans.5B=Indexed read method must take a single int argument
+            throw new IntrospectionException(Messages.getString("custom.beans.5B")); //$NON-NLS-1$
+        }
+        Class<?> indexedReadType = indexGetter.getReturnType();
+        if (indexedReadType == Void.TYPE) {
+            // custom.beans.5B=Indexed read method must take a single int argument
+            throw new IntrospectionException(Messages.getString("custom.beans.5B")); //$NON-NLS-1$
+        } else if (indexedSetter != null
+                && indexGetter.getReturnType() != indexedSetter
+                        .getParameterTypes()[1]) {
+            // custom.beans.5A=Indexed read method is not compatible with indexed write method
+            throw new IntrospectionException(Messages.getString("custom.beans.5A")); //$NON-NLS-1$
+        }
 
-            var10000 = false;
-            return var10000;
-         }
-
-         var10000 = true;
-         return var10000;
-      }
-   }
-
-   public int hashCode() {
-      return super.hashCode() + BeansUtils.getHashCode(this.indexedPropertyType) + BeansUtils.getHashCode(this.indexedGetter) + BeansUtils.getHashCode(this.indexedSetter);
-   }
-
-   public Class<?> getIndexedPropertyType() {
-      return this.indexedPropertyType;
-   }
-
-   private void setIndexedReadMethod(Class<?> beanClass, String indexedGetterName) throws IntrospectionException {
-      Method getter;
-      try {
-         getter = beanClass.getMethod(indexedGetterName, Integer.TYPE);
-      } catch (NoSuchMethodException var5) {
-         throw new IntrospectionException(Messages.getString("custom.beans.58"));
-      } catch (SecurityException var6) {
-         throw new IntrospectionException(Messages.getString("custom.beans.59"));
-      }
-
-      this.internalSetIndexedReadMethod(getter);
-   }
-
-   private void internalSetIndexedReadMethod(Method indexGetter) throws IntrospectionException {
-      if (indexGetter == null) {
-         if (this.indexedSetter == null) {
-            if (this.getPropertyType() != null) {
-               throw new IntrospectionException(Messages.getString("custom.beans.5A"));
+        // Set the indexed property type if not already set, confirm validity if
+        // it is.
+        if (this.indexedGetter == null) {
+            indexedPropertyType = indexedReadType;
+        } else {
+            if (indexedPropertyType != indexedReadType) {
+                // custom.beans.5A=Indexed read method is not compatible with indexed write method
+                throw new IntrospectionException(Messages.getString("custom.beans.5A")); //$NON-NLS-1$
             }
+        }
 
-            this.indexedPropertyType = null;
-         }
+        // Set the indexed getter
+        this.indexedGetter = indexGetter;
+    }
 
-         this.indexedGetter = null;
-      } else if (indexGetter.getParameterTypes().length == 1 && indexGetter.getParameterTypes()[0] == Integer.TYPE) {
-         Class<?> indexedReadType = indexGetter.getReturnType();
-         if (indexedReadType == Void.TYPE) {
-            throw new IntrospectionException(Messages.getString("custom.beans.5B"));
-         } else if (this.indexedSetter != null && indexGetter.getReturnType() != this.indexedSetter.getParameterTypes()[1]) {
-            throw new IntrospectionException(Messages.getString("custom.beans.5A"));
-         } else {
-            if (this.indexedGetter == null) {
-               this.indexedPropertyType = indexedReadType;
-            } else if (this.indexedPropertyType != indexedReadType) {
-               throw new IntrospectionException(Messages.getString("custom.beans.5A"));
+    private void setIndexedWriteMethod(Class<?> beanClass, String indexedSetterName)
+            throws IntrospectionException {
+        Method setter = null;
+        try {
+            setter = beanClass.getMethod(indexedSetterName, new Class[] {
+                    Integer.TYPE, getPropertyType().getComponentType() });
+        } catch (SecurityException e) {
+            // custom.beans.5C=Security violation accessing indexed write method
+            throw new IntrospectionException(Messages.getString("custom.beans.5C")); //$NON-NLS-1$
+        } catch (NoSuchMethodException e) {
+            // custom.beans.5D=No such indexed write method
+            throw new IntrospectionException(Messages.getString("custom.beans.5D")); //$NON-NLS-1$
+        }
+        internalSetIndexedWriteMethod(setter, true);
+    }
+
+    private void setIndexedWriteMethod(Class<?> beanClass,
+            String indexedSetterName, Class<?> argType)
+            throws IntrospectionException {
+        try {
+            Method setter = beanClass.getMethod(indexedSetterName, new Class[] {
+                    Integer.TYPE, argType });
+            internalSetIndexedWriteMethod(setter, true);
+        } catch (NoSuchMethodException exception) {
+            // custom.beans.5D=No such indexed write method
+            throw new IntrospectionException(Messages.getString("custom.beans.5D")); //$NON-NLS-1$
+        } catch (SecurityException exception) {
+            // custom.beans.5C=Security violation accessing indexed write method
+            throw new IntrospectionException(Messages.getString("custom.beans.5C")); //$NON-NLS-1$
+        }
+    }
+
+    private void internalSetIndexedWriteMethod(Method indexSetter,
+            boolean initialize) throws IntrospectionException {
+        // Clearing the indexed write method.
+        if (indexSetter == null) {
+            if (indexedGetter == null) {
+                if (getPropertyType() != null) {
+                    // custom.beans.5E=Indexed method is not compatible with non indexed method
+                    throw new IntrospectionException(Messages
+                            .getString("custom.beans.5E")); //$NON-NLS-1$
+                }
+                indexedPropertyType = null;
             }
+            this.indexedSetter = null;
+            return;
+        }
 
-            this.indexedGetter = indexGetter;
-         }
-      } else {
-         throw new IntrospectionException(Messages.getString("custom.beans.5B"));
-      }
-   }
+        // Validate the indexed write method.
+        Class<?>[] indexedSetterArgs = indexSetter.getParameterTypes();
+        if (indexedSetterArgs.length != 2) {
+            // custom.beans.5F=Indexed write method must take two arguments
+            throw new IntrospectionException(Messages.getString("custom.beans.5F")); //$NON-NLS-1$
+        }
+        if (indexedSetterArgs[0] != Integer.TYPE) {
+            // custom.beans.60=Indexed write method must take an int as its first argument
+            throw new IntrospectionException(Messages.getString("custom.beans.60")); //$NON-NLS-1$
+        }
 
-   private void setIndexedWriteMethod(Class<?> beanClass, String indexedSetterName) throws IntrospectionException {
-      Method setter = null;
-
-      try {
-         setter = beanClass.getMethod(indexedSetterName, Integer.TYPE, this.getPropertyType().getComponentType());
-      } catch (SecurityException var5) {
-         throw new IntrospectionException(Messages.getString("custom.beans.5C"));
-      } catch (NoSuchMethodException var6) {
-         throw new IntrospectionException(Messages.getString("custom.beans.5D"));
-      }
-
-      this.internalSetIndexedWriteMethod(setter, true);
-   }
-
-   private void setIndexedWriteMethod(Class<?> beanClass, String indexedSetterName, Class<?> argType) throws IntrospectionException {
-      try {
-         Method setter = beanClass.getMethod(indexedSetterName, Integer.TYPE, argType);
-         this.internalSetIndexedWriteMethod(setter, true);
-      } catch (NoSuchMethodException var5) {
-         throw new IntrospectionException(Messages.getString("custom.beans.5D"));
-      } catch (SecurityException var6) {
-         throw new IntrospectionException(Messages.getString("custom.beans.5C"));
-      }
-   }
-
-   private void internalSetIndexedWriteMethod(Method indexSetter, boolean initialize) throws IntrospectionException {
-      if (indexSetter == null) {
-         if (this.indexedGetter == null) {
-            if (this.getPropertyType() != null) {
-               throw new IntrospectionException(Messages.getString("custom.beans.5E"));
+        // Set the indexed property type if not already set, confirm validity if
+        // it is.
+        Class<?> indexedWriteType = indexedSetterArgs[1];
+        if (initialize && indexedGetter == null) {
+            indexedPropertyType = indexedWriteType;
+        } else {
+            if (indexedPropertyType != indexedWriteType) {
+                // custom.beans.61=Indexed write method is not compatible with indexed read method
+                throw new IntrospectionException(Messages.getString("custom.beans.61")); //$NON-NLS-1$
             }
+        }
 
-            this.indexedPropertyType = null;
-         }
+        // Set the indexed write method.
+        this.indexedSetter = indexSetter;
+    }
 
-         this.indexedSetter = null;
-      } else {
-         Class<?>[] indexedSetterArgs = indexSetter.getParameterTypes();
-         if (indexedSetterArgs.length != 2) {
-            throw new IntrospectionException(Messages.getString("custom.beans.5F"));
-         } else if (indexedSetterArgs[0] != Integer.TYPE) {
-            throw new IntrospectionException(Messages.getString("custom.beans.60"));
-         } else {
-            Class<?> indexedWriteType = indexedSetterArgs[1];
-            if (initialize && this.indexedGetter == null) {
-               this.indexedPropertyType = indexedWriteType;
-            } else if (this.indexedPropertyType != indexedWriteType) {
-               throw new IntrospectionException(Messages.getString("custom.beans.61"));
-            }
+    private static String initialUpperCase(String string) {
+        if (Character.isUpperCase(string.charAt(0))) {
+            return string;
+        }
 
-            this.indexedSetter = indexSetter;
-         }
-      }
-   }
-
-   private static String initialUpperCase(String string) {
-      if (Character.isUpperCase(string.charAt(0))) {
-         return string;
-      } else {
-         String initial = string.substring(0, 1).toUpperCase();
-         return initial.concat(string.substring(1));
-      }
-   }
+        String initial = string.substring(0, 1).toUpperCase();
+        return initial.concat(string.substring(1));
+    }
 }
