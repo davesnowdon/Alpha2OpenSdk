@@ -40,5 +40,6 @@ dependencies {
     implementation 'net.danlew:android.joda:2.9.5'
     implementation 'javax.xml.bind:jaxb-api:2.2.12'
     implementation 'com.sun.activation:javax.activation:1.2.0'
+    implementation 'org.apache.ant:ant:1.10.0'
     testImplementation 'junit:junit:4.12'
 }
