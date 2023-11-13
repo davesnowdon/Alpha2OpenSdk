@@ -3,7 +3,8 @@ package com.ubtech.alpha2;
 import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
-import com.ubtech.alpha2.R.layout;
+// ISSUE-1 Layout classes not present in original SDK jar
+//import com.ubtech.alpha2.R.layout;
 import com.ubtech.alpha2.core.network.async.AsyncTaskManager;
 import com.ubtech.alpha2.core.network.async.OnDataListener;
 import com.ubtech.alpha2.core.utils.NLog;
@@ -19,7 +20,8 @@ public class BaseActivity extends Activity implements OnDataListener {
 
    protected void onCreate(Bundle savedInstanceState) {
       super.onCreate(savedInstanceState);
-      this.setContentView(layout.activity_main);
+      // ISSUE-1 Layout classes not present in original SDK jar
+      //this.setContentView(layout.activity_main);
       this.mContext = this;
       this.mAsyncTaskManager = AsyncTaskManager.getInstance(this.mContext);
    }

@@ -8,7 +8,8 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import com.ubtech.alpha2.FilePath;
-import com.ubtech.alpha2.R.layout;
+// ISSUE-1 Layout classes not present in original SDK jar
+//import com.ubtech.alpha2.R.layout;
 import java.io.File;
 
 public class MainActivity extends Activity {
@@ -19,7 +20,8 @@ public class MainActivity extends Activity {
 
    protected void onCreate(Bundle savedInstanceState) {
       super.onCreate(savedInstanceState);
-      this.setContentView(layout.activity_main);
+      // ISSUE-1 Layout classes not present in original SDK jar
+      //this.setContentView(layout.activity_main);
    }
 
    public void onTest(View view) {

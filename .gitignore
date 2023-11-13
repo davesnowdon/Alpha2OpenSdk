@@ -89,3 +89,9 @@ lint/tmp/
 
 # Ignore Gradle build output directory
 build
+
+# SDK jar
+ubtechalpha2robot.jar
+
+# gradle build jir
+\?/**

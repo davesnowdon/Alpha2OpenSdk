@@ -5,7 +5,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import com.ubtech.alpha2.R.layout;
+// ISSUE-1 Layout classes not present in original SDK jar
+//import com.ubtech.alpha2.R.layout;
 import com.ubtech.alpha2.core.action.DemoAction;
 import com.ubtech.alpha2.core.apkupdate.InstallerUtils;
 import com.ubtech.alpha2.core.apkupdate.UnInstallerUtils;
@@ -26,7 +27,8 @@ public class MainActivity extends BaseActivity {
 
    protected void onCreate(Bundle savedInstanceState) {
       super.onCreate(savedInstanceState);
-      this.setContentView(layout.activity_main);
+      // ISSUE-1 Layout classes not present in original SDK jar
+      //this.setContentView(layout.activity_main);
       NLog.setDebug(true);
    }
 
