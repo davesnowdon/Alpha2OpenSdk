@@ -8,7 +8,7 @@ import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.SerializerProvider;
 import org.codehaus.jackson.map.ser.SerializerBase;
 import org.w3c.dom.Node;
-import org.w3c.dom.bootstrap.DOMImplementationRegistry;
+import org.w3c.dom.DOMImplementationSource;
 import org.w3c.dom.ls.DOMImplementationLS;
 import org.w3c.dom.ls.LSSerializer;
 
@@ -18,7 +18,7 @@ public class DOMSerializer extends SerializerBase<Node> {
    public DOMSerializer() {
       super(Node.class);
 
-      DOMImplementationRegistry registry;
+      DOMImplementationSource registry;
       try {
          registry = DOMImplementationRegistry.newInstance();
       } catch (Exception var3) {
