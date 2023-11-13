@@ -4,7 +4,8 @@ import android.content.Context;
 import android.media.AudioManager;
 import android.media.SoundPool;
 import android.util.Log;
-import com.example.alpha2entritylib.R.raw;
+// ISSUE-2 com.example.alpha2entritylib not present in jar
+//import com.example.alpha2entritylib.R.raw;
 import java.util.HashMap;
 
 public class SoundVolumesUtils {
@@ -32,9 +33,10 @@ public class SoundVolumesUtils {
    }
 
    public void loadSounds() {
-      this.mSoundPoolMap.put(1, this.mSoundPool.load(this.mContext, raw.media_volume, 1));
-      this.mSoundPoolMap.put(2, this.mSoundPool.load(this.mContext, raw.wavefail, 1));
-      this.mSoundPoolMap.put(3, this.mSoundPool.load(this.mContext, raw.qrcode, 1));
+      // ISSUE-2 com.example.alpha2entritylib not present in jar
+      //this.mSoundPoolMap.put(1, this.mSoundPool.load(this.mContext, raw.media_volume, 1));
+      //this.mSoundPoolMap.put(2, this.mSoundPool.load(this.mContext, raw.wavefail, 1));
+      //this.mSoundPoolMap.put(3, this.mSoundPool.load(this.mContext, raw.qrcode, 1));
    }
 
    public void addVolume(int value) {
