@@ -43,29 +43,29 @@ public abstract class AbstractUnpacker implements Unpacker {
 
    protected abstract boolean tryReadNil() throws IOException;
 
-   public <T> T read(Class<T> klass) throws IOException {
+   public Object read(Class klass) throws IOException {
       if (this.tryReadNil()) {
          return null;
       } else {
-         Template<T> tmpl = this.msgpack.lookup(klass);
+         Template tmpl = this.msgpack.lookup(klass);
          return tmpl.read(this, (Object)null);
       }
    }
 
-   public <T> T read(T to) throws IOException {
+   public Object read(T to) throws IOException {
       if (this.tryReadNil()) {
          return null;
       } else {
-         Template<T> tmpl = this.msgpack.lookup(to.getClass());
+         Template tmpl = this.msgpack.lookup(to.getClass());
          return tmpl.read(this, to);
       }
    }
 
-   public <T> T read(Template<T> tmpl) throws IOException {
+   public Object read(Template tmpl) throws IOException {
       return this.tryReadNil() ? null : tmpl.read(this, (Object)null);
    }
 
-   public <T> T read(T to, Template<T> tmpl) throws IOException {
+   public Object read(T to, Template tmpl) throws IOException {
       return this.tryReadNil() ? null : tmpl.read(this, to);
    }
 

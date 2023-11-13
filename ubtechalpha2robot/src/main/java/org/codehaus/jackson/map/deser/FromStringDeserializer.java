@@ -17,13 +17,13 @@ import org.codehaus.jackson.JsonProcessingException;
 import org.codehaus.jackson.JsonToken;
 import org.codehaus.jackson.map.DeserializationContext;
 
-public abstract class FromStringDeserializer<T> extends StdScalarDeserializer<T> {
-   protected FromStringDeserializer(Class<?> vc) {
+public abstract class FromStringDeserializer extends StdScalarDeserializer {
+   protected FromStringDeserializer(Class vc) {
       super(vc);
    }
 
-   public static Iterable<FromStringDeserializer<?>> all() {
-      ArrayList<FromStringDeserializer<?>> all = new ArrayList();
+   public static Iterable all() {
+      ArrayList all = new ArrayList();
       all.add(new FromStringDeserializer.UUIDDeserializer());
       all.add(new FromStringDeserializer.URLDeserializer());
       all.add(new FromStringDeserializer.URIDeserializer());
@@ -63,9 +63,9 @@ public abstract class FromStringDeserializer<T> extends StdScalarDeserializer<T>
       }
    }
 
-   protected abstract T _deserialize(String var1, DeserializationContext var2) throws IOException, JsonProcessingException;
+   protected abstract Object _deserialize(String var1, DeserializationContext var2) throws IOException, JsonProcessingException;
 
-   protected T _deserializeEmbedded(Object ob, DeserializationContext ctxt) throws IOException, JsonProcessingException {
+   protected Object _deserializeEmbedded(Object ob, DeserializationContext ctxt) throws IOException, JsonProcessingException {
       throw ctxt.mappingException("Don't know how to convert embedded Object of type " + ob.getClass().getName() + " into " + this._valueClass.getName());
    }
 

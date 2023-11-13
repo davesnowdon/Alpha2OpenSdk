@@ -9,13 +9,13 @@ import org.msgpack.type.Value;
 import org.msgpack.type.ValueType;
 
 public interface Unpacker extends Iterable<Value>, Closeable {
-   <T> T read(Class<T> var1) throws IOException;
+   Object read(Class var1) throws IOException;
 
-   <T> T read(T var1) throws IOException;
+   Object read(T var1) throws IOException;
 
-   <T> T read(Template<T> var1) throws IOException;
+   Object read(Template var1) throws IOException;
 
-   <T> T read(T var1, Template<T> var2) throws IOException;
+   Object read(T var1, Template var2) throws IOException;
 
    void skip() throws IOException;
 

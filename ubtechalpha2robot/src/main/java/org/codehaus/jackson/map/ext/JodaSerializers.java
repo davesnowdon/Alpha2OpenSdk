@@ -132,11 +132,11 @@ public class JodaSerializers implements Provider<Entry<Class<?>, JsonSerializer<
       }
    }
 
-   protected abstract static class JodaSerializer<T> extends SerializerBase<T> {
+   protected abstract static class JodaSerializer extends SerializerBase {
       static final DateTimeFormatter _localDateTimeFormat = ISODateTimeFormat.dateTime();
       static final DateTimeFormatter _localDateFormat = ISODateTimeFormat.date();
 
-      protected JodaSerializer(Class<T> cls) {
+      protected JodaSerializer(Class cls) {
          super(cls);
       }
 

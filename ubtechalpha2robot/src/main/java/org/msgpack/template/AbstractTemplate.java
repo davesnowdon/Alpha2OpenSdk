@@ -4,7 +4,7 @@ import java.io.IOException;
 import org.msgpack.packer.Packer;
 import org.msgpack.unpacker.Unpacker;
 
-public abstract class AbstractTemplate<T> implements Template<T> {
+public abstract class AbstractTemplate implements Template {
    public AbstractTemplate() {
    }
 

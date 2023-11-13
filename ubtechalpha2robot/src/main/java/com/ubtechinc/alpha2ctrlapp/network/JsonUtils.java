@@ -43,9 +43,9 @@ public class JsonUtils {
       return json;
    }
 
-   public <T> T jsonToBean(String json, Class<T> cls) {
+   public Object jsonToBean(String json, Class cls) {
       try {
-         T obj = this.mapper.readValue(json, cls);
+         Object obj = this.mapper.readValue(json, cls);
          return obj;
       } catch (JsonParseException var4) {
          var4.printStackTrace();

@@ -34,7 +34,7 @@ public class ReflectionTemplateBuilder extends AbstractTemplateBuilder {
       return matched;
    }
 
-   public <T> Template<T> buildTemplate(Class<T> targetClass, FieldEntry[] entries) {
+   public Objectemplate buildTemplate(Class targetClass, FieldEntry[] entries) {
       if (entries == null) {
          throw new NullPointerException("entries is null: " + targetClass);
       } else {
@@ -67,11 +67,11 @@ public class ReflectionTemplateBuilder extends AbstractTemplateBuilder {
       return templates;
    }
 
-   protected static class ReflectionClassTemplate<T> extends AbstractTemplate<T> {
-      protected Class<T> targetClass;
+   protected static class ReflectionClassTemplate extends AbstractTemplate {
+      protected Class targetClass;
       protected ReflectionTemplateBuilder.ReflectionFieldTemplate[] templates;
 
-      protected ReflectionClassTemplate(Class<T> targetClass, ReflectionTemplateBuilder.ReflectionFieldTemplate[] templates) {
+      protected ReflectionClassTemplate(Class targetClass, ReflectionTemplateBuilder.ReflectionFieldTemplate[] templates) {
          this.targetClass = targetClass;
          this.templates = templates;
       }

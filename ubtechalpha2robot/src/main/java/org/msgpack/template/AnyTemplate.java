@@ -5,7 +5,7 @@ import org.msgpack.MessageTypeException;
 import org.msgpack.packer.Packer;
 import org.msgpack.unpacker.Unpacker;
 
-public class AnyTemplate<T> extends AbstractTemplate<T> {
+public class AnyTemplate extends AbstractTemplate {
    private TemplateRegistry registry;
 
    public AnyTemplate(TemplateRegistry registry) {

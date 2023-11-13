@@ -8,12 +8,12 @@ import org.codehaus.jackson.map.type.ClassKey;
 import org.codehaus.jackson.type.JavaType;
 
 public class SimpleAbstractTypeResolver extends AbstractTypeResolver {
-   protected final HashMap<ClassKey, Class<?>> _mappings = new HashMap();
+   protected final HashMap _mappings = new HashMap();
 
    public SimpleAbstractTypeResolver() {
    }
 
-   public <T> SimpleAbstractTypeResolver addMapping(Class<T> superType, Class<? extends T> subType) {
+   public SimpleAbstractTypeResolver addMapping(Class superType, Class subType) {
       if (superType == subType) {
          throw new IllegalArgumentException("Can not add mapping from class to itself");
       } else if (!superType.isAssignableFrom(subType)) {
@@ -27,8 +27,8 @@ public class SimpleAbstractTypeResolver extends AbstractTypeResolver {
    }
 
    public JavaType findTypeMapping(DeserializationConfig config, JavaType type) {
-      Class<?> src = type.getRawClass();
-      Class<?> dst = (Class)this._mappings.get(new ClassKey(src));
+      Class src = type.getRawClass();
+      Class dst = (Class)this._mappings.get(new ClassKey(src));
       return dst == null ? null : type.narrowBy(dst);
    }
 

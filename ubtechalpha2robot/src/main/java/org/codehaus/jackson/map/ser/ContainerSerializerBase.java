@@ -2,18 +2,18 @@ package org.codehaus.jackson.map.ser;
 
 import org.codehaus.jackson.map.TypeSerializer;
 
-public abstract class ContainerSerializerBase<T> extends SerializerBase<T> {
-   protected ContainerSerializerBase(Class<T> t) {
+public abstract class ContainerSerializerBase extends SerializerBase {
+   protected ContainerSerializerBase(Class t) {
       super(t);
    }
 
-   protected ContainerSerializerBase(Class<?> t, boolean dummy) {
+   protected ContainerSerializerBase(Class t, boolean dummy) {
       super(t, dummy);
    }
 
-   public ContainerSerializerBase<?> withValueTypeSerializer(TypeSerializer vts) {
+   public ContainerSerializerBase withValueTypeSerializer(TypeSerializer vts) {
       return vts == null ? this : this._withValueTypeSerializer(vts);
    }
 
-   public abstract ContainerSerializerBase<?> _withValueTypeSerializer(TypeSerializer var1);
+   public abstract ContainerSerializerBase _withValueTypeSerializer(TypeSerializer var1);
 }

@@ -319,11 +319,11 @@ public final class ArraySerializers {
       }
    }
 
-   public abstract static class AsArraySerializer<T> extends ContainerSerializerBase<T> {
+   public abstract static class AsArraySerializer extends ContainerSerializerBase {
       protected final TypeSerializer _valueTypeSerializer;
       protected final BeanProperty _property;
 
-      protected AsArraySerializer(Class<T> cls, TypeSerializer vts, BeanProperty property) {
+      protected AsArraySerializer(Class cls, TypeSerializer vts, BeanProperty property) {
          super(cls);
          this._valueTypeSerializer = vts;
          this._property = property;

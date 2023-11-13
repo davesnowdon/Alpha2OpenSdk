@@ -8,11 +8,11 @@ public abstract class ObjectCodec {
    protected ObjectCodec() {
    }
 
-   public abstract <T> T readValue(JsonParser var1, Class<T> var2) throws IOException, JsonProcessingException;
+   public abstract Object readValue(JsonParser var1, Class var2) throws IOException, JsonProcessingException;
 
-   public abstract <T> T readValue(JsonParser var1, TypeReference<?> var2) throws IOException, JsonProcessingException;
+   public abstract Object readValue(JsonParser var1, TypeReference<?> var2) throws IOException, JsonProcessingException;
 
-   public abstract <T> T readValue(JsonParser var1, JavaType var2) throws IOException, JsonProcessingException;
+   public abstract Object readValue(JsonParser var1, JavaType var2) throws IOException, JsonProcessingException;
 
    public abstract JsonNode readTree(JsonParser var1) throws IOException, JsonProcessingException;
 
@@ -26,5 +26,5 @@ public abstract class ObjectCodec {
 
    public abstract JsonParser treeAsTokens(JsonNode var1);
 
-   public abstract <T> T treeToValue(JsonNode var1, Class<T> var2) throws IOException, JsonProcessingException;
+   public abstract Object treeToValue(JsonNode var1, Class var2) throws IOException, JsonProcessingException;
 }

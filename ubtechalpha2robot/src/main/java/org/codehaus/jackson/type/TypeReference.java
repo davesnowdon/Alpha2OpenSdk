@@ -3,7 +3,7 @@ package org.codehaus.jackson.type;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 
-public abstract class TypeReference<T> implements Comparable<TypeReference<T>> {
+public abstract class TypeReference implements Comparable<TypeReference> {
    final Type _type;
 
    protected TypeReference() {
@@ -19,7 +19,7 @@ public abstract class TypeReference<T> implements Comparable<TypeReference<T>> {
       return this._type;
    }
 
-   public int compareTo(TypeReference<T> o) {
+   public int compareTo(TypeReference o) {
       return 0;
    }
 }

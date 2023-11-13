@@ -24,10 +24,10 @@ import org.codehaus.jackson.map.annotate.JacksonStdImpl;
 import org.codehaus.jackson.type.JavaType;
 import org.codehaus.jackson.util.TokenBuffer;
 
-public abstract class StdDeserializer<T> extends JsonDeserializer<T> {
-   protected final Class<?> _valueClass;
+public abstract class StdDeserializer extends JsonDeserializer {
+   protected final Class _valueClass;
 
-   protected StdDeserializer(Class<?> vc) {
+   protected StdDeserializer(Class vc) {
       this._valueClass = vc;
    }
 
@@ -35,7 +35,7 @@ public abstract class StdDeserializer<T> extends JsonDeserializer<T> {
       this._valueClass = valueType == null ? null : valueType.getRawClass();
    }
 
-   public Class<?> getValueClass() {
+   public Class getValueClass() {
       return this._valueClass;
    }
 
@@ -885,10 +885,10 @@ public abstract class StdDeserializer<T> extends JsonDeserializer<T> {
       }
    }
 
-   protected abstract static class PrimitiveOrWrapperDeserializer<T> extends StdScalarDeserializer<T> {
+   protected abstract static class PrimitiveOrWrapperDeserializer extends StdScalarDeserializer {
       final T _nullValue;
 
-      protected PrimitiveOrWrapperDeserializer(Class<T> vc, T nvl) {
+      protected PrimitiveOrWrapperDeserializer(Class vc, T nvl) {
          super(vc);
          this._nullValue = nvl;
       }

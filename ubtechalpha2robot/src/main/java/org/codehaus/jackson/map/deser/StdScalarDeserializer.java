@@ -6,8 +6,8 @@ import org.codehaus.jackson.JsonProcessingException;
 import org.codehaus.jackson.map.DeserializationContext;
 import org.codehaus.jackson.map.TypeDeserializer;
 
-public abstract class StdScalarDeserializer<T> extends StdDeserializer<T> {
-   protected StdScalarDeserializer(Class<?> vc) {
+public abstract class StdScalarDeserializer extends StdDeserializer {
+   protected StdScalarDeserializer(Class vc) {
       super(vc);
    }
 

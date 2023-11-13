@@ -7,12 +7,12 @@ import org.msgpack.annotation.OrdinalEnum;
 import org.msgpack.packer.Packer;
 import org.msgpack.unpacker.Unpacker;
 
-public class OrdinalEnumTemplate<T> extends AbstractTemplate<T> {
+public class OrdinalEnumTemplate extends AbstractTemplate {
    protected T[] entries;
    protected HashMap<T, Integer> reverse;
    protected boolean strict;
 
-   public OrdinalEnumTemplate(Class<T> targetClass) {
+   public OrdinalEnumTemplate(Class targetClass) {
       this.entries = targetClass.getEnumConstants();
       this.reverse = new HashMap();
 

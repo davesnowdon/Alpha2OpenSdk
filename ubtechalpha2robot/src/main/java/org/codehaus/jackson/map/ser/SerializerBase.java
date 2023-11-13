@@ -16,10 +16,10 @@ import org.codehaus.jackson.node.ObjectNode;
 import org.codehaus.jackson.schema.SchemaAware;
 import org.codehaus.jackson.type.JavaType;
 
-public abstract class SerializerBase<T> extends JsonSerializer<T> implements SchemaAware {
-   protected final Class<T> _handledType;
+public abstract class SerializerBase extends JsonSerializer implements SchemaAware {
+   protected final Class _handledType;
 
-   protected SerializerBase(Class<T> t) {
+   protected SerializerBase(Class t) {
       this._handledType = t;
    }
 
@@ -27,15 +27,15 @@ public abstract class SerializerBase<T> extends JsonSerializer<T> implements Sch
       this._handledType = type.getRawClass();
    }
 
-   protected SerializerBase(Class<?> t, boolean dummy) {
+   protected SerializerBase(Class t, boolean dummy) {
       this._handledType = t;
    }
 
-   public final Class<T> handledType() {
+   public final Class handledType() {
       return this._handledType;
    }
 
-   public abstract void serialize(T var1, JsonGenerator var2, SerializerProvider var3) throws IOException, JsonGenerationException;
+   public abstract void serialize(Object var1, JsonGenerator var2, SerializerProvider var3) throws IOException, JsonGenerationException;
 
    public abstract JsonNode getSchema(SerializerProvider var1, Type var2) throws JsonMappingException;
 
@@ -58,7 +58,7 @@ public abstract class SerializerBase<T> extends JsonSerializer<T> implements Sch
       return schema;
    }
 
-   protected boolean isDefaultSerializer(JsonSerializer<?> serializer) {
+   protected boolean isDefaultSerializer(JsonSerializer serializer) {
       return serializer != null && serializer.getClass().getAnnotation(JacksonStdImpl.class) != null;
    }
 

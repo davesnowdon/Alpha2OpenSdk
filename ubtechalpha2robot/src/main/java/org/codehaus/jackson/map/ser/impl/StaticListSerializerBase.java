@@ -8,7 +8,7 @@ import org.codehaus.jackson.map.SerializerProvider;
 import org.codehaus.jackson.map.ser.SerializerBase;
 import org.codehaus.jackson.node.ObjectNode;
 
-public abstract class StaticListSerializerBase<T extends Collection<?>> extends SerializerBase<T> {
+public abstract class StaticListSerializerBase extends SerializerBase {
    protected final BeanProperty _property;
 
    protected StaticListSerializerBase(Class<?> cls, BeanProperty property) {

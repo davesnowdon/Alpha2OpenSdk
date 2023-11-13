@@ -169,11 +169,11 @@ public abstract class JavaType {
       return null;
    }
 
-   public <T> T getValueHandler() {
+   public Object getValueHandler() {
       return this._valueHandler;
    }
 
-   public <T> T getTypeHandler() {
+   public Object getTypeHandler() {
       return this._typeHandler;
    }
 

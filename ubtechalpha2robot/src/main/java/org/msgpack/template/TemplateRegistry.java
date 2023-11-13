@@ -252,7 +252,7 @@ public class TemplateRegistry {
       }
    }
 
-   private <T> Template<T> lookupGenericInterfaceTypes(ParameterizedType targetType) {
+   private Objectemplate lookupGenericInterfaceTypes(ParameterizedType targetType) {
       Type rawType = targetType.getRawType();
       Template tmpl = null;
 
@@ -274,7 +274,7 @@ public class TemplateRegistry {
       return tmpl;
    }
 
-   private <T> Template<T> lookupGenericSuperclasses(ParameterizedType targetType) {
+   private Objectemplate lookupGenericSuperclasses(ParameterizedType targetType) {
       Type rawType = targetType.getRawType();
       Template tmpl = null;
 
@@ -397,9 +397,9 @@ public class TemplateRegistry {
       }
    }
 
-   private <T> Template<T> lookupAfterBuilding(Class<T> targetClass) {
+   private Objectemplate lookupAfterBuilding(Class targetClass) {
       TemplateBuilder builder = this.chain.select(targetClass, true);
-      Template<T> tmpl = null;
+      Template tmpl = null;
       if (builder != null) {
          tmpl = this.chain.getForceBuilder().loadTemplate(targetClass);
          if (tmpl != null) {
@@ -413,9 +413,9 @@ public class TemplateRegistry {
       return tmpl;
    }
 
-   private <T> Template<T> lookupInterfaceTypes(Class<T> targetClass) {
+   private Objectemplate lookupInterfaceTypes(Class targetClass) {
       Class<?>[] infTypes = targetClass.getInterfaces();
-      Template<T> tmpl = null;
+      Template tmpl = null;
       Class[] arr$ = infTypes;
       int len$ = infTypes.length;
 
@@ -440,9 +440,9 @@ public class TemplateRegistry {
       return tmpl;
    }
 
-   private <T> Template<T> lookupSuperclasses(Class<T> targetClass) {
+   private Objectemplate lookupSuperclasses(Class targetClass) {
       Class<?> superClass = targetClass.getSuperclass();
-      Template<T> tmpl = null;
+      Template tmpl = null;
       if (superClass != null) {
          for(; superClass != Object.class; superClass = superClass.getSuperclass()) {
             tmpl = (Template)this.cache.get(superClass);
@@ -465,9 +465,9 @@ public class TemplateRegistry {
       return tmpl;
    }
 
-   private <T> Template<T> lookupSuperclassInterfaceTypes(Class<T> targetClass) {
+   private Objectemplate lookupSuperclassInterfaceTypes(Class targetClass) {
       Class<?> superClass = targetClass.getSuperclass();
-      Template<T> tmpl = null;
+      Template tmpl = null;
       if (superClass != null) {
          for(; superClass != Object.class; superClass = superClass.getSuperclass()) {
             tmpl = this.lookupInterfaceTypes(superClass);

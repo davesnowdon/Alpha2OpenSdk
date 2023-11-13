@@ -18,7 +18,7 @@ import org.codehaus.jackson.map.util.ClassUtil;
 import org.codehaus.jackson.map.util.StdDateFormat;
 import org.codehaus.jackson.type.JavaType;
 
-public abstract class MapperConfig<T extends MapperConfig<T>> implements ClassIntrospector.MixInResolver {
+public abstract class MapperConfig implements ClassIntrospector.MixInResolver {
    protected static final DateFormat DEFAULT_DATE_FORMAT;
    protected MapperConfig.Base _base;
    protected HashMap<ClassKey, Class<?>> _mixInAnnotations;

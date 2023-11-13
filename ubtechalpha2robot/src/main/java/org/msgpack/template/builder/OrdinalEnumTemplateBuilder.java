@@ -24,12 +24,12 @@ public class OrdinalEnumTemplateBuilder extends AbstractTemplateBuilder {
       return matched;
    }
 
-   public <T> Template<T> buildTemplate(Class<T> targetClass, FieldEntry[] entries) {
+   public Objectemplate buildTemplate(Class targetClass, FieldEntry[] entries) {
       throw new UnsupportedOperationException("fatal error: " + targetClass.getName());
    }
 
-   public <T> Template<T> buildTemplate(Type targetType) throws TemplateBuildException {
-      Class<T> targetClass = (Class)targetType;
+   public Objectemplate buildTemplate(Type targetType) throws TemplateBuildException {
+      Class targetClass = (Class)targetType;
       this.checkOrdinalEnumValidation(targetClass);
       return new OrdinalEnumTemplate(targetClass);
    }

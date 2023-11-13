@@ -75,8 +75,8 @@ public final class ArrayBuilders {
       return this._doubleBuilder;
    }
 
-   public static <T> HashSet<T> arrayToSet(T[] elements) {
-      HashSet<T> result = new HashSet();
+   public static  HashSet arrayToSet(T[] elements) {
+      HashSet result = new HashSet();
       if (elements != null) {
          Object[] arr$ = elements;
          int len$ = elements.length;
@@ -90,7 +90,7 @@ public final class ArrayBuilders {
       return result;
    }
 
-   public static <T> List<T> addToList(List<T> list, T element) {
+   public static  List addToList(List list, T element) {
       if (list == null) {
          list = new ArrayList();
       }
@@ -99,7 +99,7 @@ public final class ArrayBuilders {
       return (List)list;
    }
 
-   public static <T> T[] insertInList(T[] array, T element) {
+   public static Object[] insertInList(T[] array, T element) {
       int len = array.length;
       T[] result = (Object[])((Object[])Array.newInstance(array.getClass().getComponentType(), len + 1));
       if (len > 0) {
@@ -110,7 +110,7 @@ public final class ArrayBuilders {
       return result;
    }
 
-   public static <T> T[] insertInListNoDup(T[] array, T element) {
+   public static Object[] insertInListNoDup(T[] array, T element) {
       int len = array.length;
 
       for(int ix = 0; ix < len; ++ix) {
@@ -135,15 +135,15 @@ public final class ArrayBuilders {
       return result;
    }
 
-   public static <T> Iterator<T> arrayAsIterator(T[] array) {
+   public static  Iterator arrayAsIterator(T[] array) {
       return new ArrayBuilders.ArrayIterator(array);
    }
 
-   public static <T> Iterable<T> arrayAsIterable(T[] array) {
+   public static  Iterable arrayAsIterable(T[] array) {
       return new ArrayBuilders.ArrayIterator(array);
    }
 
-   private static final class ArrayIterator<T> implements Iterator<T>, Iterable<T> {
+   private static final class ArrayIterator implements Iterator, Iterable {
       private final T[] _array;
       private int _index;
 
@@ -168,7 +168,7 @@ public final class ArrayBuilders {
          throw new UnsupportedOperationException();
       }
 
-      public Iterator<T> iterator() {
+      public Iterator iterator() {
          return this;
       }
    }

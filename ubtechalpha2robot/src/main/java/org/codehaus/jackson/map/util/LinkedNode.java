@@ -1,15 +1,15 @@
 package org.codehaus.jackson.map.util;
 
-public final class LinkedNode<T> {
+public final class LinkedNode {
    final T _value;
-   final LinkedNode<T> _next;
+   final LinkedNode _next;
 
-   public LinkedNode(T value, LinkedNode<T> next) {
+   public LinkedNode(T value, LinkedNode next) {
       this._value = value;
       this._next = next;
    }
 
-   public LinkedNode<T> next() {
+   public LinkedNode next() {
       return this._next;
    }
 

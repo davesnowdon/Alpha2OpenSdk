@@ -20,7 +20,7 @@ public class SimpleModule extends Module {
       this._version = version;
    }
 
-   public SimpleModule addSerializer(JsonSerializer<?> ser) {
+   public SimpleModule addSerializer(JsonSerializer ser) {
       if (this._serializers == null) {
          this._serializers = new SimpleSerializers();
       }
@@ -29,7 +29,7 @@ public class SimpleModule extends Module {
       return this;
    }
 
-   public <T> SimpleModule addSerializer(Class<? extends T> type, JsonSerializer<T> ser) {
+   public  SimpleModule addSerializer(Class type, JsonSerializer ser) {
       if (this._serializers == null) {
          this._serializers = new SimpleSerializers();
       }
@@ -38,7 +38,7 @@ public class SimpleModule extends Module {
       return this;
    }
 
-   public <T> SimpleModule addKeySerializer(Class<? extends T> type, JsonSerializer<T> ser) {
+   public  SimpleModule addKeySerializer(Class type, JsonSerializer ser) {
       if (this._keySerializers == null) {
          this._keySerializers = new SimpleSerializers();
       }
@@ -47,7 +47,7 @@ public class SimpleModule extends Module {
       return this;
    }
 
-   public <T> SimpleModule addDeserializer(Class<T> type, JsonDeserializer<? extends T> deser) {
+   public  SimpleModule addDeserializer(Class type, JsonDeserializer deser) {
       if (this._deserializers == null) {
          this._deserializers = new SimpleDeserializers();
       }
@@ -56,7 +56,7 @@ public class SimpleModule extends Module {
       return this;
    }
 
-   public SimpleModule addKeyDeserializer(Class<?> type, KeyDeserializer deser) {
+   public SimpleModule addKeyDeserializer(Class type, KeyDeserializer deser) {
       if (this._keyDeserializers == null) {
          this._keyDeserializers = new SimpleKeyDeserializers();
       }
@@ -65,7 +65,7 @@ public class SimpleModule extends Module {
       return this;
    }
 
-   public <T> SimpleModule addAbstractTypeMapping(Class<T> superType, Class<? extends T> subType) {
+   public  SimpleModule addAbstractTypeMapping(Class superType, Class subType) {
       if (this._abstractTypes == null) {
          this._abstractTypes = new SimpleAbstractTypeResolver();
       }

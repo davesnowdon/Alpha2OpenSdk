@@ -243,7 +243,7 @@ public abstract class JsonParser implements Closeable, Versioned {
       return defaultValue;
    }
 
-   public <T> T readValueAs(Class<T> valueType) throws IOException, JsonProcessingException {
+   public Object readValueAs(Class valueType) throws IOException, JsonProcessingException {
       ObjectCodec codec = this.getCodec();
       if (codec == null) {
          throw new IllegalStateException("No ObjectCodec defined for the parser, can not deserialize JSON into Java objects");
@@ -252,7 +252,7 @@ public abstract class JsonParser implements Closeable, Versioned {
       }
    }
 
-   public <T> T readValueAs(TypeReference<?> valueTypeRef) throws IOException, JsonProcessingException {
+   public Object readValueAs(TypeReference<?> valueTypeRef) throws IOException, JsonProcessingException {
       ObjectCodec codec = this.getCodec();
       if (codec == null) {
          throw new IllegalStateException("No ObjectCodec defined for the parser, can not deserialize JSON into Java objects");

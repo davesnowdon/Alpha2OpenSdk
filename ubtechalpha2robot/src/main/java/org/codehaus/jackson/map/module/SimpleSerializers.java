@@ -16,14 +16,14 @@ import org.codehaus.jackson.map.type.MapType;
 import org.codehaus.jackson.type.JavaType;
 
 public class SimpleSerializers implements Serializers {
-   protected HashMap<ClassKey, JsonSerializer<?>> _classMappings = null;
-   protected HashMap<ClassKey, JsonSerializer<?>> _interfaceMappings = null;
+   protected HashMap<ClassKey, JsonSerializer> _classMappings = null;
+   protected HashMap<ClassKey, JsonSerializer> _interfaceMappings = null;
 
    public SimpleSerializers() {
    }
 
-   public void addSerializer(JsonSerializer<?> ser) {
-      Class<?> cls = ser.handledType();
+   public void addSerializer(JsonSerializer ser) {
+      Class cls = ser.handledType();
       if (cls != null && cls != Object.class) {
          this._addSerializer(cls, ser);
       } else {
@@ -31,11 +31,11 @@ public class SimpleSerializers implements Serializers {
       }
    }
 
-   public <T> void addSerializer(Class<? extends T> type, JsonSerializer<T> ser) {
+   public void addSerializer(Class<? extends T> type, JsonSerializer ser) {
       this._addSerializer(type, ser);
    }
 
-   private void _addSerializer(Class<?> cls, JsonSerializer<?> ser) {
+   private void _addSerializer(Class cls, JsonSerializer ser) {
       ClassKey key = new ClassKey(cls);
       if (cls.isInterface()) {
          if (this._interfaceMappings == null) {
@@ -53,10 +53,10 @@ public class SimpleSerializers implements Serializers {
 
    }
 
-   public JsonSerializer<?> findSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc, BeanProperty property) {
-      Class<?> cls = type.getRawClass();
+   public JsonSerializer findSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc, BeanProperty property) {
+      Class cls = type.getRawClass();
       ClassKey key = new ClassKey(cls);
-      JsonSerializer<?> ser = null;
+      JsonSerializer ser = null;
       if (cls.isInterface()) {
          if (this._interfaceMappings != null) {
             ser = (JsonSerializer)this._interfaceMappings.get(key);
@@ -98,34 +98,34 @@ public class SimpleSerializers implements Serializers {
       return null;
    }
 
-   public JsonSerializer<?> findArraySerializer(SerializationConfig config, ArrayType type, BeanDescription beanDesc, BeanProperty property, TypeSerializer elementTypeSerializer, JsonSerializer<Object> elementValueSerializer) {
+   public JsonSerializer findArraySerializer(SerializationConfig config, ArrayType type, BeanDescription beanDesc, BeanProperty property, TypeSerializer elementTypeSerializer, JsonSerializer<Object> elementValueSerializer) {
       return this.findSerializer(config, type, beanDesc, property);
    }
 
-   public JsonSerializer<?> findCollectionSerializer(SerializationConfig config, CollectionType type, BeanDescription beanDesc, BeanProperty property, TypeSerializer elementTypeSerializer, JsonSerializer<Object> elementValueSerializer) {
+   public JsonSerializer findCollectionSerializer(SerializationConfig config, CollectionType type, BeanDescription beanDesc, BeanProperty property, TypeSerializer elementTypeSerializer, JsonSerializer<Object> elementValueSerializer) {
       return this.findSerializer(config, type, beanDesc, property);
    }
 
-   public JsonSerializer<?> findCollectionLikeSerializer(SerializationConfig config, CollectionLikeType type, BeanDescription beanDesc, BeanProperty property, TypeSerializer elementTypeSerializer, JsonSerializer<Object> elementValueSerializer) {
+   public JsonSerializer findCollectionLikeSerializer(SerializationConfig config, CollectionLikeType type, BeanDescription beanDesc, BeanProperty property, TypeSerializer elementTypeSerializer, JsonSerializer<Object> elementValueSerializer) {
       return this.findSerializer(config, type, beanDesc, property);
    }
 
-   public JsonSerializer<?> findMapSerializer(SerializationConfig config, MapType type, BeanDescription beanDesc, BeanProperty property, JsonSerializer<Object> keySerializer, TypeSerializer elementTypeSerializer, JsonSerializer<Object> elementValueSerializer) {
+   public JsonSerializer findMapSerializer(SerializationConfig config, MapType type, BeanDescription beanDesc, BeanProperty property, JsonSerializer<Object> keySerializer, TypeSerializer elementTypeSerializer, JsonSerializer<Object> elementValueSerializer) {
       return this.findSerializer(config, type, beanDesc, property);
    }
 
-   public JsonSerializer<?> findMapLikeSerializer(SerializationConfig config, MapLikeType type, BeanDescription beanDesc, BeanProperty property, JsonSerializer<Object> keySerializer, TypeSerializer elementTypeSerializer, JsonSerializer<Object> elementValueSerializer) {
+   public JsonSerializer findMapLikeSerializer(SerializationConfig config, MapLikeType type, BeanDescription beanDesc, BeanProperty property, JsonSerializer<Object> keySerializer, TypeSerializer elementTypeSerializer, JsonSerializer<Object> elementValueSerializer) {
       return this.findSerializer(config, type, beanDesc, property);
    }
 
-   protected JsonSerializer<?> _findInterfaceMapping(Class<?> cls, ClassKey key) {
+   protected JsonSerializer _findInterfaceMapping(Class cls, ClassKey key) {
       Class[] arr$ = cls.getInterfaces();
       int len$ = arr$.length;
 
       for(int i$ = 0; i$ < len$; ++i$) {
-         Class<?> iface = arr$[i$];
+         Class iface = arr$[i$];
          key.reset(iface);
-         JsonSerializer<?> ser = (JsonSerializer)this._interfaceMappings.get(key);
+         JsonSerializer ser = (JsonSerializer)this._interfaceMappings.get(key);
          if (ser != null) {
             return ser;
          }

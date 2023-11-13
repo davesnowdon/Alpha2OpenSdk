@@ -14,7 +14,7 @@ import org.codehaus.jackson.map.type.TypeFactory;
 import org.codehaus.jackson.map.util.ClassUtil;
 import org.codehaus.jackson.type.JavaType;
 
-public class SerializationConfig extends MapperConfig<SerializationConfig> {
+public class SerializationConfig extends MapperConfig {
    protected static final int DEFAULT_FEATURE_FLAGS = SerializationConfig.Feature.collectDefaults();
    protected int _featureFlags;
    protected JsonSerialize.Inclusion _serializationInclusion;

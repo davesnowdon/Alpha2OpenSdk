@@ -29,23 +29,23 @@ public final class Templates {
    public Templates() {
    }
 
-   public static <T> Template<T> tNotNullable(Template<T> innerTemplate) {
+   public static Objectemplate NotNullable(Template innerTemplate) {
       return new NotNullableTemplate(innerTemplate);
    }
 
-   public static <E> Template<List<E>> tList(Template<E> elementTemplate) {
+   public static Template tList(Template elementTemplate) {
       return new ListTemplate(elementTemplate);
    }
 
-   public static <K, V> Template<Map<K, V>> tMap(Template<K> keyTemplate, Template<V> valueTemplate) {
+   public static Template tMap(Template keyTemplate, Template valueTemplate) {
       return new MapTemplate(keyTemplate, valueTemplate);
    }
 
-   public static <E> Template<Collection<E>> tCollection(Template<E> elementTemplate) {
+   public static Template tCollection(Template elementTemplate) {
       return new CollectionTemplate(elementTemplate);
    }
 
-   public static <E extends Enum> Template<E> tOrdinalEnum(Class<E> enumClass) {
+   public static Template tOrdinalEnum(Class enumClass) {
       return new OrdinalEnumTemplate(enumClass);
    }
 

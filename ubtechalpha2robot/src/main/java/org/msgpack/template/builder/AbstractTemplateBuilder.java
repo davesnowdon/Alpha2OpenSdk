@@ -30,23 +30,23 @@ public abstract class AbstractTemplateBuilder implements TemplateBuilder {
       this.registry = registry;
    }
 
-   public <T> Template<T> buildTemplate(Type targetType) throws TemplateBuildException {
-      Class<T> targetClass = (Class)targetType;
+   public Objectemplate buildTemplate(Type targetType) throws TemplateBuildException {
+      Class targetClass = (Class)targetType;
       this.checkClassValidation(targetClass);
       FieldOption fieldOption = this.getFieldOption(targetClass);
       FieldEntry[] entries = this.toFieldEntries(targetClass, fieldOption);
       return this.buildTemplate(targetClass, entries);
    }
 
-   public <T> Template<T> buildTemplate(Class<T> targetClass, FieldList fieldList) throws TemplateBuildException {
+   public Objectemplate buildTemplate(Class targetClass, FieldList fieldList) throws TemplateBuildException {
       this.checkClassValidation(targetClass);
       FieldEntry[] entries = this.toFieldEntries(targetClass, fieldList);
       return this.buildTemplate(targetClass, entries);
    }
 
-   protected abstract <T> Template<T> buildTemplate(Class<T> var1, FieldEntry[] var2);
+   protected abstract Objectemplate buildTemplate(Class var1, FieldEntry[] var2);
 
-   protected void checkClassValidation(Class<?> targetClass) {
+   protected void checkClassValidation(Class targetClass) {
       if (Modifier.isAbstract(targetClass.getModifiers())) {
          throw new TemplateBuildException("Cannot build template for abstract class: " + targetClass.getName());
       } else if (targetClass.isInterface()) {
@@ -185,7 +185,7 @@ public abstract class AbstractTemplateBuilder implements TemplateBuilder {
       throw new UnsupportedOperationException(targetType.toString());
    }
 
-   public <T> Template<T> loadTemplate(Type targetType) {
+   public Objectemplate loadTemplate(Type targetType) {
       return null;
    }
 

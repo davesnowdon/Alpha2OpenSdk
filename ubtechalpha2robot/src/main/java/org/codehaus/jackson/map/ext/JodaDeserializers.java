@@ -148,8 +148,8 @@ public class JodaDeserializers implements Provider<StdDeserializer<?>> {
       }
    }
 
-   public static class DateTimeDeserializer<T extends ReadableInstant> extends JodaDeserializers.JodaDeserializer<T> {
-      public DateTimeDeserializer(Class<T> cls) {
+   public static class DateTimeDeserializer extends JodaDeserializers.JodaDeserializer {
+      public DateTimeDeserializer(Class cls) {
          super(cls);
       }
 
@@ -166,10 +166,10 @@ public class JodaDeserializers implements Provider<StdDeserializer<?>> {
       }
    }
 
-   abstract static class JodaDeserializer<T> extends StdScalarDeserializer<T> {
+   abstract static class JodaDeserializer extends StdScalarDeserializer {
       static final DateTimeFormatter _localDateTimeFormat = ISODateTimeFormat.localDateOptionalTimeParser();
 
-      protected JodaDeserializer(Class<T> cls) {
+      protected JodaDeserializer(Class cls) {
          super(cls);
       }
 

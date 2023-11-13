@@ -17,14 +17,14 @@ import org.codehaus.jackson.map.util.LinkedNode;
 import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.type.JavaType;
 
-public class DeserializationConfig extends MapperConfig<DeserializationConfig> {
+public class DeserializationConfig extends MapperConfig {
    protected static final int DEFAULT_FEATURE_FLAGS = DeserializationConfig.Feature.collectDefaults();
    protected int _featureFlags;
    protected LinkedNode<DeserializationProblemHandler> _problemHandlers;
    protected AbstractTypeResolver _abstractTypeResolver;
    protected JsonNodeFactory _nodeFactory;
 
-   public DeserializationConfig(ClassIntrospector<? extends BeanDescription> intr, AnnotationIntrospector annIntr, VisibilityChecker<?> vc, SubtypeResolver subtypeResolver, PropertyNamingStrategy propertyNamingStrategy, TypeFactory typeFactory, HandlerInstantiator handlerInstantiator) {
+   public DeserializationConfig(ClassIntrospector<? extends BeanDescription> intr, AnnotationIntrospector annIntr, VisibilityChecker vc, SubtypeResolver subtypeResolver, PropertyNamingStrategy propertyNamingStrategy, TypeFactory typeFactory, HandlerInstantiator handlerInstantiator) {
       super(intr, annIntr, vc, subtypeResolver, propertyNamingStrategy, typeFactory, handlerInstantiator);
       this._featureFlags = DEFAULT_FEATURE_FLAGS;
       this._nodeFactory = JsonNodeFactory.instance;
@@ -34,7 +34,7 @@ public class DeserializationConfig extends MapperConfig<DeserializationConfig> {
       this(src, src._base);
    }
 
-   private DeserializationConfig(DeserializationConfig src, HashMap<ClassKey, Class<?>> mixins, SubtypeResolver str) {
+   private DeserializationConfig(DeserializationConfig src, HashMap mixins, SubtypeResolver str) {
       this(src, src._base);
       this._mixInAnnotations = mixins;
       this._subtypeResolver = str;
@@ -66,11 +66,11 @@ public class DeserializationConfig extends MapperConfig<DeserializationConfig> {
       return new DeserializationConfig(this, this._base.withAnnotationIntrospector(ai));
    }
 
-   public DeserializationConfig withVisibilityChecker(VisibilityChecker<?> vc) {
+   public DeserializationConfig withVisibilityChecker(VisibilityChecker vc) {
       return new DeserializationConfig(this, this._base.withVisibilityChecker(vc));
    }
 
-   public DeserializationConfig withTypeResolverBuilder(TypeResolverBuilder<?> trb) {
+   public DeserializationConfig withTypeResolverBuilder(TypeResolverBuilder trb) {
       return new DeserializationConfig(this, this._base.withTypeResolverBuilder(trb));
    }
 
@@ -121,15 +121,15 @@ public class DeserializationConfig extends MapperConfig<DeserializationConfig> {
       return (this._featureFlags & f.getMask()) != 0;
    }
 
-   public void fromAnnotations(Class<?> cls) {
+   public void fromAnnotations(Class cls) {
       AnnotationIntrospector ai = this.getAnnotationIntrospector();
       AnnotatedClass ac = AnnotatedClass.construct(cls, ai, (ClassIntrospector.MixInResolver)null);
-      VisibilityChecker<?> prevVc = this.getDefaultVisibilityChecker();
+      VisibilityChecker prevVc = this.getDefaultVisibilityChecker();
       this._base = this._base.withVisibilityChecker(ai.findAutoDetectVisibility(ac, prevVc));
    }
 
    public DeserializationConfig createUnshared(SubtypeResolver subtypeResolver) {
-      HashMap<ClassKey, Class<?>> mixins = this._mixInAnnotations;
+      HashMap<ClassKey, Class> mixins = this._mixInAnnotations;
       this._mixInAnnotationsShared = true;
       return new DeserializationConfig(this, mixins, subtypeResolver);
    }
@@ -138,11 +138,11 @@ public class DeserializationConfig extends MapperConfig<DeserializationConfig> {
       return (AnnotationIntrospector)(this.isEnabled(DeserializationConfig.Feature.USE_ANNOTATIONS) ? super.getAnnotationIntrospector() : NopAnnotationIntrospector.instance);
    }
 
-   public <T extends BeanDescription> T introspectClassAnnotations(Class<?> cls) {
+   public <T extends BeanDescription> T introspectClassAnnotations(Class cls) {
       return this.getClassIntrospector().forClassAnnotations(this, cls, this);
    }
 
-   public <T extends BeanDescription> T introspectDirectClassAnnotations(Class<?> cls) {
+   public <T extends BeanDescription> T introspectDirectClassAnnotations(Class cls) {
       return this.getClassIntrospector().forDirectClassAnnotations(this, cls, this);
    }
 
@@ -185,10 +185,10 @@ public class DeserializationConfig extends MapperConfig<DeserializationConfig> {
       return this.getClassIntrospector().forCreation(this, type, this);
    }
 
-   public JsonDeserializer<Object> deserializerInstance(Annotated annotated, Class<? extends JsonDeserializer<?>> deserClass) {
+   public JsonDeserializer<Object> deserializerInstance(Annotated annotated, Class<? extends JsonDeserializer> deserClass) {
       HandlerInstantiator hi = this.getHandlerInstantiator();
       if (hi != null) {
-         JsonDeserializer<?> deser = hi.deserializerInstance(this, annotated, deserClass);
+         JsonDeserializer deser = hi.deserializerInstance(this, annotated, deserClass);
          if (deser != null) {
             return deser;
          }
@@ -211,7 +211,7 @@ public class DeserializationConfig extends MapperConfig<DeserializationConfig> {
 
    /** @deprecated */
    @Deprecated
-   public DeserializationConfig createUnshared(TypeResolverBuilder<?> typer, VisibilityChecker<?> vc, SubtypeResolver str) {
+   public DeserializationConfig createUnshared(TypeResolverBuilder typer, VisibilityChecker vc, SubtypeResolver str) {
       return this.createUnshared(str).withTypeResolverBuilder(typer).withVisibilityChecker(vc);
    }
 

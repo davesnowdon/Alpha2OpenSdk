@@ -35,7 +35,7 @@ public class CustomSerializerFactory extends BeanSerializerFactory {
       }
    }
 
-   public <T> void addGenericMapping(Class<? extends T> type, JsonSerializer<T> ser) {
+   public  void addGenericMapping(Class<? extends T> type, JsonSerializer ser) {
       ClassKey key = new ClassKey(type);
       if (type.isInterface()) {
          if (this._interfaceMappings == null) {
@@ -53,7 +53,7 @@ public class CustomSerializerFactory extends BeanSerializerFactory {
 
    }
 
-   public <T> void addSpecificMapping(Class<? extends T> forClass, JsonSerializer<T> ser) {
+   public  void addSpecificMapping(Class<? extends T> forClass, JsonSerializer ser) {
       ClassKey key = new ClassKey(forClass);
       if (forClass.isInterface()) {
          throw new IllegalArgumentException("Can not add specific mapping for an interface (" + forClass.getName() + ")");

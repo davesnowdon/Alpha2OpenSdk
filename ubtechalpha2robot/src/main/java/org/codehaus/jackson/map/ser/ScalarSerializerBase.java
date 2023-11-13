@@ -9,12 +9,12 @@ import org.codehaus.jackson.map.JsonMappingException;
 import org.codehaus.jackson.map.SerializerProvider;
 import org.codehaus.jackson.map.TypeSerializer;
 
-public abstract class ScalarSerializerBase<T> extends SerializerBase<T> {
-   protected ScalarSerializerBase(Class<T> t) {
+public abstract class ScalarSerializerBase extends SerializerBase {
+   protected ScalarSerializerBase(Class t) {
       super(t);
    }
 
-   protected ScalarSerializerBase(Class<?> t, boolean dummy) {
+   protected ScalarSerializerBase(Class t, boolean dummy) {
       super(t);
    }
 

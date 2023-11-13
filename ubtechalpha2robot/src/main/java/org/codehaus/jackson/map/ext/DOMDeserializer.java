@@ -8,14 +8,14 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 
-public abstract class DOMDeserializer<T> extends FromStringDeserializer<T> {
+public abstract class DOMDeserializer extends FromStringDeserializer {
    static final DocumentBuilderFactory _parserFactory = DocumentBuilderFactory.newInstance();
 
-   protected DOMDeserializer(Class<T> cls) {
+   protected DOMDeserializer(Class cls) {
       super(cls);
    }
 
-   public abstract T _deserialize(String var1, DeserializationContext var2);
+   public abstract Object _deserialize(String var1, DeserializationContext var2);
 
    protected final Document parse(String value) throws IllegalArgumentException {
       try {

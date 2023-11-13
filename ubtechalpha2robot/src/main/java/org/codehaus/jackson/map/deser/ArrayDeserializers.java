@@ -431,8 +431,8 @@ public class ArrayDeserializers {
       }
    }
 
-   abstract static class ArrayDeser<T> extends StdDeserializer<T> {
-      protected ArrayDeser(Class<T> cls) {
+   abstract static class ArrayDeser extends StdDeserializer {
+      protected ArrayDeser(Class cls) {
          super(cls);
       }
 

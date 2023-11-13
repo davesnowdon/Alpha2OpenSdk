@@ -7,14 +7,14 @@ import org.codehaus.jackson.JsonStreamContext;
 import org.codehaus.jackson.JsonToken;
 import org.codehaus.jackson.type.JavaType;
 
-public class MappingIterator<T> implements Iterator<T> {
-   protected static final MappingIterator<?> EMPTY_ITERATOR = new MappingIterator((JavaType)null, (JsonParser)null, (DeserializationContext)null, (JsonDeserializer)null);
+public class MappingIterator implements Iterator {
+   protected static final MappingIterator EMPTY_ITERATOR = new MappingIterator((JavaType)null, (JsonParser)null, (DeserializationContext)null, (JsonDeserializer)null);
    protected final JavaType _type;
    protected final DeserializationContext _context;
-   protected final JsonDeserializer<T> _deserializer;
+   protected final JsonDeserializer _deserializer;
    protected final JsonParser _parser;
 
-   protected MappingIterator(JavaType type, JsonParser jp, DeserializationContext ctxt, JsonDeserializer<?> deser) {
+   protected MappingIterator(JavaType type, JsonParser jp, DeserializationContext ctxt, JsonDeserializer deser) {
       this._type = type;
       this._parser = jp;
       this._context = ctxt;
@@ -28,7 +28,7 @@ public class MappingIterator<T> implements Iterator<T> {
 
    }
 
-   protected static <T> MappingIterator<T> emptyIterator() {
+   protected static MappingIterator emptyIterator() {
       return EMPTY_ITERATOR;
    }
 

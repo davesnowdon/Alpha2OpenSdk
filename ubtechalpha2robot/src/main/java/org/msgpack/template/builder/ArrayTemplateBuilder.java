@@ -31,7 +31,7 @@ public class ArrayTemplateBuilder extends AbstractTemplateBuilder {
    }
 
    public boolean matchType(Type targetType, boolean forceBuild) {
-      Class<?> targetClass = (Class)targetType;
+      Class targetClass = (Class)targetType;
       boolean matched = AbstractTemplateBuilder.matchAtArrayTemplateBuilder(targetClass, false);
       if (matched && LOG.isLoggable(Level.FINE)) {
          LOG.fine("matched type: " + targetClass.getName());
@@ -40,7 +40,7 @@ public class ArrayTemplateBuilder extends AbstractTemplateBuilder {
       return matched;
    }
 
-   public <T> Template<T> buildTemplate(Type arrayType) {
+   public Objectemplate buildTemplate(Type arrayType) {
       int dim = 1;
       Object baseType;
       Class baseClass;
@@ -57,7 +57,7 @@ public class ArrayTemplateBuilder extends AbstractTemplateBuilder {
             baseClass = (Class)baseType;
          }
       } else {
-         Class<?> type = (Class)arrayType;
+         Class type = (Class)arrayType;
 
          for(baseClass = type.getComponentType(); baseClass.isArray(); ++dim) {
             baseClass = baseClass.getComponentType();
@@ -100,11 +100,11 @@ public class ArrayTemplateBuilder extends AbstractTemplateBuilder {
       }
    }
 
-   public <T> Template<T> buildTemplate(Class<T> targetClass, FieldList flist) throws TemplateBuildException {
+   public Objectemplate buildTemplate(Class targetClass, FieldList flist) throws TemplateBuildException {
       throw new UnsupportedOperationException(targetClass.getName());
    }
 
-   protected <T> Template<T> buildTemplate(Class<T> targetClass, FieldEntry[] entries) {
+   protected Objectemplate buildTemplate(Class targetClass, FieldEntry[] entries) {
       throw new UnsupportedOperationException(targetClass.getName());
    }
 
@@ -112,7 +112,7 @@ public class ArrayTemplateBuilder extends AbstractTemplateBuilder {
       throw new UnsupportedOperationException(targetType.toString());
    }
 
-   public <T> Template<T> loadTemplate(Type targetType) {
+   public Objectemplate loadTemplate(Type targetType) {
       return null;
    }
 

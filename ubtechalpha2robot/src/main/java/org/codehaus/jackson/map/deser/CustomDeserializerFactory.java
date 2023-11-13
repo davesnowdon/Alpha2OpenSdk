@@ -34,7 +34,7 @@ public class CustomDeserializerFactory extends BeanDeserializerFactory {
       }
    }
 
-   public <T> void addSpecificMapping(Class<T> forClass, JsonDeserializer<? extends T> deser) {
+   public void addSpecificMapping(Class forClass, JsonDeserializer deser) {
       ClassKey key = new ClassKey(forClass);
       if (this._directClassMappings == null) {
          this._directClassMappings = new HashMap();

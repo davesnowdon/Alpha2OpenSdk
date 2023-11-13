@@ -1,9 +1,9 @@
 package org.codehaus.jackson.xc;
 
-import java.beans.BeanInfo;
-import java.beans.IntrospectionException;
-import java.beans.Introspector;
-import java.beans.PropertyDescriptor;
+import org.msgpack.template.builder.beans.BeanInfo;
+import org.msgpack.template.builder.beans.IntrospectionException;
+import org.msgpack.template.builder.beans.Introspector;
+import org.msgpack.template.builder.beans.PropertyDescriptor;
 import java.lang.annotation.Annotation;
 import java.lang.ref.SoftReference;
 import java.lang.reflect.AnnotatedElement;
@@ -891,7 +891,7 @@ public class JaxbAnnotationIntrospector extends AnnotationIntrospector implement
          }
       }
 
-      public <T extends Annotation> T getAnnotation(Class<T> annotationClass) {
+      public <T extends Annotation> T getAnnotation(Class annotationClass) {
          Method m = this.pd.getReadMethod();
          if (m != null) {
             T ann = m.getAnnotation(annotationClass);

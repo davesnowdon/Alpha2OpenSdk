@@ -47,7 +47,7 @@ public final class ObjectBuffer {
       return result;
    }
 
-   public <T> T[] completeAndClearBuffer(Object[] lastChunk, int lastChunkEntries, Class<T> componentType) {
+   public Object[] completeAndClearBuffer(Object[] lastChunk, int lastChunkEntries, Class componentType) {
       int totalSize = lastChunkEntries + this._bufferedEntryCount;
       T[] result = (Object[])((Object[])Array.newInstance(componentType, totalSize));
       this._copyTo(result, totalSize, lastChunk, lastChunkEntries);

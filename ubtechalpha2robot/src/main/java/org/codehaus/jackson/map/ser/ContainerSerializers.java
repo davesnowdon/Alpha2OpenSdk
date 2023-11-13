@@ -355,7 +355,7 @@ public final class ContainerSerializers {
       }
    }
 
-   public abstract static class AsArraySerializer<T> extends ContainerSerializerBase<T> implements ResolvableSerializer {
+   public abstract static class AsArraySerializer extends ContainerSerializerBase implements ResolvableSerializer {
       protected final boolean _staticTyping;
       protected final JavaType _elementType;
       protected final TypeSerializer _valueTypeSerializer;

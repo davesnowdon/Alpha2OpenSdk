@@ -3,18 +3,18 @@ package org.codehaus.jackson.map.deser;
 import java.util.HashMap;
 import org.codehaus.jackson.map.AnnotationIntrospector;
 
-public final class EnumResolver<T extends Enum<T>> {
-   protected final Class<T> _enumClass;
-   protected final T[] _enums;
+public final class EnumResolver {
+   protected final Class _enumClass;
+   protected final Object[] _enums;
    protected final HashMap<String, T> _enumsById;
 
-   private EnumResolver(Class<T> enumClass, T[] enums, HashMap<String, T> map) {
+   private EnumResolver(Class enumClass, T[] enums, HashMap<String, T> map) {
       this._enumClass = enumClass;
       this._enums = enums;
       this._enumsById = map;
    }
 
-   public static <ET extends Enum<ET>> EnumResolver<ET> constructFor(Class<ET> enumCls, AnnotationIntrospector ai) {
+   public static  EnumResolver constructFor(Class enumCls, AnnotationIntrospector ai) {
       ET[] enumValues = (Enum[])enumCls.getEnumConstants();
       if (enumValues == null) {
          throw new IllegalArgumentException("No enum constants for class " + enumCls.getName());
@@ -32,8 +32,8 @@ public final class EnumResolver<T extends Enum<T>> {
       }
    }
 
-   public static <ET extends Enum<ET>> EnumResolver<ET> constructUsingToString(Class<ET> enumCls) {
-      ET[] enumValues = (Enum[])enumCls.getEnumConstants();
+   public static EnumResolver constructUsingToString(Class<ET> enumCls) {
+      Object[] enumValues = (Enum[])enumCls.getEnumConstants();
       HashMap<String, ET> map = new HashMap();
       int i = enumValues.length;
 
@@ -43,28 +43,28 @@ public final class EnumResolver<T extends Enum<T>> {
             return new EnumResolver(enumCls, enumValues, map);
          }
 
-         ET e = enumValues[i];
+         Object e = enumValues[i];
          map.put(e.toString(), e);
       }
    }
 
-   public static EnumResolver<?> constructUnsafe(Class<?> rawEnumCls, AnnotationIntrospector ai) {
+   public static EnumResolver constructUnsafe(Class rawEnumCls, AnnotationIntrospector ai) {
       return constructFor(rawEnumCls, ai);
    }
 
-   public static EnumResolver<?> constructUnsafeUsingToString(Class<?> rawEnumCls) {
+   public static EnumResolver constructUnsafeUsingToString(Class rawEnumCls) {
       return constructUsingToString(rawEnumCls);
    }
 
-   public T findEnum(String key) {
+   public Object findEnum(String key) {
       return (Enum)this._enumsById.get(key);
    }
 
-   public T getEnum(int index) {
+   public Object getEnum(int index) {
       return index >= 0 && index < this._enums.length ? this._enums[index] : null;
    }
 
-   public Class<T> getEnumClass() {
+   public Class getEnumClass() {
       return this._enumClass;
    }
 

@@ -65,7 +65,7 @@ public class ObjectMapper extends ObjectCodec implements Versioned {
    private static final JavaType JSON_NODE_TYPE = SimpleType.constructUnsafe(JsonNode.class);
    protected static final ClassIntrospector<? extends BeanDescription> DEFAULT_INTROSPECTOR;
    protected static final AnnotationIntrospector DEFAULT_ANNOTATION_INTROSPECTOR;
-   protected static final VisibilityChecker<?> STD_VISIBILITY_CHECKER;
+   protected static final VisibilityChecker STD_VISIBILITY_CHECKER;
    protected final JsonFactory _jsonFactory;
    protected SubtypeResolver _subtypeResolver;
    protected TypeFactory _typeFactory;
@@ -176,7 +176,7 @@ public class ObjectMapper extends ObjectCodec implements Versioned {
                   ObjectMapper.this._serializationConfig.appendAnnotationIntrospector(ai);
                }
 
-               public void setMixInAnnotations(Class<?> target, Class<?> mixinSource) {
+               public void setMixInAnnotations(Class target, Class mixinSource) {
                   ObjectMapper.this._deserializationConfig.addMixInAnnotations(target, mixinSource);
                   ObjectMapper.this._serializationConfig.addMixInAnnotations(target, mixinSource);
                }
@@ -239,11 +239,11 @@ public class ObjectMapper extends ObjectCodec implements Versioned {
       return this._deserializerProvider;
    }
 
-   public VisibilityChecker<?> getVisibilityChecker() {
+   public VisibilityChecker getVisibilityChecker() {
       return this._serializationConfig.getDefaultVisibilityChecker();
    }
 
-   public void setVisibilityChecker(VisibilityChecker<?> vc) {
+   public void setVisibilityChecker(VisibilityChecker vc) {
       this._deserializationConfig = this._deserializationConfig.withVisibilityChecker(vc);
       this._serializationConfig = this._serializationConfig.withVisibilityChecker(vc);
    }
@@ -281,15 +281,15 @@ public class ObjectMapper extends ObjectCodec implements Versioned {
    }
 
    public ObjectMapper enableDefaultTyping(ObjectMapper.DefaultTyping applicability, JsonTypeInfo.As includeAs) {
-      TypeResolverBuilder<?> typer = new ObjectMapper.DefaultTypeResolverBuilder(applicability);
-      TypeResolverBuilder<?> typer = typer.init(JsonTypeInfo.Id.CLASS, (TypeIdResolver)null);
+      TypeResolverBuilder typer = new ObjectMapper.DefaultTypeResolverBuilder(applicability);
+      TypeResolverBuilder typer = typer.init(JsonTypeInfo.Id.CLASS, (TypeIdResolver)null);
       typer = typer.inclusion(includeAs);
       return this.setDefaultTyping(typer);
    }
 
    public ObjectMapper enableDefaultTypingAsProperty(ObjectMapper.DefaultTyping applicability, String propertyName) {
-      TypeResolverBuilder<?> typer = new ObjectMapper.DefaultTypeResolverBuilder(applicability);
-      TypeResolverBuilder<?> typer = typer.init(JsonTypeInfo.Id.CLASS, (TypeIdResolver)null);
+      TypeResolverBuilder typer = new ObjectMapper.DefaultTypeResolverBuilder(applicability);
+      TypeResolverBuilder typer = typer.init(JsonTypeInfo.Id.CLASS, (TypeIdResolver)null);
       typer = typer.inclusion(JsonTypeInfo.As.PROPERTY);
       typer = typer.typeProperty(propertyName);
       return this.setDefaultTyping(typer);
@@ -299,13 +299,13 @@ public class ObjectMapper extends ObjectCodec implements Versioned {
       return this.setDefaultTyping((TypeResolverBuilder)null);
    }
 
-   public ObjectMapper setDefaultTyping(TypeResolverBuilder<?> typer) {
+   public ObjectMapper setDefaultTyping(TypeResolverBuilder typer) {
       this._deserializationConfig = this._deserializationConfig.withTypeResolverBuilder(typer);
       this._serializationConfig = this._serializationConfig.withTypeResolverBuilder(typer);
       return this;
    }
 
-   public void registerSubtypes(Class<?>... classes) {
+   public void registerSubtypes(Class... classes) {
       this.getSubtypeResolver().registerSubtypes(classes);
    }
 
@@ -375,27 +375,27 @@ public class ObjectMapper extends ObjectCodec implements Versioned {
       return this._deserializationConfig.getNodeFactory();
    }
 
-   public <T> T readValue(JsonParser jp, Class<T> valueType) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(JsonParser jp, Class valueType) throws IOException, JsonParseException, JsonMappingException {
       return this._readValue(this.copyDeserializationConfig(), jp, this._typeFactory.constructType((Type)valueType));
    }
 
-   public <T> T readValue(JsonParser jp, Class<T> valueType, DeserializationConfig cfg) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(JsonParser jp, Class valueType, DeserializationConfig cfg) throws IOException, JsonParseException, JsonMappingException {
       return this._readValue(cfg, jp, this._typeFactory.constructType((Type)valueType));
    }
 
-   public <T> T readValue(JsonParser jp, TypeReference<?> valueTypeRef) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(JsonParser jp, TypeReference valueTypeRef) throws IOException, JsonParseException, JsonMappingException {
       return this._readValue(this.copyDeserializationConfig(), jp, this._typeFactory.constructType(valueTypeRef));
    }
 
-   public <T> T readValue(JsonParser jp, TypeReference<?> valueTypeRef, DeserializationConfig cfg) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(JsonParser jp, TypeReference valueTypeRef, DeserializationConfig cfg) throws IOException, JsonParseException, JsonMappingException {
       return this._readValue(cfg, jp, this._typeFactory.constructType(valueTypeRef));
    }
 
-   public <T> T readValue(JsonParser jp, JavaType valueType) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(JsonParser jp, JavaType valueType) throws IOException, JsonParseException, JsonMappingException {
       return this._readValue(this.copyDeserializationConfig(), jp, valueType);
    }
 
-   public <T> T readValue(JsonParser jp, JavaType valueType, DeserializationConfig cfg) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(JsonParser jp, JavaType valueType, DeserializationConfig cfg) throws IOException, JsonParseException, JsonMappingException {
       return this._readValue(cfg, jp, valueType);
    }
 
@@ -423,18 +423,18 @@ public class ObjectMapper extends ObjectCodec implements Versioned {
       return (JsonNode)(n == null ? NullNode.instance : n);
    }
 
-   public <T> MappingIterator<T> readValues(JsonParser jp, JavaType valueType) throws IOException, JsonProcessingException {
+   public MappingIterator readValues(JsonParser jp, JavaType valueType) throws IOException, JsonProcessingException {
       DeserializationConfig config = this.copyDeserializationConfig();
       DeserializationContext ctxt = this._createDeserializationContext(jp, config);
-      JsonDeserializer<?> deser = this._findRootDeserializer(config, valueType);
+      JsonDeserializer deser = this._findRootDeserializer(config, valueType);
       return new MappingIterator(valueType, jp, ctxt, deser);
    }
 
-   public <T> MappingIterator<T> readValues(JsonParser jp, Class<?> valueType) throws IOException, JsonProcessingException {
+   public MappingIterator readValues(JsonParser jp, Class valueType) throws IOException, JsonProcessingException {
       return this.readValues(jp, this._typeFactory.constructType((Type)valueType));
    }
 
-   public <T> MappingIterator<T> readValues(JsonParser jp, TypeReference<?> valueTypeRef) throws IOException, JsonProcessingException {
+   public MappingIterator readValues(JsonParser jp, TypeReference valueTypeRef) throws IOException, JsonProcessingException {
       return this.readValues(jp, this._typeFactory.constructType(valueTypeRef));
    }
 
@@ -492,7 +492,7 @@ public class ObjectMapper extends ObjectCodec implements Versioned {
       return new TreeTraversingParser(n, this);
    }
 
-   public <T> T treeToValue(JsonNode n, Class<T> valueType) throws IOException, JsonParseException, JsonMappingException {
+   public Object treeToValue(JsonNode n, Class valueType) throws IOException, JsonParseException, JsonMappingException {
       return this.readValue(this.treeAsTokens(n), valueType);
    }
 
@@ -514,7 +514,7 @@ public class ObjectMapper extends ObjectCodec implements Versioned {
       }
    }
 
-   public boolean canSerialize(Class<?> type) {
+   public boolean canSerialize(Class type) {
       return this._serializerProvider.hasSerializerFor(this.copySerializationConfig(), type, this._serializerFactory);
    }
 
@@ -522,99 +522,99 @@ public class ObjectMapper extends ObjectCodec implements Versioned {
       return this._deserializerProvider.hasValueDeserializerFor(this.copyDeserializationConfig(), type);
    }
 
-   public <T> T readValue(File src, Class<T> valueType) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(File src, Class valueType) throws IOException, JsonParseException, JsonMappingException {
       return this._readMapAndClose(this._jsonFactory.createJsonParser(src), this._typeFactory.constructType((Type)valueType));
    }
 
-   public <T> T readValue(File src, TypeReference valueTypeRef) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(File src, TypeReference valueTypeRef) throws IOException, JsonParseException, JsonMappingException {
       return this._readMapAndClose(this._jsonFactory.createJsonParser(src), this._typeFactory.constructType(valueTypeRef));
    }
 
-   public <T> T readValue(File src, JavaType valueType) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(File src, JavaType valueType) throws IOException, JsonParseException, JsonMappingException {
       return this._readMapAndClose(this._jsonFactory.createJsonParser(src), valueType);
    }
 
-   public <T> T readValue(URL src, Class<T> valueType) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(URL src, Class valueType) throws IOException, JsonParseException, JsonMappingException {
       return this._readMapAndClose(this._jsonFactory.createJsonParser(src), this._typeFactory.constructType((Type)valueType));
    }
 
-   public <T> T readValue(URL src, TypeReference valueTypeRef) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(URL src, TypeReference valueTypeRef) throws IOException, JsonParseException, JsonMappingException {
       return this._readMapAndClose(this._jsonFactory.createJsonParser(src), this._typeFactory.constructType(valueTypeRef));
    }
 
-   public <T> T readValue(URL src, JavaType valueType) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(URL src, JavaType valueType) throws IOException, JsonParseException, JsonMappingException {
       return this._readMapAndClose(this._jsonFactory.createJsonParser(src), valueType);
    }
 
-   public <T> T readValue(String content, Class<T> valueType) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(String content, Class valueType) throws IOException, JsonParseException, JsonMappingException {
       return this._readMapAndClose(this._jsonFactory.createJsonParser(content), this._typeFactory.constructType((Type)valueType));
    }
 
-   public <T> T readValue(String content, TypeReference valueTypeRef) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(String content, TypeReference valueTypeRef) throws IOException, JsonParseException, JsonMappingException {
       return this._readMapAndClose(this._jsonFactory.createJsonParser(content), this._typeFactory.constructType(valueTypeRef));
    }
 
-   public <T> T readValue(String content, JavaType valueType) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(String content, JavaType valueType) throws IOException, JsonParseException, JsonMappingException {
       return this._readMapAndClose(this._jsonFactory.createJsonParser(content), valueType);
    }
 
-   public <T> T readValue(Reader src, Class<T> valueType) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(Reader src, Class valueType) throws IOException, JsonParseException, JsonMappingException {
       return this._readMapAndClose(this._jsonFactory.createJsonParser(src), this._typeFactory.constructType((Type)valueType));
    }
 
-   public <T> T readValue(Reader src, TypeReference valueTypeRef) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(Reader src, TypeReference valueTypeRef) throws IOException, JsonParseException, JsonMappingException {
       return this._readMapAndClose(this._jsonFactory.createJsonParser(src), this._typeFactory.constructType(valueTypeRef));
    }
 
-   public <T> T readValue(Reader src, JavaType valueType) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(Reader src, JavaType valueType) throws IOException, JsonParseException, JsonMappingException {
       return this._readMapAndClose(this._jsonFactory.createJsonParser(src), valueType);
    }
 
-   public <T> T readValue(InputStream src, Class<T> valueType) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(InputStream src, Class valueType) throws IOException, JsonParseException, JsonMappingException {
       return this._readMapAndClose(this._jsonFactory.createJsonParser(src), this._typeFactory.constructType((Type)valueType));
    }
 
-   public <T> T readValue(InputStream src, TypeReference valueTypeRef) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(InputStream src, TypeReference valueTypeRef) throws IOException, JsonParseException, JsonMappingException {
       return this._readMapAndClose(this._jsonFactory.createJsonParser(src), this._typeFactory.constructType(valueTypeRef));
    }
 
-   public <T> T readValue(InputStream src, JavaType valueType) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(InputStream src, JavaType valueType) throws IOException, JsonParseException, JsonMappingException {
       return this._readMapAndClose(this._jsonFactory.createJsonParser(src), valueType);
    }
 
-   public <T> T readValue(byte[] src, Class<T> valueType) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(byte[] src, Class valueType) throws IOException, JsonParseException, JsonMappingException {
       return this._readMapAndClose(this._jsonFactory.createJsonParser(src), this._typeFactory.constructType((Type)valueType));
    }
 
-   public <T> T readValue(byte[] src, int offset, int len, Class<T> valueType) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(byte[] src, int offset, int len, Class valueType) throws IOException, JsonParseException, JsonMappingException {
       return this._readMapAndClose(this._jsonFactory.createJsonParser(src, offset, len), this._typeFactory.constructType((Type)valueType));
    }
 
-   public <T> T readValue(byte[] src, TypeReference valueTypeRef) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(byte[] src, TypeReference valueTypeRef) throws IOException, JsonParseException, JsonMappingException {
       return this._readMapAndClose(this._jsonFactory.createJsonParser(src), this._typeFactory.constructType(valueTypeRef));
    }
 
-   public <T> T readValue(byte[] src, int offset, int len, TypeReference valueTypeRef) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(byte[] src, int offset, int len, TypeReference valueTypeRef) throws IOException, JsonParseException, JsonMappingException {
       return this._readMapAndClose(this._jsonFactory.createJsonParser(src, offset, len), this._typeFactory.constructType(valueTypeRef));
    }
 
-   public <T> T readValue(byte[] src, JavaType valueType) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(byte[] src, JavaType valueType) throws IOException, JsonParseException, JsonMappingException {
       return this._readMapAndClose(this._jsonFactory.createJsonParser(src), valueType);
    }
 
-   public <T> T readValue(byte[] src, int offset, int len, JavaType valueType) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(byte[] src, int offset, int len, JavaType valueType) throws IOException, JsonParseException, JsonMappingException {
       return this._readMapAndClose(this._jsonFactory.createJsonParser(src, offset, len), valueType);
    }
 
-   public <T> T readValue(JsonNode root, Class<T> valueType) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(JsonNode root, Class valueType) throws IOException, JsonParseException, JsonMappingException {
       return this._readValue(this.copyDeserializationConfig(), this.treeAsTokens(root), this._typeFactory.constructType((Type)valueType));
    }
 
-   public <T> T readValue(JsonNode root, TypeReference valueTypeRef) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(JsonNode root, TypeReference valueTypeRef) throws IOException, JsonParseException, JsonMappingException {
       return this._readValue(this.copyDeserializationConfig(), this.treeAsTokens(root), this._typeFactory.constructType(valueTypeRef));
    }
 
-   public <T> T readValue(JsonNode root, JavaType valueType) throws IOException, JsonParseException, JsonMappingException {
+   public Object readValue(JsonNode root, JavaType valueType) throws IOException, JsonParseException, JsonMappingException {
       return this._readValue(this.copyDeserializationConfig(), this.treeAsTokens(root), valueType);
    }
 
@@ -646,19 +646,19 @@ public class ObjectMapper extends ObjectCodec implements Versioned {
 
    /** @deprecated */
    @Deprecated
-   public void writeValueUsingView(JsonGenerator jgen, Object value, Class<?> viewClass) throws IOException, JsonGenerationException, JsonMappingException {
+   public void writeValueUsingView(JsonGenerator jgen, Object value, Class viewClass) throws IOException, JsonGenerationException, JsonMappingException {
       this._configAndWriteValue(jgen, value, viewClass);
    }
 
    /** @deprecated */
    @Deprecated
-   public void writeValueUsingView(Writer w, Object value, Class<?> viewClass) throws IOException, JsonGenerationException, JsonMappingException {
+   public void writeValueUsingView(Writer w, Object value, Class viewClass) throws IOException, JsonGenerationException, JsonMappingException {
       this._configAndWriteValue(this._jsonFactory.createJsonGenerator(w), value, viewClass);
    }
 
    /** @deprecated */
    @Deprecated
-   public void writeValueUsingView(OutputStream out, Object value, Class<?> viewClass) throws IOException, JsonGenerationException, JsonMappingException {
+   public void writeValueUsingView(OutputStream out, Object value, Class viewClass) throws IOException, JsonGenerationException, JsonMappingException {
       this._configAndWriteValue(this._jsonFactory.createJsonGenerator(out, JsonEncoding.UTF8), value, viewClass);
    }
 
@@ -666,11 +666,11 @@ public class ObjectMapper extends ObjectCodec implements Versioned {
       return new ObjectWriter(this, this.copySerializationConfig());
    }
 
-   public ObjectWriter viewWriter(Class<?> serializationView) {
+   public ObjectWriter viewWriter(Class serializationView) {
       return new ObjectWriter(this, this.copySerializationConfig().withView(serializationView));
    }
 
-   public ObjectWriter typedWriter(Class<?> rootType) {
+   public ObjectWriter typedWriter(Class rootType) {
       JavaType t = rootType == null ? null : this._typeFactory.constructType((Type)rootType);
       return new ObjectWriter(this, this.copySerializationConfig(), t, (PrettyPrinter)null);
    }
@@ -679,7 +679,7 @@ public class ObjectMapper extends ObjectCodec implements Versioned {
       return new ObjectWriter(this, this.copySerializationConfig(), rootType, (PrettyPrinter)null);
    }
 
-   public ObjectWriter typedWriter(TypeReference<?> rootType) {
+   public ObjectWriter typedWriter(TypeReference rootType) {
       JavaType t = rootType == null ? null : this._typeFactory.constructType(rootType);
       return new ObjectWriter(this, this.copySerializationConfig(), t, (PrettyPrinter)null);
    }
@@ -717,11 +717,11 @@ public class ObjectMapper extends ObjectCodec implements Versioned {
       return new ObjectReader(this, this.copyDeserializationConfig(), type, (Object)null, (FormatSchema)null);
    }
 
-   public ObjectReader reader(Class<?> type) {
+   public ObjectReader reader(Class type) {
       return this.reader(this._typeFactory.constructType((Type)type));
    }
 
-   public ObjectReader reader(TypeReference<?> type) {
+   public ObjectReader reader(TypeReference type) {
       return this.reader(this._typeFactory.constructType(type));
    }
 
@@ -733,15 +733,15 @@ public class ObjectMapper extends ObjectCodec implements Versioned {
       return new ObjectReader(this, this.copyDeserializationConfig(), (JavaType)null, (Object)null, schema);
    }
 
-   public <T> T convertValue(Object fromValue, Class<T> toValueType) throws IllegalArgumentException {
+   public Object convertValue(Object fromValue, Class toValueType) throws IllegalArgumentException {
       return this._convert(fromValue, this._typeFactory.constructType((Type)toValueType));
    }
 
-   public <T> T convertValue(Object fromValue, TypeReference toValueTypeRef) throws IllegalArgumentException {
+   public Object convertValue(Object fromValue, TypeReference toValueTypeRef) throws IllegalArgumentException {
       return this._convert(fromValue, this._typeFactory.constructType(toValueTypeRef));
    }
 
-   public <T> T convertValue(Object fromValue, JavaType toValueType) throws IllegalArgumentException {
+   public Object convertValue(Object fromValue, JavaType toValueType) throws IllegalArgumentException {
       return this._convert(fromValue, toValueType);
    }
 
@@ -763,11 +763,11 @@ public class ObjectMapper extends ObjectCodec implements Versioned {
       }
    }
 
-   public JsonSchema generateJsonSchema(Class<?> t) throws JsonMappingException {
+   public JsonSchema generateJsonSchema(Class t) throws JsonMappingException {
       return this.generateJsonSchema(t, this.copySerializationConfig());
    }
 
-   public JsonSchema generateJsonSchema(Class<?> t, SerializationConfig cfg) throws JsonMappingException {
+   public JsonSchema generateJsonSchema(Class t, SerializationConfig cfg) throws JsonMappingException {
       return this._serializerProvider.generateJsonSchema(t, cfg, this._serializerFactory);
    }
 
@@ -803,7 +803,7 @@ public class ObjectMapper extends ObjectCodec implements Versioned {
       }
    }
 
-   protected final void _configAndWriteValue(JsonGenerator jgen, Object value, Class<?> viewClass) throws IOException, JsonGenerationException, JsonMappingException {
+   protected final void _configAndWriteValue(JsonGenerator jgen, Object value, Class viewClass) throws IOException, JsonGenerationException, JsonMappingException {
       SerializationConfig cfg = this.copySerializationConfig().withView(viewClass);
       if (cfg.isEnabled(SerializationConfig.Feature.INDENT_OUTPUT)) {
          jgen.useDefaultPrettyPrinter();

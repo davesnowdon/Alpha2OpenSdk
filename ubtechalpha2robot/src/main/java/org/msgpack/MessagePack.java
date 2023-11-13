@@ -71,36 +71,36 @@ public class MessagePack {
       return this.createBufferUnpacker().wrap(buffer);
    }
 
-   public <T> byte[] write(T v) throws IOException {
+   public  byte[] write(Object v) throws IOException {
       BufferPacker pk = this.createBufferPacker();
       if (v == null) {
          pk.writeNil();
       } else {
-         Template<T> tmpl = this.registry.lookup(v.getClass());
+         Template tmpl = this.registry.lookup(v.getClass());
          tmpl.write(pk, v);
       }
 
       return pk.toByteArray();
    }
 
-   public <T> byte[] write(T v, Template<T> template) throws IOException {
+   public  byte[] write(Object v, Template template) throws IOException {
       BufferPacker pk = this.createBufferPacker();
       template.write(pk, v);
       return pk.toByteArray();
    }
 
-   public <T> void write(OutputStream out, T v) throws IOException {
+   public  void write(OutputStream out, Object v) throws IOException {
       Packer pk = this.createPacker(out);
       if (v == null) {
          pk.writeNil();
       } else {
-         Template<T> tmpl = this.registry.lookup(v.getClass());
+         Template tmpl = this.registry.lookup(v.getClass());
          tmpl.write(pk, v);
       }
 
    }
 
-   public <T> void write(OutputStream out, T v, Template<T> template) throws IOException {
+   public  void write(OutputStream out, Object v, Template template) throws IOException {
       Packer pk = this.createPacker(out);
       template.write(pk, v);
    }
@@ -127,89 +127,89 @@ public class MessagePack {
       return this.createUnpacker(in).readValue();
    }
 
-   public <T> T read(byte[] bytes, T v) throws IOException {
-      Template<T> tmpl = this.registry.lookup(v.getClass());
+   public Object read(byte[] bytes, Object v) throws IOException {
+      Template tmpl = this.registry.lookup(v.getClass());
       return this.read(bytes, v, tmpl);
    }
 
-   public <T> T read(byte[] bytes, Template<T> tmpl) throws IOException {
+   public Object read(byte[] bytes, Template tmpl) throws IOException {
       return this.read((byte[])bytes, (Object)null, tmpl);
    }
 
-   public <T> T read(byte[] bytes, Class<T> c) throws IOException {
-      Template<T> tmpl = this.registry.lookup(c);
+   public Object read(byte[] bytes, Class c) throws IOException {
+      Template tmpl = this.registry.lookup(c);
       return this.read((byte[])bytes, (Object)null, tmpl);
    }
 
-   public <T> T read(byte[] bytes, T v, Template<T> tmpl) throws IOException {
+   public Object read(byte[] bytes, Object v, Template tmpl) throws IOException {
       BufferUnpacker u = this.createBufferUnpacker(bytes);
       return tmpl.read(u, v);
    }
 
-   public <T> T read(byte[] bytes, int off, int len, Class<T> c) throws IOException {
-      Template<T> tmpl = this.registry.lookup(c);
+   public Object read(byte[] bytes, int off, int len, Class c) throws IOException {
+      Template tmpl = this.registry.lookup(c);
       BufferUnpacker u = this.createBufferUnpacker(bytes, off, len);
       return tmpl.read(u, (Object)null);
    }
 
-   public <T> T read(ByteBuffer b, T v) throws IOException {
-      Template<T> tmpl = this.registry.lookup(v.getClass());
+   public Object read(ByteBuffer b, Object v) throws IOException {
+      Template tmpl = this.registry.lookup(v.getClass());
       return this.read(b, v, tmpl);
    }
 
-   public <T> T read(ByteBuffer b, Template<T> tmpl) throws IOException {
+   public Object read(ByteBuffer b, Template tmpl) throws IOException {
       return this.read((ByteBuffer)b, (Object)null, tmpl);
    }
 
-   public <T> T read(ByteBuffer b, Class<T> c) throws IOException {
-      Template<T> tmpl = this.registry.lookup(c);
+   public Object read(ByteBuffer b, Class c) throws IOException {
+      Template tmpl = this.registry.lookup(c);
       return this.read((ByteBuffer)b, (Object)null, tmpl);
    }
 
-   public <T> T read(ByteBuffer b, T v, Template<T> tmpl) throws IOException {
+   public Object read(ByteBuffer b, Object v, Template tmpl) throws IOException {
       BufferUnpacker u = this.createBufferUnpacker(b);
       return tmpl.read(u, v);
    }
 
-   public <T> T read(InputStream in, T v) throws IOException {
-      Template<T> tmpl = this.registry.lookup(v.getClass());
+   public Object read(InputStream in, Object v) throws IOException {
+      Template tmpl = this.registry.lookup(v.getClass());
       return this.read(in, v, tmpl);
    }
 
-   public <T> T read(InputStream in, Template<T> tmpl) throws IOException {
+   public Object read(InputStream in, Template tmpl) throws IOException {
       return this.read((InputStream)in, (Object)null, tmpl);
    }
 
-   public <T> T read(InputStream in, Class<T> c) throws IOException {
-      Template<T> tmpl = this.registry.lookup(c);
+   public Object read(InputStream in, Class c) throws IOException {
+      Template tmpl = this.registry.lookup(c);
       return this.read((InputStream)in, (Object)null, tmpl);
    }
 
-   public <T> T read(InputStream in, T v, Template<T> tmpl) throws IOException {
+   public Object read(InputStream in, Object v, Template tmpl) throws IOException {
       Unpacker u = this.createUnpacker(in);
       return tmpl.read(u, v);
    }
 
-   public <T> T convert(Value v, T to) throws IOException {
-      Template<T> tmpl = this.registry.lookup(to.getClass());
+   public Object convert(Value v, T to) throws IOException {
+      Template tmpl = this.registry.lookup(to.getClass());
       return tmpl.read(new Converter(this, v), to);
    }
 
-   public <T> T convert(Value v, Class<T> c) throws IOException {
-      Template<T> tmpl = this.registry.lookup(c);
+   public Object convert(Value v, Class c) throws IOException {
+      Template tmpl = this.registry.lookup(c);
       return tmpl.read(new Converter(this, v), (Object)null);
    }
 
-   public <T> T convert(Value v, Template<T> tmpl) throws IOException {
+   public Object convert(Value v, Template tmpl) throws IOException {
       return tmpl.read(new Converter(this, v), (Object)null);
    }
 
-   public <T> Value unconvert(T v) throws IOException {
+   public  Value unconvert(Object v) throws IOException {
       Unconverter pk = new Unconverter(this);
       if (v == null) {
          pk.writeNil();
       } else {
-         Template<T> tmpl = this.registry.lookup(v.getClass());
+         Template tmpl = this.registry.lookup(v.getClass());
          tmpl.write(pk, v);
       }
 
@@ -220,7 +220,7 @@ public class MessagePack {
       this.registry.register(type);
    }
 
-   public <T> void register(Class<T> type, Template<T> template) {
+   public  void register(Class type, Template template) {
       this.registry.register((Type)type, (Template)template);
    }
 
@@ -232,7 +232,7 @@ public class MessagePack {
       this.registry.unregister();
    }
 
-   public <T> Template<T> lookup(Class<T> type) {
+   public Objectemplate lookup(Class type) {
       return this.registry.lookup(type);
    }
 
@@ -242,25 +242,25 @@ public class MessagePack {
 
    /** @deprecated */
    @Deprecated
-   public static byte[] pack(Object v) throws IOException {
+   public static byte[] pack(ObjecObject v) throws IOException {
       return globalMessagePack.write(v);
    }
 
    /** @deprecated */
    @Deprecated
-   public static void pack(OutputStream out, Object v) throws IOException {
+   public static void pack(OutputStream out, ObjecObject v) throws IOException {
       globalMessagePack.write(out, v);
    }
 
    /** @deprecated */
    @Deprecated
-   public static <T> byte[] pack(T v, Template<T> template) throws IOException {
+   public static  byte[] pack(Object v, Template template) throws IOException {
       return globalMessagePack.write(v, template);
    }
 
    /** @deprecated */
    @Deprecated
-   public static <T> void pack(OutputStream out, T v, Template<T> template) throws IOException {
+   public static  void pack(OutputStream out, Object v, Template template) throws IOException {
       globalMessagePack.write(out, v, template);
    }
 
@@ -272,27 +272,27 @@ public class MessagePack {
 
    /** @deprecated */
    @Deprecated
-   public static <T> T unpack(byte[] bytes, Template<T> template) throws IOException {
+   public static Object unpack(byte[] bytes, Template template) throws IOException {
       BufferUnpacker u = (new MessagePackBufferUnpacker(globalMessagePack)).wrap(bytes);
       return template.read(u, (Object)null);
    }
 
    /** @deprecated */
    @Deprecated
-   public static <T> T unpack(byte[] bytes, Template<T> template, T to) throws IOException {
+   public static Object unpack(byte[] bytes, Template template, T to) throws IOException {
       BufferUnpacker u = (new MessagePackBufferUnpacker(globalMessagePack)).wrap(bytes);
       return template.read(u, to);
    }
 
    /** @deprecated */
    @Deprecated
-   public static <T> T unpack(byte[] bytes, Class<T> klass) throws IOException {
+   public static Object unpack(byte[] bytes, Class klass) throws IOException {
       return globalMessagePack.read(bytes, klass);
    }
 
    /** @deprecated */
    @Deprecated
-   public static <T> T unpack(byte[] bytes, T to) throws IOException {
+   public static Object unpack(byte[] bytes, T to) throws IOException {
       return globalMessagePack.read(bytes, to);
    }
 
@@ -304,25 +304,25 @@ public class MessagePack {
 
    /** @deprecated */
    @Deprecated
-   public static <T> T unpack(InputStream in, Template<T> tmpl) throws IOException, MessageTypeException {
+   public static Object unpack(InputStream in, Template tmpl) throws IOException, MessageTypeException {
       return tmpl.read(new MessagePackUnpacker(globalMessagePack, in), (Object)null);
    }
 
    /** @deprecated */
    @Deprecated
-   public static <T> T unpack(InputStream in, Template<T> tmpl, T to) throws IOException, MessageTypeException {
+   public static Object unpack(InputStream in, Template tmpl, T to) throws IOException, MessageTypeException {
       return tmpl.read(new MessagePackUnpacker(globalMessagePack, in), to);
    }
 
    /** @deprecated */
    @Deprecated
-   public static <T> T unpack(InputStream in, Class<T> klass) throws IOException {
+   public static Object unpack(InputStream in, Class klass) throws IOException {
       return globalMessagePack.read(in, klass);
    }
 
    /** @deprecated */
    @Deprecated
-   public static <T> T unpack(InputStream in, T to) throws IOException {
+   public static Object unpack(InputStream in, T to) throws IOException {
       return globalMessagePack.read(in, to);
    }
 }

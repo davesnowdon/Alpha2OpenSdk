@@ -375,12 +375,12 @@ public class StdSerializers {
       }
    }
 
-   protected abstract static class NonTypedScalarSerializer<T> extends ScalarSerializerBase<T> {
-      protected NonTypedScalarSerializer(Class<T> t) {
+   protected abstract static class NonTypedScalarSerializer extends ScalarSerializerBase {
+      protected NonTypedScalarSerializer(Class t) {
          super(t);
       }
 
-      public final void serializeWithType(T value, JsonGenerator jgen, SerializerProvider provider, TypeSerializer typeSer) throws IOException, JsonGenerationException {
+      public final void serializeWithType(Object value, JsonGenerator jgen, SerializerProvider provider, TypeSerializer typeSer) throws IOException, JsonGenerationException {
          this.serialize(value, jgen, provider);
       }
    }

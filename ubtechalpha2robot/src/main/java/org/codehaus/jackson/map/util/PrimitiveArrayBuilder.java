@@ -1,12 +1,12 @@
 package org.codehaus.jackson.map.util;
 
-public abstract class PrimitiveArrayBuilder<T> {
+public abstract class PrimitiveArrayBuilder {
    static final int INITIAL_CHUNK_SIZE = 12;
    static final int SMALL_CHUNK_SIZE = 16384;
    static final int MAX_CHUNK_SIZE = 262144;
    T _freeBuffer;
-   PrimitiveArrayBuilder.Node<T> _bufferHead;
-   PrimitiveArrayBuilder.Node<T> _bufferTail;
+   PrimitiveArrayBuilder.Node _bufferHead;
+   PrimitiveArrayBuilder.Node _bufferTail;
    int _bufferedEntryCount;
 
    protected PrimitiveArrayBuilder() {
@@ -18,7 +18,7 @@ public abstract class PrimitiveArrayBuilder<T> {
    }
 
    public final T appendCompletedChunk(T fullChunk, int fullChunkLength) {
-      PrimitiveArrayBuilder.Node<T> next = new PrimitiveArrayBuilder.Node(fullChunk, fullChunkLength);
+      PrimitiveArrayBuilder.Node next = new PrimitiveArrayBuilder.Node(fullChunk, fullChunkLength);
       if (this._bufferHead == null) {
          this._bufferHead = this._bufferTail = next;
       } else {
@@ -66,10 +66,10 @@ public abstract class PrimitiveArrayBuilder<T> {
       this._bufferedEntryCount = 0;
    }
 
-   static final class Node<T> {
+   static final class Node {
       final T _data;
       final int _dataLength;
-      PrimitiveArrayBuilder.Node<T> _next;
+      PrimitiveArrayBuilder.Node _next;
 
       public Node(T data, int dataLen) {
          this._data = data;
@@ -86,11 +86,11 @@ public abstract class PrimitiveArrayBuilder<T> {
          return ptr;
       }
 
-      public PrimitiveArrayBuilder.Node<T> next() {
+      public PrimitiveArrayBuilder.Node next() {
          return this._next;
       }
 
-      public void linkNext(PrimitiveArrayBuilder.Node<T> next) {
+      public void linkNext(PrimitiveArrayBuilder.Node next) {
          if (this._next != null) {
             throw new IllegalStateException();
          } else {

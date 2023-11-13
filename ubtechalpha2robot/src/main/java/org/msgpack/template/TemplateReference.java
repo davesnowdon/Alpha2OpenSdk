@@ -6,10 +6,10 @@ import org.msgpack.MessageTypeException;
 import org.msgpack.packer.Packer;
 import org.msgpack.unpacker.Unpacker;
 
-public class TemplateReference<T> extends AbstractTemplate<T> {
+public class TemplateReference extends AbstractTemplate {
    private TemplateRegistry registry;
    private Type targetType;
-   private Template<T> actualTemplate;
+   private Template actualTemplate;
 
    public TemplateReference(TemplateRegistry registry, Type targetType) {
       this.registry = registry;

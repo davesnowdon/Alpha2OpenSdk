@@ -4,10 +4,10 @@ import java.io.IOException;
 import org.msgpack.packer.Packer;
 import org.msgpack.unpacker.Unpacker;
 
-public class NotNullableTemplate<T> extends AbstractTemplate<T> {
-   private Template<T> tmpl;
+public class NotNullableTemplate extends AbstractTemplate {
+   private Template tmpl;
 
-   public NotNullableTemplate(Template<T> elementTemplate) {
+   public NotNullableTemplate(Template elementTemplate) {
       this.tmpl = elementTemplate;
    }
 

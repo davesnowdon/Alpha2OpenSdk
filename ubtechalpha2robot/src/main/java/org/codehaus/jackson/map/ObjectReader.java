@@ -109,7 +109,7 @@ public class ObjectReader extends ObjectCodec implements Versioned {
       return this._schema == schema ? this : new ObjectReader(this, this._config, this._valueType, this._valueToUpdate, schema);
    }
 
-   public <T> T readValue(JsonParser jp) throws IOException, JsonProcessingException {
+   public Object readValue(JsonParser jp) throws IOException, JsonProcessingException {
       return this._bind(jp);
    }
 
@@ -117,35 +117,35 @@ public class ObjectReader extends ObjectCodec implements Versioned {
       return this._bindAsTree(jp);
    }
 
-   public <T> T readValue(InputStream src) throws IOException, JsonProcessingException {
+   public Object readValue(InputStream src) throws IOException, JsonProcessingException {
       return this._bindAndClose(this._jsonFactory.createJsonParser(src));
    }
 
-   public <T> T readValue(Reader src) throws IOException, JsonProcessingException {
+   public Object readValue(Reader src) throws IOException, JsonProcessingException {
       return this._bindAndClose(this._jsonFactory.createJsonParser(src));
    }
 
-   public <T> T readValue(String src) throws IOException, JsonProcessingException {
+   public Object readValue(String src) throws IOException, JsonProcessingException {
       return this._bindAndClose(this._jsonFactory.createJsonParser(src));
    }
 
-   public <T> T readValue(byte[] src) throws IOException, JsonProcessingException {
+   public Object readValue(byte[] src) throws IOException, JsonProcessingException {
       return this._bindAndClose(this._jsonFactory.createJsonParser(src));
    }
 
-   public <T> T readValue(byte[] src, int offset, int length) throws IOException, JsonProcessingException {
+   public Object readValue(byte[] src, int offset, int length) throws IOException, JsonProcessingException {
       return this._bindAndClose(this._jsonFactory.createJsonParser(src, offset, length));
    }
 
-   public <T> T readValue(File src) throws IOException, JsonProcessingException {
+   public Object readValue(File src) throws IOException, JsonProcessingException {
       return this._bindAndClose(this._jsonFactory.createJsonParser(src));
    }
 
-   public <T> T readValue(URL src) throws IOException, JsonProcessingException {
+   public Object readValue(URL src) throws IOException, JsonProcessingException {
       return this._bindAndClose(this._jsonFactory.createJsonParser(src));
    }
 
-   public <T> T readValue(JsonNode src) throws IOException, JsonProcessingException {
+   public Object readValue(JsonNode src) throws IOException, JsonProcessingException {
       return this._bindAndClose(this.treeAsTokens(src));
    }
 
@@ -161,12 +161,12 @@ public class ObjectReader extends ObjectCodec implements Versioned {
       return this._bindAndCloseAsTree(this._jsonFactory.createJsonParser(content));
    }
 
-   public <T> MappingIterator<T> readValues(JsonParser jp) throws IOException, JsonProcessingException {
+   public MappingIterator readValues(JsonParser jp) throws IOException, JsonProcessingException {
       DeserializationContext ctxt = this._createDeserializationContext(jp, this._config);
       return new MappingIterator(this._valueType, jp, ctxt, this._findRootDeserializer(this._config, this._valueType));
    }
 
-   public <T> MappingIterator<T> readValues(InputStream src) throws IOException, JsonProcessingException {
+   public MappingIterator readValues(InputStream src) throws IOException, JsonProcessingException {
       JsonParser jp = this._jsonFactory.createJsonParser(src);
       if (this._schema != null) {
          jp.setSchema(this._schema);
@@ -176,7 +176,7 @@ public class ObjectReader extends ObjectCodec implements Versioned {
       return new MappingIterator(this._valueType, jp, ctxt, this._findRootDeserializer(this._config, this._valueType));
    }
 
-   public <T> MappingIterator<T> readValues(Reader src) throws IOException, JsonProcessingException {
+   public MappingIterator readValues(Reader src) throws IOException, JsonProcessingException {
       JsonParser jp = this._jsonFactory.createJsonParser(src);
       if (this._schema != null) {
          jp.setSchema(this._schema);
@@ -186,7 +186,7 @@ public class ObjectReader extends ObjectCodec implements Versioned {
       return new MappingIterator(this._valueType, jp, ctxt, this._findRootDeserializer(this._config, this._valueType));
    }
 
-   public <T> MappingIterator<T> readValues(String json) throws IOException, JsonProcessingException {
+   public MappingIterator readValues(String json) throws IOException, JsonProcessingException {
       JsonParser jp = this._jsonFactory.createJsonParser(json);
       if (this._schema != null) {
          jp.setSchema(this._schema);
@@ -196,7 +196,7 @@ public class ObjectReader extends ObjectCodec implements Versioned {
       return new MappingIterator(this._valueType, jp, ctxt, this._findRootDeserializer(this._config, this._valueType));
    }
 
-   public <T> MappingIterator<T> readValues(byte[] src, int offset, int length) throws IOException, JsonProcessingException {
+   public MappingIterator readValues(byte[] src, int offset, int length) throws IOException, JsonProcessingException {
       JsonParser jp = this._jsonFactory.createJsonParser(src, offset, length);
       if (this._schema != null) {
          jp.setSchema(this._schema);
@@ -206,7 +206,7 @@ public class ObjectReader extends ObjectCodec implements Versioned {
       return new MappingIterator(this._valueType, jp, ctxt, this._findRootDeserializer(this._config, this._valueType));
    }
 
-   public <T> MappingIterator<T> readValues(File src) throws IOException, JsonProcessingException {
+   public MappingIterator readValues(File src) throws IOException, JsonProcessingException {
       JsonParser jp = this._jsonFactory.createJsonParser(src);
       if (this._schema != null) {
          jp.setSchema(this._schema);
@@ -216,7 +216,7 @@ public class ObjectReader extends ObjectCodec implements Versioned {
       return new MappingIterator(this._valueType, jp, ctxt, this._findRootDeserializer(this._config, this._valueType));
    }
 
-   public <T> MappingIterator<T> readValues(URL src) throws IOException, JsonProcessingException {
+   public MappingIterator readValues(URL src) throws IOException, JsonProcessingException {
       JsonParser jp = this._jsonFactory.createJsonParser(src);
       if (this._schema != null) {
          jp.setSchema(this._schema);
@@ -350,15 +350,15 @@ public class ObjectReader extends ObjectCodec implements Versioned {
       return this._config.getNodeFactory().objectNode();
    }
 
-   public <T> T readValue(JsonParser jp, Class<T> valueType) throws IOException, JsonProcessingException {
+   public Object readValue(JsonParser jp, Class valueType) throws IOException, JsonProcessingException {
       return this.withType(valueType).readValue(jp);
    }
 
-   public <T> T readValue(JsonParser jp, TypeReference<?> valueTypeRef) throws IOException, JsonProcessingException {
+   public Object readValue(JsonParser jp, TypeReference<?> valueTypeRef) throws IOException, JsonProcessingException {
       return this.withType(valueTypeRef).readValue(jp);
    }
 
-   public <T> T readValue(JsonParser jp, JavaType valueType) throws IOException, JsonProcessingException {
+   public Object readValue(JsonParser jp, JavaType valueType) throws IOException, JsonProcessingException {
       return this.withType(valueType).readValue(jp);
    }
 
@@ -366,7 +366,7 @@ public class ObjectReader extends ObjectCodec implements Versioned {
       return new TreeTraversingParser(n, this);
    }
 
-   public <T> T treeToValue(JsonNode n, Class<T> valueType) throws IOException, JsonProcessingException {
+   public Object treeToValue(JsonNode n, Class valueType) throws IOException, JsonProcessingException {
       return this.readValue(this.treeAsTokens(n), valueType);
    }
 

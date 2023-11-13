@@ -47,19 +47,19 @@ public abstract class BaseManager {
       return this.xmlMapper;
    }
 
-   public <T> T xmlToBean(String xml, Class<T> cls) {
+   public Object xmlToBean(String xml, Class cls) {
       this.xmlMapper.processAnnotations(cls);
       T obj = this.xmlMapper.fromXML(xml);
       return obj;
    }
 
-   public <T> T xmlToBean(InputStream xml, Class<T> cls) {
+   public Object xmlToBean(InputStream xml, Class cls) {
       this.xmlMapper.processAnnotations(cls);
       T obj = this.xmlMapper.fromXML(xml);
       return obj;
    }
 
-   public <T> String beanToXml(T obj, Class<T> cls) {
+   public String beanToXml(T obj, Class cls) {
       XStream xstream = new XStream(new DomDriver());
       xstream.processAnnotations(cls);
       Log.e("zdy", obj.toString());

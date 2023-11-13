@@ -6,7 +6,7 @@ import java.lang.reflect.Method;
 import org.codehaus.jackson.annotate.JsonAutoDetect;
 import org.codehaus.jackson.annotate.JsonMethod;
 
-public interface VisibilityChecker<T extends VisibilityChecker<T>> {
+public interface VisibilityChecker {
    T with(JsonAutoDetect var1);
 
    T withGetterVisibility(JsonAutoDetect.Visibility var1);

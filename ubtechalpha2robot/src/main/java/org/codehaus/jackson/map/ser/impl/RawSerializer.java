@@ -12,7 +12,7 @@ import org.codehaus.jackson.map.annotate.JacksonStdImpl;
 import org.codehaus.jackson.map.ser.SerializerBase;
 
 @JacksonStdImpl
-public class RawSerializer<T> extends SerializerBase<T> {
+public class RawSerializer extends SerializerBase {
    public RawSerializer(Class<?> cls) {
       super(cls, false);
    }

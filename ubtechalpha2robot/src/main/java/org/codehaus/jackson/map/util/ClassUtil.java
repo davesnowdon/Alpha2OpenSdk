@@ -167,8 +167,8 @@ public final class ClassUtil {
       throwAsIAE(getRootCause(t), msg);
    }
 
-   public static <T> T createInstance(Class<T> cls, boolean canFixAccess) throws IllegalArgumentException {
-      Constructor<T> ctor = findConstructor(cls, canFixAccess);
+   public static Object createInstance(Class cls, boolean canFixAccess) throws IllegalArgumentException {
+      Constructor ctor = findConstructor(cls, canFixAccess);
       if (ctor == null) {
          throw new IllegalArgumentException("Class " + cls.getName() + " has no default (no arg) constructor");
       } else {
@@ -181,9 +181,9 @@ public final class ClassUtil {
       }
    }
 
-   public static <T> Constructor<T> findConstructor(Class<T> cls, boolean canFixAccess) throws IllegalArgumentException {
+   public static  Constructor findConstructor(Class cls, boolean canFixAccess) throws IllegalArgumentException {
       try {
-         Constructor<T> ctor = cls.getDeclaredConstructor();
+         Constructor ctor = cls.getDeclaredConstructor();
          if (canFixAccess) {
             checkAndFixAccess(ctor);
          } else if (!Modifier.isPublic(ctor.getModifiers())) {

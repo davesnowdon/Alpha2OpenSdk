@@ -51,7 +51,7 @@ public class JavassistTemplateBuilder extends AbstractTemplateBuilder {
    }
 
    public boolean matchType(Type targetType, boolean hasAnnotation) {
-      Class<?> targetClass = (Class)targetType;
+      Class targetClass = (Class)targetType;
       boolean matched = matchAtClassTemplateBuilder(targetClass, hasAnnotation);
       if (matched && LOG.isLoggable(Level.FINE)) {
          LOG.fine("matched type: " + targetClass.getName());
@@ -80,21 +80,21 @@ public class JavassistTemplateBuilder extends AbstractTemplateBuilder {
       return new DefaultBuildContext(this);
    }
 
-   public <T> Template<T> buildTemplate(Class<T> targetClass, FieldEntry[] entries) {
-      Template<?>[] tmpls = this.toTemplate(entries);
+   public Objectemplate buildTemplate(Class ObjectargetClass, FieldEntry[] entries) {
+      Template[] tmpls = this.toTemplate(entries);
       BuildContext bc = this.createBuildContext();
       return bc.buildTemplate(targetClass, entries, tmpls);
    }
 
-   private Template<?>[] toTemplate(FieldEntry[] from) {
-      Template<?>[] tmpls = new Template[from.length];
+   private Template[] toTemplate(FieldEntry[] from) {
+      Template[] tmpls = new Template[from.length];
 
       for(int i = 0; i < from.length; ++i) {
          FieldEntry e = from[i];
          if (!e.isAvailable()) {
             tmpls[i] = null;
          } else {
-            Template<?> tmpl = this.registry.lookup(e.getGenericType());
+            Template tmpl = this.registry.lookup(e.getGenericType());
             tmpls[i] = tmpl;
          }
       }
@@ -103,20 +103,20 @@ public class JavassistTemplateBuilder extends AbstractTemplateBuilder {
    }
 
    public void writeTemplate(Type targetType, String directoryName) {
-      Class<?> targetClass = (Class)targetType;
+      Class targetClass = (Class)targetType;
       this.checkClassValidation(targetClass);
       FieldOption implicitOption = this.getFieldOption(targetClass);
       FieldEntry[] entries = this.toFieldEntries(targetClass, implicitOption);
       this.writeTemplate(targetClass, entries, directoryName);
    }
 
-   private void writeTemplate(Class<?> targetClass, FieldEntry[] entries, String directoryName) {
+   private void writeTemplate(Class targetClass, FieldEntry[] entries, String directoryName) {
       Template[] tmpls = this.toTemplate(entries);
       BuildContext bc = this.createBuildContext();
       bc.writeTemplate(targetClass, entries, tmpls, directoryName);
    }
 
-   public <T> Template<T> loadTemplate(Type targetType) {
+   public Objectemplate loadTemplate(Type targetType) {
       Class targetClass = (Class)targetType;
 
       try {
@@ -133,7 +133,7 @@ public class JavassistTemplateBuilder extends AbstractTemplateBuilder {
 
       FieldOption implicitOption = this.getFieldOption(targetClass);
       FieldEntry[] entries = this.toFieldEntries(targetClass, implicitOption);
-      Template<?>[] tmpls = this.toTemplate(entries);
+      Template[] tmpls = this.toTemplate(entries);
       BuildContext bc = this.createBuildContext();
       return bc.loadTemplate(targetClass, entries, tmpls);
    }
@@ -142,11 +142,11 @@ public class JavassistTemplateBuilder extends AbstractTemplateBuilder {
       return this.loader;
    }
 
-   public abstract static class JavassistTemplate<T> extends AbstractTemplate<T> {
-      public Class<T> targetClass;
-      public Template<?>[] templates;
+   public abstract static class JavassistTemplate extends AbstractTemplate {
+      public Class ObjectargetClass;
+      public Template[] templates;
 
-      public JavassistTemplate(Class<T> targetClass, Template<?>[] templates) {
+      public JavassistTemplate(Class ObjectargetClass, Template[] templates) {
          this.targetClass = targetClass;
          this.templates = templates;
       }

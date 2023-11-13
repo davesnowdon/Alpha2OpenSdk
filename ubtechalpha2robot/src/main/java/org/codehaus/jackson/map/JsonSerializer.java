@@ -4,7 +4,7 @@ import java.io.IOException;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.JsonProcessingException;
 
-public abstract class JsonSerializer<T> {
+public abstract class JsonSerializer {
    public JsonSerializer() {
    }
 
@@ -14,7 +14,7 @@ public abstract class JsonSerializer<T> {
       this.serialize(value, jgen, provider);
    }
 
-   public Class<T> handledType() {
+   public Class handledType() {
       return null;
    }
 

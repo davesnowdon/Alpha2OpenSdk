@@ -2,7 +2,7 @@ package org.codehaus.jackson.smile;
 
 import java.util.Arrays;
 
-public class SmileBufferRecycler<T> {
+public class SmileBufferRecycler {
    public static final int DEFAULT_NAME_BUFFER_LENGTH = 64;
    public static final int DEFAULT_STRING_VALUE_BUFFER_LENGTH = 64;
    protected T[] _seenNamesBuffer;

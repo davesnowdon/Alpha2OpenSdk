@@ -4,7 +4,7 @@ import java.io.IOException;
 import org.codehaus.jackson.JsonParser;
 import org.codehaus.jackson.JsonProcessingException;
 
-public abstract class JsonDeserializer<T> {
+public abstract class JsonDeserializer {
    public JsonDeserializer() {
    }
 

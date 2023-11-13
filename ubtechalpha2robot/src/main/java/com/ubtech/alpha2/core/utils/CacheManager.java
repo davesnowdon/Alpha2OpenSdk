@@ -19,7 +19,7 @@ public class CacheManager {
    public CacheManager() {
    }
 
-   public static <T> void saveTestData(String xmlResult, String fileName) {
+   public static void saveTestData(String xmlResult, String fileName) {
       try {
          String state = Environment.getExternalStorageState();
          if ("mounted".equals(state) && BaseApplication.isDebug) {
@@ -47,7 +47,7 @@ public class CacheManager {
 
    }
 
-   public static <T> boolean writeObject(Object object, String key) {
+   public static boolean writeObject(Object object, String key) {
       try {
          String path = getCachePath(key);
          FileOutputStream fos = new FileOutputStream(path);
@@ -70,7 +70,7 @@ public class CacheManager {
       return false;
    }
 
-   public static <T> T readObject(String key) {
+   public static Object readObject(String key) {
       Object obj = null;
 
       try {
@@ -97,7 +97,7 @@ public class CacheManager {
       return obj;
    }
 
-   public static <T> boolean isInvalidObject(String key, long timeout) {
+   public static boolean isInvalidObject(String key, long timeout) {
       String path = getCachePath(key);
       File file = new File(path);
       if (file.exists()) {
@@ -113,7 +113,7 @@ public class CacheManager {
       return false;
    }
 
-   public static <T> String getCachePath(String key) {
+   public static String getCachePath(String key) {
       StringBuilder path = new StringBuilder();
       path.append(BaseApplication.SYS_CACHE_PATH);
       path.append(File.separator);
@@ -121,7 +121,7 @@ public class CacheManager {
       return path.toString();
    }
 
-   public static <T> boolean clearCache(String key) {
+   public static boolean clearCache(String key) {
       File file = new File(getCachePath(key));
       return file.exists() ? file.delete() : false;
    }
