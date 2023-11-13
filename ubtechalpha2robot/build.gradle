@@ -31,5 +31,6 @@ android {
 
 dependencies {
     implementation 'com.android.support:appcompat-v7:25.0.0'
+    implementation 'de.greenrobot:greendao:2.1.0'
     testImplementation 'junit:junit:4.12'
 }
