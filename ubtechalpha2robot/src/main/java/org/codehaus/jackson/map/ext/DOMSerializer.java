@@ -2,7 +2,7 @@ package org.codehaus.jackson.map.ext;
 
 import java.io.IOException;
 import org.w3c.dom.Node;
-import  org.w3c.dom.bootstrap.DOMImplementationRegistry;
+import org.w3c.dom.DOMImplementationSource;
 import  org.w3c.dom.ls.DOMImplementationLS;
 import  org.w3c.dom.ls.LSSerializer;
 
@@ -20,7 +20,7 @@ public class DOMSerializer
     public DOMSerializer()
     {
         super(Node.class);
-        DOMImplementationRegistry registry;
+        DOMImplementationSource registry;
         try {
             registry = DOMImplementationRegistry.newInstance();
         } catch (Exception e) {

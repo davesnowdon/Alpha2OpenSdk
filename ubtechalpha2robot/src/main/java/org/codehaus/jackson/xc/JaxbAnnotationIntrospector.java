@@ -1,9 +1,9 @@
 package org.codehaus.jackson.xc;
 
-import java.beans.BeanInfo;
-import java.beans.IntrospectionException;
-import java.beans.Introspector;
-import java.beans.PropertyDescriptor;
+import org.msgpack.template.builder.beans.BeanInfo;
+import org.msgpack.template.builder.beans.IntrospectionException;
+import org.msgpack.template.builder.beans.Introspector;
+import org.msgpack.template.builder.beans.PropertyDescriptor;
 import java.lang.annotation.Annotation;
 import java.lang.ref.SoftReference;
 import java.lang.reflect.*;
@@ -80,18 +80,18 @@ public class JaxbAnnotationIntrospector
     protected final static String MARKER_FOR_DEFAULT = "##default";
 
     protected final String _jaxbPackageName;
-    protected final JsonSerializer<?> _dataHandlerSerializer;
-    protected final JsonDeserializer<?> _dataHandlerDeserializer;
+    protected final JsonSerializer _dataHandlerSerializer;
+    protected final JsonDeserializer _dataHandlerDeserializer;
 
     public JaxbAnnotationIntrospector()
     {
         _jaxbPackageName = XmlElement.class.getPackage().getName();
 
-        JsonSerializer<?> dataHandlerSerializer = null;
-        JsonDeserializer<?> dataHandlerDeserializer = null;
+        JsonSerializer dataHandlerSerializer = null;
+        JsonDeserializer dataHandlerDeserializer = null;
         try {
-            dataHandlerSerializer = (JsonSerializer<?>) Class.forName("org.codehaus.jackson.xc.DataHandlerJsonSerializer").newInstance();
-            dataHandlerDeserializer = (JsonDeserializer<?>) Class.forName("org.codehaus.jackson.xc.DataHandlerJsonDeserializer").newInstance();
+            dataHandlerSerializer = (JsonSerializer) Class.forName("org.codehaus.jackson.xc.DataHandlerJsonSerializer").newInstance();
+            dataHandlerDeserializer = (JsonDeserializer) Class.forName("org.codehaus.jackson.xc.DataHandlerJsonDeserializer").newInstance();
         } catch (Throwable e) {
             //dataHandlers not supported...
         }
@@ -128,7 +128,7 @@ public class JaxbAnnotationIntrospector
          * (since annotation instances, like enums, may be of different
          * physical type!)
          */
-        Class<?> cls = ann.annotationType();
+        Class cls = ann.annotationType();
         Package pkg = cls.getPackage();
         String pkgName = (pkg != null) ? pkg.getName() : cls.getName();
         if (pkgName.startsWith(_jaxbPackageName)) {
@@ -203,8 +203,8 @@ public class JaxbAnnotationIntrospector
      */
     
     @Override
-    public VisibilityChecker<?> findAutoDetectVisibility(AnnotatedClass ac,
-        VisibilityChecker<?> checker)
+    public VisibilityChecker findAutoDetectVisibility(AnnotatedClass ac,
+        VisibilityChecker checker)
     {
         XmlAccessType at = findAccessType(ac);
         if (at == null) {
@@ -295,7 +295,7 @@ public class JaxbAnnotationIntrospector
      */
     
     @Override
-    public TypeResolverBuilder<?> findTypeResolver(MapperConfig<?> config,
+    public TypeResolverBuilder findTypeResolver(MapperConfig config,
             AnnotatedClass ac, JavaType baseType)
     {
         // no per-class type resolvers, right?
@@ -303,7 +303,7 @@ public class JaxbAnnotationIntrospector
     }
 
     @Override
-    public TypeResolverBuilder<?> findPropertyTypeResolver(MapperConfig<?> config,
+    public TypeResolverBuilder findPropertyTypeResolver(MapperConfig config,
             AnnotatedMember am, JavaType baseType)
     {
         /* First: @XmlElements and @XmlElementRefs only applies type for immediate property, if it
@@ -314,7 +314,7 @@ public class JaxbAnnotationIntrospector
     }
 
     @Override
-    public TypeResolverBuilder<?> findPropertyContentTypeResolver(MapperConfig<?> config,
+    public TypeResolverBuilder findPropertyContentTypeResolver(MapperConfig config,
             AnnotatedMember am, JavaType containerType)
     {
         /* First: let's ensure property is a container type: caller should have
@@ -326,7 +326,7 @@ public class JaxbAnnotationIntrospector
         return _typeResolverFromXmlElements(am);
     }
 
-    protected TypeResolverBuilder<?> _typeResolverFromXmlElements(AnnotatedMember am)
+    protected TypeResolverBuilder _typeResolverFromXmlElements(AnnotatedMember am)
     {
         /* If simple type, @XmlElements and @XmlElementRefs are applicable.
          * Note: @XmlElement and @XmlElementRef are NOT handled here, since they
@@ -339,7 +339,7 @@ public class JaxbAnnotationIntrospector
             return null;
         }
 
-        TypeResolverBuilder<?> b = new StdTypeResolverBuilder();
+        TypeResolverBuilder b = new StdTypeResolverBuilder();
         // JAXB always uses type name as id
         b = b.init(JsonTypeInfo.Id.NAME, null);
         // and let's consider WRAPPER_OBJECT to be canonical inclusion method
@@ -366,7 +366,7 @@ public class JaxbAnnotationIntrospector
             if (elemRefs != null) {
                 ArrayList<NamedType> result = new ArrayList<NamedType>();
                 for (XmlElementRef elemRef : elemRefs.value()) {
-                    Class<?> refType = elemRef.type();
+                    Class refType = elemRef.type();
                     // only good for types other than JAXBElement (which is XML based)
                     if (!JAXBElement.class.isAssignableFrom(refType)) {
                         // [JACKSON-253] first consider explicit name declaration
@@ -440,7 +440,7 @@ public class JaxbAnnotationIntrospector
      */
 
     @Override
-    public JsonSerializer<?> findSerializer(Annotated am, BeanProperty property)
+    public JsonSerializer findSerializer(Annotated am, BeanProperty property)
     {
         XmlAdapter<Object,Object> adapter = findAdapter(am, true);
         if (adapter != null) {
@@ -448,7 +448,7 @@ public class JaxbAnnotationIntrospector
         }
 
         // [JACKSON-150]: add support for additional core XML types needed by JAXB
-        Class<?> type = am.getRawType();
+        Class type = am.getRawType();
         if (type != null) {
             if (_dataHandlerSerializer != null && isDataHandler(type)) {
                 return _dataHandlerSerializer;
@@ -464,14 +464,14 @@ public class JaxbAnnotationIntrospector
      * @param type The type.
      * @return Whether the type is assignable to class javax.activation.DataHandler
      */
-    private boolean isDataHandler(Class<?> type)
+    private boolean isDataHandler(Class type)
     {
         return type != null && (Object.class != type)
                && (("javax.activation.DataHandler".equals(type.getName()) || isDataHandler(type.getSuperclass())));
     }
 
     @Override
-    public Class<?> findSerializationType(Annotated a)
+    public Class findSerializationType(Annotated a)
     {
         // As per [JACKSON-416], need to allow coercing serialization type...
         /* false for class, package, super-class, since annotation can
@@ -487,7 +487,7 @@ public class JaxbAnnotationIntrospector
          *   itself. So; we must return null here for those cases, and modify content
          *   type on another method.
          */
-        Class<?> rawPropType = a.getRawType();
+        Class rawPropType = a.getRawType();
         if (isIndexedType(rawPropType)) {
             return null;
         }
@@ -523,7 +523,7 @@ public class JaxbAnnotationIntrospector
     }
 
     @Override
-    public Class<?>[] findSerializationViews(Annotated a)
+    public Class[] findSerializationViews(Annotated a)
     {
         // no JAXB annotations for views (can use different schemas)
         return null;
@@ -612,9 +612,9 @@ public class JaxbAnnotationIntrospector
      *   serialized. Need to improve somehow
      */
     @Override
-    public String findEnumValue(Enum<?> e)
+    public String findEnumValue(Enum e)
     {
-        Class<?> enumClass = e.getDeclaringClass();
+        Class enumClass = e.getDeclaringClass();
         String enumValue = e.name();
         try {
             XmlEnumValue xmlEnumValue = enumClass.getDeclaredField(enumValue).getAnnotation(XmlEnumValue.class);
@@ -652,7 +652,7 @@ public class JaxbAnnotationIntrospector
     */
 
     @Override
-    public JsonDeserializer<?> findDeserializer(Annotated am, BeanProperty property)
+    public JsonDeserializer findDeserializer(Annotated am, BeanProperty property)
     {
         XmlAdapter<Object,Object> adapter = findAdapter(am, false);
         if (adapter != null) {
@@ -662,7 +662,7 @@ public class JaxbAnnotationIntrospector
         /* [JACKSON-150]: add support for additional core XML
          * types needed by JAXB
          */
-        Class<?> type = am.getRawType();
+        Class type = am.getRawType();
         if (type != null) {
             if (_dataHandlerDeserializer != null && isDataHandler(type)) {
                 return _dataHandlerDeserializer;
@@ -680,7 +680,7 @@ public class JaxbAnnotationIntrospector
     }
 
     @Override
-    public Class<JsonDeserializer<?>> findContentDeserializer(Annotated am)
+    public Class<JsonDeserializer> findContentDeserializer(Annotated am)
     {
         // Is there something like this in JAXB?
         return null;
@@ -691,7 +691,7 @@ public class JaxbAnnotationIntrospector
      * deserialization by using \@XmlElement annotation.
      */
     @Override
-    public Class<?> findDeserializationType(Annotated a, JavaType baseType, String propName)
+    public Class findDeserializationType(Annotated a, JavaType baseType, String propName)
     {
         /* First: only applicable for non-structured types (yes, JAXB annotations
          * are tricky)
@@ -703,14 +703,14 @@ public class JaxbAnnotationIntrospector
     }
 
     @Override
-    public Class<?> findDeserializationKeyType(Annotated am, JavaType baseKeyType,
+    public Class findDeserializationKeyType(Annotated am, JavaType baseKeyType,
             String propName)
     {
         return null;
     }
 
     @Override
-    public Class<?> findDeserializationContentType(Annotated a, JavaType baseContentType, String propName)
+    public Class findDeserializationContentType(Annotated a, JavaType baseContentType, String propName)
     {
         /* 15-Feb-2010, tatus: JAXB usage of XmlElement/XmlElements is really
          *   confusing: sometimes it's for type (non-container types), sometimes for
@@ -718,11 +718,11 @@ public class JaxbAnnotationIntrospector
          *   I think it's rather short-sighted. Whatever, it is what it is, and here
          *   we are being given content type explicitly.
          */
-        Class<?> type = _doFindDeserializationType(a, baseContentType, propName);
+        Class type = _doFindDeserializationType(a, baseContentType, propName);
         return type;
     }
 
-    protected Class<?> _doFindDeserializationType(Annotated a, JavaType baseType, String propName)
+    protected Class _doFindDeserializationType(Annotated a, JavaType baseType, String propName)
     {
         /* As per [JACKSON-288], @XmlJavaTypeAdapter will complicate handling of type
          * information; basically we better just ignore type we might find here altogether
@@ -737,7 +737,7 @@ public class JaxbAnnotationIntrospector
          */
         XmlElement annotation = findAnnotation(XmlElement.class, a, false, false, false);
         if (annotation != null) {
-            Class<?> type = annotation.type();
+            Class type = annotation.type();
             if (type != XmlElement.DEFAULT.class) {
                 return type;
             }
@@ -927,7 +927,7 @@ public class JaxbAnnotationIntrospector
      * 
      * @since 1.5
      */
-    protected <A extends Annotation> A findFieldAnnotation(Class<A> annotationType, Class<?> cls,
+    protected <A extends Annotation> A findFieldAnnotation(Class<A> annotationType, Class cls,
                                                           String fieldName)
     {
         do {
@@ -961,7 +961,7 @@ public class JaxbAnnotationIntrospector
     private final static ThreadLocal<SoftReference<PropertyDescriptors>> _propertyDescriptors
         = new ThreadLocal<SoftReference<PropertyDescriptors>>();
  
-    protected PropertyDescriptors getDescriptors(Class<?> forClass)
+    protected PropertyDescriptors getDescriptors(Class forClass)
     {
         SoftReference<PropertyDescriptors> ref = _propertyDescriptors.get();
         PropertyDescriptors descriptors = (ref == null) ? null : ref.get();
@@ -1005,7 +1005,7 @@ public class JaxbAnnotationIntrospector
         return findJaxbPropertyName(new AnnotatedProperty(prop), prop.getPropertyType(), prop.getName());
     }
 
-    protected static String findJaxbPropertyName(AnnotatedElement ae, Class<?> aeType, String defaultName)
+    protected static String findJaxbPropertyName(AnnotatedElement ae, Class aeType, String defaultName)
     {
         XmlElementWrapper elementWrapper = ae.getAnnotation(XmlElementWrapper.class);
         if (elementWrapper != null) {
@@ -1079,7 +1079,7 @@ public class JaxbAnnotationIntrospector
             return findAdapterForClass((AnnotatedClass) am, forSerialization);
         }
         // Otherwise for a member. First, let's figure out type of property
-        Class<?> memberType = am.getRawType();
+        Class memberType = am.getRawType();
         // ok; except for setters...
         if (memberType == Void.TYPE && (am instanceof AnnotatedMethod)) {
             memberType = ((AnnotatedMethod) am).getParameterClass(0);
@@ -1089,7 +1089,7 @@ public class JaxbAnnotationIntrospector
         Member member = (Member) am.getAnnotated();
         // [JACKSON-495]: Will be null for AnnotatedParam -- note, probably should find declaring class for it; won't for now
         if (member != null) {
-            Class<?> potentialAdaptee = member.getDeclaringClass();
+            Class potentialAdaptee = member.getDeclaringClass();
             if (potentialAdaptee != null) {
                 XmlJavaTypeAdapter adapterInfo = (XmlJavaTypeAdapter) potentialAdaptee.getAnnotation(XmlJavaTypeAdapter.class);
                 if (adapterInfo != null) { // should we try caching this?
@@ -1121,10 +1121,10 @@ public class JaxbAnnotationIntrospector
     }
 
     @SuppressWarnings("unchecked")
-    private final XmlAdapter<Object,Object> checkAdapter(XmlJavaTypeAdapter adapterInfo, Class<?> typeNeeded)
+    private final XmlAdapter<Object,Object> checkAdapter(XmlJavaTypeAdapter adapterInfo, Class typeNeeded)
     {
         // if annotation has no type, it's applicable; if it has, must match
-        Class<?> adaptedType = adapterInfo.type();
+        Class adaptedType = adapterInfo.type();
         if (adaptedType == XmlJavaTypeAdapter.DEFAULT.class
                 || adaptedType.isAssignableFrom(typeNeeded)) {
             Class<? extends XmlAdapter> cls = adapterInfo.value();
@@ -1153,7 +1153,7 @@ public class JaxbAnnotationIntrospector
      * Helper method used to distinguish structured type, which with JAXB use different
      * rules for defining content types.
      */
-    protected boolean isIndexedType(Class<?> raw)
+    protected boolean isIndexedType(Class raw)
     {
         return raw.isArray() || Collection.class.isAssignableFrom(raw)
             || Map.class.isAssignableFrom(raw);
@@ -1216,19 +1216,19 @@ public class JaxbAnnotationIntrospector
      */
     protected final static class PropertyDescriptors
     {
-        private final Class<?> _forClass;
+        private final Class _forClass;
         private final List<PropertyDescriptor> _properties;
 
         private Map<String, PropertyDescriptor> _byMethodName;
         private Map<String, PropertyDescriptor> _byPropertyName;
 
-        public PropertyDescriptors(Class<?> forClass, List<PropertyDescriptor> properties)
+        public PropertyDescriptors(Class forClass, List<PropertyDescriptor> properties)
         {
             _forClass = forClass;
             _properties = properties;
         }
 
-        public Class<?> getBeanClass() { return _forClass; }
+        public Class getBeanClass() { return _forClass; }
 
         public PropertyDescriptor findByPropertyName(String name)
         {
@@ -1262,7 +1262,7 @@ public class JaxbAnnotationIntrospector
         /**
          * Factory method for finding all (public) bean properties
          */
-        public static PropertyDescriptors find(Class<?> forClass)
+        public static PropertyDescriptors find(Class forClass)
             throws IntrospectionException
         {
             BeanInfo beanInfo = Introspector.getBeanInfo(forClass);
