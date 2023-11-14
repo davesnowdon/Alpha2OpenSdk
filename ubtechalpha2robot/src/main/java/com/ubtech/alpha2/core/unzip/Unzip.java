@@ -25,7 +25,6 @@ public class Unzip {
                Unzip.this.listener.onResult(0);
             } else {
                int code = 1;
-               int count = true;
                String savepath = "";
                File file = null;
                InputStream is = null;

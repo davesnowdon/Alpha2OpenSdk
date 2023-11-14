@@ -39,6 +39,7 @@ public interface IAlpha2XmppListener extends IInterface {
       public boolean onTransact(int code, Parcel data, Parcel reply, int flags) throws RemoteException {
          switch(code) {
          case 1:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.IAlpha2XmppListener");
             String _arg0 = data.readString();
             IAlpha2XmppCallBack _arg1 = IAlpha2XmppCallBack.Stub.asInterface(data.readStrongBinder());
@@ -46,14 +47,18 @@ public interface IAlpha2XmppListener extends IInterface {
             reply.writeNoException();
             reply.writeInt(_result);
             return true;
+         }
          case 2:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.IAlpha2XmppListener");
             IAlpha2XmppCallBack _arg0 = IAlpha2XmppCallBack.Stub.asInterface(data.readStrongBinder());
             int _result = this.unRegisterXmppCallBackListener(_arg0);
             reply.writeNoException();
             reply.writeInt(_result);
             return true;
+         }
          case 3:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.IAlpha2XmppListener");
             int _arg0 = data.readInt();
             String _arg1 = data.readString();
@@ -61,6 +66,7 @@ public interface IAlpha2XmppListener extends IInterface {
             this.sendCustomXmppMessage(_arg0, _arg1, _arg2);
             reply.writeNoException();
             return true;
+         }
          case 1598968902:
             reply.writeString("com.ubtechinc.alpha2serverlib.aidlinterface.IAlpha2XmppListener");
             return true;

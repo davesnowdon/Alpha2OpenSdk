@@ -18,7 +18,6 @@ public class InstallerUtils {
 
       try {
          ByteArrayOutputStream baos = new ByteArrayOutputStream();
-         int read = true;
          process = processBuilder.start();
          errIs = process.getErrorStream();
 

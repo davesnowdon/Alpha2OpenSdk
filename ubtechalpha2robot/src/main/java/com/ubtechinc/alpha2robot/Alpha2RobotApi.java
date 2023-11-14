@@ -684,7 +684,7 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       int length = data.length;
       String info = new String(data);
       int start = info.indexOf("{");
-      byte[] byss;
+
       if (start > 0) {
          byss = new byte[length - start];
          System.arraycopy(data, start, byss, 0, length - start);

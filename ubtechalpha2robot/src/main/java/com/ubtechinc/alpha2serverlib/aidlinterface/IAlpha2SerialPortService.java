@@ -40,24 +40,27 @@ public interface IAlpha2SerialPortService extends IInterface {
       }
 
       public boolean onTransact(int code, Parcel data, Parcel reply, int flags) throws RemoteException {
-         int _arg1;
-         IAlpha2SerialPortRcvClient _arg0;
          switch(code) {
          case 1:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.IAlpha2SerialPortService");
-            _arg0 = IAlpha2SerialPortRcvClient.Stub.asInterface(data.readStrongBinder());
-            _arg1 = this.registerSerialPortRcvListener(_arg0);
+            IAlpha2SerialPortRcvClient _arg0 = IAlpha2SerialPortRcvClient.Stub.asInterface(data.readStrongBinder());
+            int _arg1 = this.registerSerialPortRcvListener(_arg0);
             reply.writeNoException();
             reply.writeInt(_arg1);
             return true;
+         }
          case 2:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.IAlpha2SerialPortService");
-            _arg0 = IAlpha2SerialPortRcvClient.Stub.asInterface(data.readStrongBinder());
-            _arg1 = this.unRegisterSerialPortRcvListener(_arg0);
+            IAlpha2SerialPortRcvClient _arg0 = IAlpha2SerialPortRcvClient.Stub.asInterface(data.readStrongBinder());
+            int _arg1 = this.unRegisterSerialPortRcvListener(_arg0);
             reply.writeNoException();
             reply.writeInt(_arg1);
             return true;
+         }
          case 3:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.IAlpha2SerialPortService");
             byte _arg0 = data.readByte();
             byte _arg1 = data.readByte();
@@ -67,14 +70,17 @@ public interface IAlpha2SerialPortService extends IInterface {
             reply.writeNoException();
             reply.writeInt(_result ? 1 : 0);
             return true;
+         }
          case 4:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.IAlpha2SerialPortService");
             byte[] _arg0 = data.createByteArray();
-            _arg1 = data.readInt();
+            int _arg1 = data.readInt();
             boolean _result = this.sendRawData(_arg0, _arg1);
             reply.writeNoException();
             reply.writeInt(_result ? 1 : 0);
             return true;
+         }
          case 1598968902:
             reply.writeString("com.ubtechinc.alpha2serverlib.aidlinterface.IAlpha2SerialPortService");
             return true;

@@ -70,7 +70,7 @@ public class DownloadThread2 extends Thread {
                   this.is = this.conn.getInputStream();
                   int buffer_size = 102400;
                   this.length = 0;
-                  int proress = false;
+                  int proress = 0;
                   byte[] bytes = new byte[102400];
                   boolean var9 = false;
 
@@ -78,7 +78,7 @@ public class DownloadThread2 extends Thread {
                   while(!this.isCancel() && (count = this.is.read(bytes, 0, 102400)) != -1) {
                      this.length += count;
                      this.os.write(bytes, 0, count);
-                     int proress = (int)((float)this.length / (float)fileSize * 100.0F);
+                     proress = (int)((float)this.length / (float)fileSize * 100.0F);
                      this.bean.getListener().onProgrerss(this.bean.getRequestCode(), "" + proress);
                   }
 

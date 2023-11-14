@@ -192,14 +192,14 @@ public class RequestParams {
          int lastIndex = this.fileParams.entrySet().size() - 1;
 
          for(Iterator var12 = this.fileParams.entrySet().iterator(); var12.hasNext(); ++currentIndex) {
-            Entry<String, RequestParams.FileWrapper> entry = (Entry)var12.next();
-            RequestParams.FileWrapper file = (RequestParams.FileWrapper)entry.getValue();
+            Entry<String, RequestParams.FileWrapper> entryfw = (Entry)var12.next();
+            RequestParams.FileWrapper file = (RequestParams.FileWrapper)entryfw.getValue();
             if (file.inputStream != null) {
                boolean isLast = currentIndex == lastIndex;
                if (file.contentType != null) {
-                  multipartEntity.addPart((String)entry.getKey(), file.getFileName(), file.inputStream, file.contentType, isLast);
+                  multipartEntity.addPart((String)entryfw.getKey(), file.getFileName(), file.inputStream, file.contentType, isLast);
                } else {
-                  multipartEntity.addPart((String)entry.getKey(), file.getFileName(), file.inputStream, isLast);
+                  multipartEntity.addPart((String)entryfw.getKey(), file.getFileName(), file.inputStream, isLast);
                }
             }
          }

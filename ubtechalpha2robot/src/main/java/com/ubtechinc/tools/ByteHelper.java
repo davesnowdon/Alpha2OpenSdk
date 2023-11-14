@@ -15,7 +15,6 @@ public class ByteHelper {
    }
 
    public static int byte2int(byte[] res) {
-      int targets = false;
       int targets = res[0] & 255;
       targets |= res[1] << 8 & '\uff00';
       targets |= res[2] << 24 >>> 8;

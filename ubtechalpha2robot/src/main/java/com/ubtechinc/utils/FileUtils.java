@@ -47,7 +47,7 @@ public class FileUtils {
             outStream.write(data, 0, count);
          }
 
-         byte[] data = null;
+         data = null;
          String xmls = new String(outStream.toByteArray(), "UTF-8");
          intput.close();
          outStream.close();

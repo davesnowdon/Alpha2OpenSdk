@@ -82,91 +82,106 @@ public interface ISpeechInterface extends IInterface {
       }
 
       public boolean onTransact(int code, Parcel data, Parcel reply, int flags) throws RemoteException {
-         boolean _arg0;
-         String _arg2;
-         String _arg3;
-         String _arg0;
-         String _arg1;
-         int _result;
-         ISpeechCallBackListener _arg0;
          switch(code) {
          case 1:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.ISpeechInterface");
-            _arg0 = ISpeechCallBackListener.Stub.asInterface(data.readStrongBinder());
-            _result = this.registerSpeechCallBackListener(_arg0);
+            ISpeechCallBackListener _arg0 = ISpeechCallBackListener.Stub.asInterface(data.readStrongBinder());
+            int _result = this.registerSpeechCallBackListener(_arg0);
             reply.writeNoException();
             reply.writeInt(_result);
             return true;
+         }
          case 2:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.ISpeechInterface");
-            _arg0 = ISpeechCallBackListener.Stub.asInterface(data.readStrongBinder());
-            _result = this.unRegisterSpeechCallBackListener(_arg0);
+            ISpeechCallBackListener _arg0 = ISpeechCallBackListener.Stub.asInterface(data.readStrongBinder());
+            int _result = this.unRegisterSpeechCallBackListener(_arg0);
             reply.writeNoException();
             reply.writeInt(_result);
             return true;
+         }
          case 3:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.ISpeechInterface");
-            _arg0 = ISpeechCallBackListener.Stub.asInterface(data.readStrongBinder());
-            _arg1 = data.readString();
+            ISpeechCallBackListener _arg0 = ISpeechCallBackListener.Stub.asInterface(data.readStrongBinder());
+            String _arg1 = data.readString();
             this.onSpeech(_arg0, _arg1);
             reply.writeNoException();
             return true;
+         }
          case 4:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.ISpeechInterface");
-            _arg0 = ISpeechCallBackListener.Stub.asInterface(data.readStrongBinder());
+            ISpeechCallBackListener _arg0 = ISpeechCallBackListener.Stub.asInterface(data.readStrongBinder());
             this.onStopSpeech(_arg0);
             reply.writeNoException();
             return true;
+         }
          case 5:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.ISpeechInterface");
-            _arg0 = ISpeechCallBackListener.Stub.asInterface(data.readStrongBinder());
-            _arg1 = data.readString();
-            _arg2 = data.readString();
-            _arg3 = data.readString();
+            ISpeechCallBackListener _arg0 = ISpeechCallBackListener.Stub.asInterface(data.readStrongBinder());
+            String _arg1 = data.readString();
+            String _arg2 = data.readString();
+            String _arg3 = data.readString();
             this.onPlay(_arg0, _arg1, _arg2, _arg3);
             reply.writeNoException();
             return true;
+         }
          case 6:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.ISpeechInterface");
-            _arg0 = ISpeechCallBackListener.Stub.asInterface(data.readStrongBinder());
-            _arg1 = data.readString();
-            _arg2 = data.readString();
-            _arg3 = data.readString();
+            ISpeechCallBackListener _arg0 = ISpeechCallBackListener.Stub.asInterface(data.readStrongBinder());
+            String _arg1 = data.readString();
+            String _arg2 = data.readString();
+            String _arg3 = data.readString();
             this.onPlayHigh(_arg0, _arg1, _arg2, _arg3);
             reply.writeNoException();
             return true;
+         }
          case 7:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.ISpeechInterface");
-            _arg0 = ISpeechCallBackListener.Stub.asInterface(data.readStrongBinder());
+            ISpeechCallBackListener _arg0 = ISpeechCallBackListener.Stub.asInterface(data.readStrongBinder());
             this.onStopPlay(_arg0);
             reply.writeNoException();
             return true;
+         }
          case 8:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.ISpeechInterface");
-            _arg0 = 0 != data.readInt();
+            boolean _arg0 = 0 != data.readInt();
             this.setWakeState(_arg0);
             reply.writeNoException();
             return true;
+         }
          case 9:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.ISpeechInterface");
-            _arg0 = data.readString();
+            String _arg0 = data.readString();
             IAlphaTextUnderstandListener _arg1 = IAlphaTextUnderstandListener.Stub.asInterface(data.readStrongBinder());
             this.onTextUnderstand(_arg0, _arg1);
             reply.writeNoException();
             return true;
+         }
          case 10:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.ISpeechInterface");
-            _arg0 = data.readString();
+            String _arg0 = data.readString();
             ISpeechGrammarInitListener _arg1 = ISpeechGrammarInitListener.Stub.asInterface(data.readStrongBinder());
             this.initSpeechGrammar(_arg0, _arg1);
             reply.writeNoException();
             return true;
+         }
          case 11:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.ISpeechInterface");
             ISpeechGrammarListener _arg0 = ISpeechGrammarListener.Stub.asInterface(data.readStrongBinder());
             this.startSpeechGrammar(_arg0);
             reply.writeNoException();
             return true;
+         }
          case 12:
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.ISpeechInterface");
             this.stopSpeechGrammar();
@@ -178,35 +193,45 @@ public interface ISpeechInterface extends IInterface {
             reply.writeNoException();
             return true;
          case 14:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.ISpeechInterface");
-            _arg0 = data.readString();
+            String _arg0 = data.readString();
             this.setRecognizedLanguage(_arg0);
             reply.writeNoException();
             return true;
+         }
          case 15:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.ISpeechInterface");
-            _arg0 = data.readString();
+            String _arg0 = data.readString();
             this.setVoiceName(_arg0);
             reply.writeNoException();
             return true;
+         }
          case 16:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.ISpeechInterface");
             IAlphaEnglishUnderstandListener _arg0 = IAlphaEnglishUnderstandListener.Stub.asInterface(data.readStrongBinder());
             this.onEnglishUnderstand(_arg0);
             reply.writeNoException();
             return true;
+         }
          case 17:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.ISpeechInterface");
             IAlphaEnglishOfflineUnderstandListener _arg0 = IAlphaEnglishOfflineUnderstandListener.Stub.asInterface(data.readStrongBinder());
             this.setEnglishOfflineListener(_arg0);
             reply.writeNoException();
             return true;
+         }
          case 18:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.ISpeechInterface");
-            _arg0 = 0 != data.readInt();
+            boolean _arg0 = 0 != data.readInt();
             this.setSelfInterrupt(_arg0);
             reply.writeNoException();
             return true;
+         }
          case 1598968902:
             reply.writeString("com.ubtechinc.alpha2serverlib.aidlinterface.ISpeechInterface");
             return true;

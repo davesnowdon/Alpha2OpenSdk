@@ -426,7 +426,6 @@ public class HttpClientManager {
                try {
                   randomFile.seek(isCurrent);
                   byte[] tmp = new byte[4096];
-                  int proress = false;
                   long count = isCurrent;
                   boolean var24 = false;
 
@@ -474,7 +473,7 @@ public class HttpClientManager {
          outStream.write(data, 0, count);
       }
 
-      byte[] data = null;
+      data = null;
       return new String(outStream.toByteArray(), "UTF-8");
    }
 

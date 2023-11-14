@@ -43,7 +43,7 @@ public class DownloadThread extends Thread {
             http.setRequestProperty("Accept-Encoding", "identity");
             InputStream inStream = http.getInputStream();
             byte[] buffer = new byte[10240];
-            int offset = false;
+
             print("Thread " + this.threadId + " start download from position " + startPos);
             RandomAccessFile threadfile = new RandomAccessFile(this.saveFile, "rwd");
             threadfile.seek((long)startPos);

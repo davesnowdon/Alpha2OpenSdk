@@ -124,7 +124,6 @@ public class Alpha2SpeechMainServiceUtil implements ServiceConnection {
 
    public Alpha2SpeechMainServiceUtil(Context context, IAlpha2SpeechClientListener mCientListener, CustomLanguage specifyLanguage) {
       this.mContext = context;
-      int a = false;
       this.setAlpha2SpeechMainServiceIntent(specifyLanguage);
       this.mCientListener = mCientListener;
       if (mListener != null) {

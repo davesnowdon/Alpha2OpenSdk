@@ -71,7 +71,7 @@ public class CacheManager {
    }
 
    public static <T> T readObject(String key) {
-      Object obj = null;
+      T obj = null;
 
       try {
          String cachePath = getCachePath(key);
@@ -79,7 +79,7 @@ public class CacheManager {
          if (file.exists()) {
             FileInputStream fis = new FileInputStream(cachePath);
             ObjectInputStream ois = new ObjectInputStream(fis);
-            obj = ois.readObject();
+            obj = (T) ois.readObject();
             ois.close();
          }
       } catch (StreamCorruptedException var6) {

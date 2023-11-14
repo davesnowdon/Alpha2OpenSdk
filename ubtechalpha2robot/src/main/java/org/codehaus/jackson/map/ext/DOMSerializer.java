@@ -22,7 +22,7 @@ public class DOMSerializer
         super(Node.class);
         DOMImplementationSource registry;
         try {
-            registry = DOMImplementationRegistry.newInstance();
+            registry = new DOMImplementationSource.newInstance();
         } catch (Exception e) {
             throw new IllegalStateException("Could not instantiate DOMImplementationRegistry: "+e.getMessage(), e);
         }

@@ -44,8 +44,8 @@ public interface ISpeechGrammarListener extends IInterface {
             return true;
          case 2:
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.ISpeechGrammarListener");
-            int _arg0 = data.readInt();
-            this.onSpeechGrammarError(_arg0);
+            int _arg2 = data.readInt();
+            this.onSpeechGrammarError(_arg2);
             reply.writeNoException();
             return true;
          case 1598968902:

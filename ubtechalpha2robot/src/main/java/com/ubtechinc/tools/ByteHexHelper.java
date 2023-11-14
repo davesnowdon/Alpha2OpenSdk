@@ -289,7 +289,6 @@ public class ByteHexHelper {
          }
 
          StringBuffer tmp = new StringBuffer();
-         int iTmp = false;
 
          for(int i = 0; i < bString.length(); i += 4) {
             iTmp = 0;
@@ -370,7 +369,6 @@ public class ByteHexHelper {
    public static String calculateSingleFileMD5sum(File file) throws Exception {
       MessageDigest md5 = MessageDigest.getInstance("MD5");
       FileInputStream fis = new FileInputStream(file);
-      int readLen = false;
       byte[] buff = new byte[256];
 
       int readLen;

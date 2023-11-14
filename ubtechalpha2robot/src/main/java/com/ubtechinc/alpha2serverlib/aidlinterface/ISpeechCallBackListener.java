@@ -36,18 +36,22 @@ public interface ISpeechCallBackListener extends IInterface {
       public boolean onTransact(int code, Parcel data, Parcel reply, int flags) throws RemoteException {
          switch(code) {
          case 1:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.ISpeechCallBackListener");
             int _arg0 = data.readInt();
             String _arg1 = data.readString();
             this.onCallBack(_arg0, _arg1);
             reply.writeNoException();
             return true;
+         }
          case 2:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.ISpeechCallBackListener");
             boolean _arg0 = 0 != data.readInt();
             this.onPlayEnd(_arg0);
             reply.writeNoException();
             return true;
+         }
          case 1598968902:
             reply.writeString("com.ubtechinc.alpha2serverlib.aidlinterface.ISpeechCallBackListener");
             return true;

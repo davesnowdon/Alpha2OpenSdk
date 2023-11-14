@@ -49,13 +49,13 @@ public abstract class BaseManager {
 
    public <T> T xmlToBean(String xml, Class<T> cls) {
       this.xmlMapper.processAnnotations(cls);
-      T obj = this.xmlMapper.fromXML(xml);
+      T obj  = (T) this.xmlMapper.fromXML(xml);
       return obj;
    }
 
    public <T> T xmlToBean(InputStream xml, Class<T> cls) {
       this.xmlMapper.processAnnotations(cls);
-      T obj = this.xmlMapper.fromXML(xml);
+      T obj = (T) this.xmlMapper.fromXML(xml);
       return obj;
    }
 

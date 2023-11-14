@@ -52,49 +52,56 @@ public interface IAlphaActionService extends IInterface {
       }
 
       public boolean onTransact(int code, Parcel data, Parcel reply, int flags) throws RemoteException {
-         String _arg0;
-         boolean _result;
-         IAlphaActionClient _arg0;
          switch(code) {
          case 1:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.IAlphaActionService");
-            _arg0 = IAlphaActionClient.Stub.asInterface(data.readStrongBinder());
+            IAlphaActionClient _arg0 = IAlphaActionClient.Stub.asInterface(data.readStrongBinder());
             int _result = this.registerActionClient(_arg0);
             reply.writeNoException();
             reply.writeInt(_result);
             return true;
+         }
          case 2:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.IAlphaActionService");
-            _arg0 = IAlphaActionClient.Stub.asInterface(data.readStrongBinder());
+            IAlphaActionClient _arg0 = IAlphaActionClient.Stub.asInterface(data.readStrongBinder());
             this.unRegisterActionClient(_arg0);
             reply.writeNoException();
             return true;
+         }
          case 3:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.IAlphaActionService");
-            _arg0 = data.readString();
-            _result = this.playActionFile(_arg0);
+            String _arg0 = data.readString();
+            boolean _result = this.playActionFile(_arg0);
             reply.writeNoException();
             reply.writeInt(_result ? 1 : 0);
             return true;
+         }
          case 4:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.IAlphaActionService");
-            _arg0 = data.readString();
-            _result = this.playActionName(_arg0);
+            String _arg0 = data.readString();
+            boolean _result = this.playActionName(_arg0);
             reply.writeNoException();
             reply.writeInt(_result ? 1 : 0);
             return true;
+         }
          case 5:
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.IAlphaActionService");
             this.stopActionPlay();
             reply.writeNoException();
             return true;
          case 6:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.IAlphaActionService");
             int _arg0 = data.readInt();
             byte[] _arg1 = data.createByteArray();
             this.onEventHandlerTrigger(_arg0, _arg1);
             reply.writeNoException();
             return true;
+         }
          case 7:
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.IAlphaActionService");
             boolean _result = this.isCompleted();
@@ -102,11 +109,13 @@ public interface IAlphaActionService extends IInterface {
             reply.writeInt(_result ? 1 : 0);
             return true;
          case 8:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.IAlphaActionService");
             IAlphaActionListListener _arg0 = IAlphaActionListListener.Stub.asInterface(data.readStrongBinder());
             this.getActionList(_arg0);
             reply.writeNoException();
             return true;
+         }
          case 1598968902:
             reply.writeString("com.ubtechinc.alpha2serverlib.aidlinterface.IAlphaActionService");
             return true;

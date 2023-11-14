@@ -222,7 +222,6 @@ public class DeveloperPacketData implements Serializable {
 
    public static short hBytesToShort(byte[] b) {
       int s = 0;
-      int s;
       if (b[0] >= 0) {
          s = s + b[0];
       } else {
@@ -242,7 +241,6 @@ public class DeveloperPacketData implements Serializable {
 
    public static short lBytesToShort(byte[] b) {
       int s = 0;
-      int s;
       if (b[1] >= 0) {
          s = s + b[1];
       } else {
@@ -261,14 +259,12 @@ public class DeveloperPacketData implements Serializable {
    }
 
    public static float hBytesToFloat(byte[] b) {
-      int i = false;
       Float F = new Float(0.0D);
       int i = (((b[0] & 255) << 8 | b[1] & 255) << 8 | b[2] & 255) << 8 | b[3] & 255;
       return Float.intBitsToFloat(i);
    }
 
    public static float lBytesToFloat(byte[] b) {
-      int i = false;
       Float F = new Float(0.0D);
       int i = (((b[3] & 255) << 8 | b[2] & 255) << 8 | b[1] & 255) << 8 | b[0] & 255;
       return Float.intBitsToFloat(i);

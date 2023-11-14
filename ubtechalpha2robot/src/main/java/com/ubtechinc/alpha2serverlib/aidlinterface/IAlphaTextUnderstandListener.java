@@ -36,17 +36,21 @@ public interface IAlphaTextUnderstandListener extends IInterface {
       public boolean onTransact(int code, Parcel data, Parcel reply, int flags) throws RemoteException {
          switch(code) {
          case 1:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.IAlphaTextUnderstandListener");
             int _arg0 = data.readInt();
             this.onAlpha2UnderStandError(_arg0);
             reply.writeNoException();
             return true;
+         }
          case 2:
+         {
             data.enforceInterface("com.ubtechinc.alpha2serverlib.aidlinterface.IAlphaTextUnderstandListener");
             String _arg0 = data.readString();
             this.onAlpha2UnderStandTextResult(_arg0);
             reply.writeNoException();
             return true;
+         }
          case 1598968902:
             reply.writeString("com.ubtechinc.alpha2serverlib.aidlinterface.IAlphaTextUnderstandListener");
             return true;

@@ -166,7 +166,6 @@ public class FileDownloader {
             }
          }
 
-         int i;
          for(i = 0; i < this.threads.length; ++i) {
             i = (Integer)this.data.get(i + 1);
             if (i < this.block && this.downloadSize < this.fileSize) {
