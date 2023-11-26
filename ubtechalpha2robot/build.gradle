@@ -1,0 +1,46 @@
+plugins {
+    id 'com.android.library'
+}
+
+android {
+    namespace 'com.ubtech.alpha2robot'
+    //compileSdk 22
+    compileSdkVersion 25
+
+    defaultConfig {
+        //minSdk 22
+        minSdkVersion 21
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles "consumer-rules.pro"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_6
+        targetCompatibility JavaVersion.VERSION_1_6
+    }
+}
+
+dependencies {
+    implementation 'com.android.support:appcompat-v7:25.0.0'
+    implementation 'de.greenrobot:greendao:2.1.0'
+    implementation 'org.apache.httpcomponents:httpclient:4.5.2'
+    implementation 'org.apache.httpcomponents:httpmime:4.5.2'
+    implementation 'com.nostra13.universalimageloader:universal-image-loader:1.9.5'
+    implementation 'org.glassfish.jersey.core:jersey-client:2.24.1'
+    implementation 'com.thoughtworks.xstream:xstream:1.4.9'
+    implementation 'net.danlew:android.joda:2.9.5'
+    implementation 'javax.xml.bind:jaxb-api:2.2.12'
+    implementation 'com.sun.activation:javax.activation:1.2.0'
+    implementation 'org.apache.ant:ant:1.10.0'
+    implementation 'com.googlecode.json-simple:json-simple:1.1.1'
+    testImplementation 'junit:junit:4.12'
+}
