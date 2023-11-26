@@ -20,6 +20,7 @@ public class DOMSerializer
     public DOMSerializer()
     {
         super(Node.class);
+        /* TODO: can't get this to build on android. Is it needed?
         DOMImplementationSource registry;
         try {
             registry = new DOMImplementationSource.newInstance();
@@ -27,6 +28,8 @@ public class DOMSerializer
             throw new IllegalStateException("Could not instantiate DOMImplementationRegistry: "+e.getMessage(), e);
         }
         _domImpl = (DOMImplementationLS)registry.getDOMImplementation("LS");
+        */
+        _domImpl = null;
     }
     
     @Override

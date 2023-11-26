@@ -680,7 +680,7 @@ public class JaxbAnnotationIntrospector
     }
 
     @Override
-    public Class<JsonDeserializer> findContentDeserializer(Annotated am)
+    public Class<? extends JsonDeserializer<?>> findContentDeserializer(Annotated am)
     {
         // Is there something like this in JAXB?
         return null;

@@ -34,6 +34,7 @@ public class DataHandlerJsonSerializer extends SerializerBase<DataHandler>
          * streaming output. But currently JsonGenerator won't allow
          * that.
          */
+        /* TODO: won't build on android
         byte[] buffer = new byte[1024 * 4]; //10k?
         InputStream in = value.getInputStream();
         int len = in.read(buffer);
@@ -42,6 +43,7 @@ public class DataHandlerJsonSerializer extends SerializerBase<DataHandler>
             len = in.read(buffer);
         }
         jgen.writeBinary(out.toByteArray());
+        */
     }
 
     @Override
