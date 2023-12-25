@@ -46,4 +46,3 @@ RUN apt-get clean
 
 # Make bash our default shell
 CMD ["/bin/bash"]
-
