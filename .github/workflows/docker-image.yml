@@ -6,6 +6,7 @@ on:
       - 'master'
     paths:
       - docker/**
+      - .github/workflows/docker-image.yml
     tags:
       - 'v*'
   pull_request:
@@ -13,6 +14,7 @@ on:
       - 'master'
     paths:
       - docker/**
+      - .github/workflows/docker-image.yml
 
 jobs:
   docker:
@@ -48,7 +50,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v3
         with:
-          working-directory: ./docker
+          context: ./docker
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
