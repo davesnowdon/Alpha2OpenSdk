@@ -1,0 +1,28 @@
+name: Build NAO body
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+    branches: [ master ]
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        container: 
+          image: davesnowdon/alpha2build:sha-94523ae
+        steps:
+        - name: Checkout
+          uses: actions/checkout@v3
+
+        - name: Build SDK
+          shell: bash
+          run: ./gradlew assembleRelease
+
+        - name: Archive SDK
+          uses: actions/upload-artifact@v3
+          with:
+              name: alpha2opensdk.aar
+              path: ubtechalpha2robot/build/outputs/aar/ubtechalpha2robot-release.aar
