@@ -1,4 +1,4 @@
-name: Build NAO body
+name: Build Alpha 2 SDK
 
 on:
   push:
