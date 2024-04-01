@@ -72,7 +72,7 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
    private IAlpha2SpeechGrammarInitListener mSpeechGrammarInitListener;
    private IAlpha2SpeechGrammarListener mSpeechGrammarListener;
    private AlphaActionClientListener mActionListener;
-   private boolean isAuthorize = false;
+   private boolean isAuthorize = true; // default to true now no longer possible to add apps to UBTECH store
    private boolean isNuanceOfflineAuthorize = false;
    private SharedPreferences sharedPreferences = null;
    private Editor editor = null;
@@ -90,6 +90,7 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
    }
 
    private void setAuthorize(boolean isAuthorize) {
+      Log.d("Alpha2RobotApi", "setAuthorize = "+ isAuthorize);
       this.isAuthorize = isAuthorize;
    }
 
