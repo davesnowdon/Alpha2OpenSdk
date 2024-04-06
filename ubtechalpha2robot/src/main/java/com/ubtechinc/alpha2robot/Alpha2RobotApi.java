@@ -480,55 +480,14 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
    }
 
    private void doProcess(final ClientAuthorizeListener listener) {
-      if (!this.mContext.getPackageName().equals("com.ubtech.iflytekmix") && !this.mContext.getPackageName().equals("com.ubtechinc.alphaenglishchat") && !this.mContext.getPackageName().equals("com.ubtech.smartcamera")) {
-         try {
-            PackageInfo info = this.mContext.getPackageManager().getPackageInfo(this.mContext.getPackageName(), 0);
-            if (this.isSystemApp(info)) {
-               this.isAuthorize = true;
-               this.isNuanceOfflineAuthorize = true;
-               listener.onResult(2, "This is robot system app and have offline authority");
-               return;
-            }
-         } catch (NameNotFoundException var5) {
-            var5.printStackTrace();
-         }
+      // not sure if text is important, but preserve previous string returned by SDK for now
+      String info = "have offline authority";
 
-         String appID = this.sharedPreferences.getString(this.mContext.getPackageName(), "");
-         if (appID != null && !"".equals(appID)) {
-            this.isAuthorize = true;
-            if (this.sharedPreferences.getBoolean(HAVE_NUANCE_OFFLINE_AUTHORITY, false)) {
-               listener.onResult(2, "have offline authority");
-            } else {
-               listener.onResult(1, "appID already exit");
-            }
-         } else {
-            UserAction xx = new UserAction(this.mContext, new ClientAuthorizeListener() {
-               public void onResult(int code, String info) {
-                  if (code == 1) {
-                     Alpha2RobotApi.this.isAuthorize = true;
-                     Alpha2RobotApi.this.editor.putString(Alpha2RobotApi.this.mContext.getPackageName(), info);
-                  } else if (code == 2) {
-                     Alpha2RobotApi.this.isAuthorize = true;
-                     Alpha2RobotApi.this.isNuanceOfflineAuthorize = true;
-                     Alpha2RobotApi.this.editor.putString(Alpha2RobotApi.this.mContext.getPackageName(), info);
-                     Alpha2RobotApi.this.editor.putBoolean(Alpha2RobotApi.HAVE_NUANCE_OFFLINE_AUTHORITY, true);
-                  }
-
-                  listener.onResult(code, info);
-               }
-            });
-            AuthenticationRequest bean = new AuthenticationRequest();
-            bean.setAppKey(this.mAppID);
-            bean.setAppPackage(this.mContext.getPackageName());
-            xx.setParamerObj(bean);
-            xx.doRequest(10001, "");
-         }
-
-      } else {
-         this.isAuthorize = true;
-         this.isNuanceOfflineAuthorize = true;
-         listener.onResult(2, "This is robot system app and have offline authority");
-      }
+      Alpha2RobotApi.this.isAuthorize = true;
+      Alpha2RobotApi.this.isNuanceOfflineAuthorize = true;
+      Alpha2RobotApi.this.editor.putString(Alpha2RobotApi.this.mContext.getPackageName(), info);
+      Alpha2RobotApi.this.editor.putBoolean(Alpha2RobotApi.HAVE_NUANCE_OFFLINE_AUTHORITY, true);
+      listener.onResult(2, info);
    }
 
    private String readAppFile(String code) {
