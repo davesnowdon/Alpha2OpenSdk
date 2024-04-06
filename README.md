@@ -12,6 +12,48 @@ java -cp java-decompiler.jar org.jetbrains.java.decompiler.main.decompiler.Conso
 
 The official SDK appears to include code for CodeHaus Jackson 1.8.3 and msgpack 0.6.11. It's not clear why these were embedded in the jar and  weren't referenced as dependencies. For now I've replaced the decompiled binaries for these libraries with the original source and made a few hacks so it builds. The decompiled source would not build "as is" either so I have my doubts whether this code was build for android or whether it is actually required by the Alpha 2 SDK. For now the aim to to get the SDK to a usable state and once this is done I will look to remove the other code embedded in it.
 
+## Developing with ALpha 2
+
+You'll probably want to use Vysor in order to interact with android on the robot.
+
+Download vysor from <https://www.vysor.io/>
+
+### On Linux
+
+You may need to edit udev rules in order for adb in order to connect to the robot
+
+run `lsusb`
+
+You will see something like this (on my machine this shows 19 devices which I haven't listed for brevity)
+
+```bash
+$ lsusb
+...
+Bus 001 Device 057: ID 2207:0011  
+...
+```
+On my machine it's not obvious which of the many USB devices is the Alpha2. I settled for running `lsusb` with Alpha2 not plugged in, plugging in Alpha 2, and running the command again and doing a diff. The interesting number is `2207:0011` The first part if the vendor ID and the second the product ID.
+
+You will need to create a file in `/etc/udev/rules.d`. I called mine `45-alpha2.rules` - I don't think the filename is important as long as it's unique and obvious what it's for.
+
+The contents should look like this
+
+```text
+SUBSYSTEM=="usb", ATTR{idVendor}=="2207", ATTR{idProduct}=="0011", MODE="0660", 
+GROUP="plugdev", SYMLINK+="android%n"
+```
+
+You'll then want to unplug Alpha2's USB connection and then plug in again. if you run `adb devices` you should see something like
+
+```text
+$ ./adb devices
+List of devices attached
+40AI8N0HAU	device
+```
+
+If you launch Vysor, you should then see an entry for Alpha 2 and be able to launch a window giving you access to the android UI on Alpha 2.
+
+
 ## How to use the SDK
 
 Currently the SDK makes use of a UBTECH "app id" - We think it is no longer possible to obtain these for Alpha2 from UBTECH. Eventually we hope to remove all mention of them from the SDK. For now, the recommendation is to try a string like "222B998EDFA5FAD7FCE78678FB9F2521"
