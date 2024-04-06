@@ -54,7 +54,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 
 public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2SerialPortHeaderOnRcvListener {
-   private static String sdkVersion = "2.0.0.2";
+   private static String sdkVersion = "3.0.0.1";
    private static String HAVE_NUANCE_OFFLINE_AUTHORITY = "nuance_offline_authority";
    private static int CUSTOM_CMD = 0;
    private static int CUSTOM_RESP = 1;
