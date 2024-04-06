@@ -481,8 +481,8 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
 
    private void doProcess(final ClientAuthorizeListener listener) {
       // not sure if text is important, but preserve previous string returned by SDK for now
-      String info = "have offline authority"
-      
+      String info = "have offline authority";
+
       Alpha2RobotApi.this.isAuthorize = true;
       Alpha2RobotApi.this.isNuanceOfflineAuthorize = true;
       Alpha2RobotApi.this.editor.putString(Alpha2RobotApi.this.mContext.getPackageName(), info);
