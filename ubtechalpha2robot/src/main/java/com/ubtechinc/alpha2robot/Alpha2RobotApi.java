@@ -480,6 +480,7 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
    }
 
    private void doProcess(final ClientAuthorizeListener listener) {
+      PackageInfo info = this.mContext.getPackageManager().getPackageInfo(this.mContext.getPackageName(), 0);
       Alpha2RobotApi.this.isAuthorize = true;
       Alpha2RobotApi.this.isNuanceOfflineAuthorize = true;
       Alpha2RobotApi.this.editor.putString(Alpha2RobotApi.this.mContext.getPackageName(), info);
