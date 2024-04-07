@@ -105,6 +105,7 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
    private Alpha2RobotApi(Context context, String appID) {
       this.mContext = context;
       this.mAppID = appID;
+      this.doProcess(null);
    }
 
    public Alpha2RobotApi(Context context, String appKey, ClientAuthorizeListener listenr) {
@@ -158,7 +159,7 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       }
    }
 
-   public boolean initChestSeiralApi() {
+   public boolean initChestSerialApi() {
       boolean bRet = true;
       if (this.mChestSerialServiceUtil == null) {
          this.mChestSerialServiceUtil = new Alpha2SerialServiceUtil(this.mContext, this);
@@ -457,7 +458,9 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       Alpha2RobotApi.this.isNuanceOfflineAuthorize = true;
       Alpha2RobotApi.this.editor.putString(Alpha2RobotApi.this.mContext.getPackageName(), info);
       Alpha2RobotApi.this.editor.putBoolean(Alpha2RobotApi.HAVE_NUANCE_OFFLINE_AUTHORITY, true);
-      listener.onResult(2, info);
+      if (listener != null) {
+         listener.onResult(1, info);
+      }
    }
 
    private String readAppFile(String code) {
