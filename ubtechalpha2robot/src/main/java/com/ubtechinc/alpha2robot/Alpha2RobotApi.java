@@ -314,7 +314,7 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
          return nState;
       } else if (this.mSpeechServiceUtil == null) {
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
-         return nState;E;
+         return nState;
       } else {
          this.mSpeechServiceUtil.onStopPlay();
          return nState;
