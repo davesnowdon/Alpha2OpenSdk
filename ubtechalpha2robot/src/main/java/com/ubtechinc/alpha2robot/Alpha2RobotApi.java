@@ -183,8 +183,6 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       } else if (this.mHeaderSerivalServiceUtil == null) {
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
          return nState;
-      } else if (!LuancherAppManager.isDebug(this.mContext) && !LuancherAppManager.isLuancherAPP(this.mContext, this.mAppID)) {
-         return UbxErrorCode.API_EEROR_CODE.API_ERROR_APPID_NOT_ACTIVE;
       } else {
          byte[] noiseData;
          if (!isOpen) {
@@ -240,8 +238,6 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       } else if (this.mActionServiceUtil == null) {
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
          return nState;
-      } else if (!LuancherAppManager.isDebug(this.mContext) && !LuancherAppManager.isLuancherAPP(this.mContext, this.mAppID)) {
-         return UbxErrorCode.API_EEROR_CODE.API_ERROR_APPID_NOT_ACTIVE;
       } else {
          this.mActionServiceUtil.getActionList(listener);
          return nState;
@@ -255,8 +251,6 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       } else if (this.mActionServiceUtil == null) {
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
          return nState;
-      } else if (!LuancherAppManager.isDebug(this.mContext) && !LuancherAppManager.isLuancherAPP(this.mContext, this.mAppID)) {
-         return UbxErrorCode.API_EEROR_CODE.API_ERROR_APPID_NOT_ACTIVE;
       } else {
          this.mActionServiceUtil.playActionName(actionName, (AlphaEvent)null);
          return nState;
@@ -270,8 +264,6 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       } else if (this.mActionServiceUtil == null) {
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
          return nState;
-      } else if (!LuancherAppManager.isDebug(this.mContext) && !LuancherAppManager.isLuancherAPP(this.mContext, this.mAppID)) {
-         return UbxErrorCode.API_EEROR_CODE.API_ERROR_APPID_NOT_ACTIVE;
       } else {
          this.mActionServiceUtil.stopActionPlay();
          return nState;
@@ -285,8 +277,6 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       } else if (this.mSpeechServiceUtil == null) {
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
          return nState;
-      } else if (!LuancherAppManager.isDebug(this.mContext) && !LuancherAppManager.isLuancherAPP(this.mContext, this.mAppID)) {
-         return UbxErrorCode.API_EEROR_CODE.API_ERROR_APPID_NOT_ACTIVE;
       } else {
          this.mSpeechServiceUtil.setVoiceName(strVoiceName);
          return nState;
@@ -312,8 +302,6 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       } else if (this.mSpeechServiceUtil == null) {
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
          return nState;
-      } else if (!LuancherAppManager.isDebug(this.mContext) && !LuancherAppManager.isLuancherAPP(this.mContext, this.mAppID)) {
-         return UbxErrorCode.API_EEROR_CODE.API_ERROR_APPID_NOT_ACTIVE;
       } else {
          this.mSpeechServiceUtil.onPlay(text, strVoicName, language, true);
          return nState;
@@ -326,9 +314,7 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
          return nState;
       } else if (this.mSpeechServiceUtil == null) {
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
-         return nState;
-      } else if (!LuancherAppManager.isDebug(this.mContext) && !LuancherAppManager.isLuancherAPP(this.mContext, this.mAppID)) {
-         return UbxErrorCode.API_EEROR_CODE.API_ERROR_APPID_NOT_ACTIVE;
+         return nState;E;
       } else {
          this.mSpeechServiceUtil.onStopPlay();
          return nState;
@@ -342,8 +328,6 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       } else if (this.mSpeechServiceUtil == null) {
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
          return nState;
-      } else if (!LuancherAppManager.isDebug(this.mContext) && !LuancherAppManager.isLuancherAPP(this.mContext, this.mAppID)) {
-         return UbxErrorCode.API_EEROR_CODE.API_ERROR_APPID_NOT_ACTIVE;
       } else {
          this.mSpeechServiceUtil.setRecognizedLanguage(strLanguage);
          return nState;
@@ -358,8 +342,6 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       } else if (this.mSpeechServiceUtil == null) {
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
          return nState;
-      } else if (!LuancherAppManager.isDebug(this.mContext) && !LuancherAppManager.isLuancherAPP(this.mContext, this.mAppID)) {
-         return UbxErrorCode.API_EEROR_CODE.API_ERROR_APPID_NOT_ACTIVE;
       } else {
          this.mSpeechServiceUtil.onSpeech(text);
          return nState;
@@ -374,8 +356,6 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       } else if (this.mSpeechServiceUtil == null) {
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
          return nState;
-      } else if (!LuancherAppManager.isDebug(this.mContext) && !LuancherAppManager.isLuancherAPP(this.mContext, this.mAppID)) {
-         return UbxErrorCode.API_EEROR_CODE.API_ERROR_APPID_NOT_ACTIVE;
       } else {
          this.mSpeechServiceUtil.onStopSpeech();
          return nState;
@@ -390,8 +370,6 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       } else if (this.mSpeechServiceUtil == null) {
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
          return nState;
-      } else if (!LuancherAppManager.isDebug(this.mContext) && !LuancherAppManager.isLuancherAPP(this.mContext, this.mAppID)) {
-         return UbxErrorCode.API_EEROR_CODE.API_ERROR_APPID_NOT_ACTIVE;
       } else {
          this.mRobotTextListener = mRobotTextListener;
          IAlphaTextUnderstandListener listener = new Alpha2RobotApi.SpeechTextUnderstand();
@@ -407,8 +385,6 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       } else if (this.mSpeechServiceUtil == null) {
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
          return nState;
-      } else if (!LuancherAppManager.isDebug(this.mContext) && !LuancherAppManager.isLuancherAPP(this.mContext, this.mAppID)) {
-         return UbxErrorCode.API_EEROR_CODE.API_ERROR_APPID_NOT_ACTIVE;
       } else {
          this.mSpeechGrammarInitListener = listener;
          this.mSpeechServiceUtil.initSpeechGrammar(strGramma, new ISpeechGrammarInitListener.Stub() {
@@ -430,8 +406,6 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       } else if (this.mSpeechServiceUtil == null) {
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
          return nState;
-      } else if (!LuancherAppManager.isDebug(this.mContext) && !LuancherAppManager.isLuancherAPP(this.mContext, this.mAppID)) {
-         return UbxErrorCode.API_EEROR_CODE.API_ERROR_APPID_NOT_ACTIVE;
       } else {
          this.mSpeechGrammarListener = listener;
          this.mSpeechServiceUtil.startSpeechGrammar(listener);
@@ -446,8 +420,6 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       } else if (this.mSpeechServiceUtil == null) {
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
          return nState;
-      } else if (!LuancherAppManager.isDebug(this.mContext) && !LuancherAppManager.isLuancherAPP(this.mContext, this.mAppID)) {
-         return UbxErrorCode.API_EEROR_CODE.API_ERROR_APPID_NOT_ACTIVE;
       } else {
          this.mSpeechServiceUtil.stopSpeechGrammar();
          return nState;
@@ -461,8 +433,6 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       } else if (this.mSpeechServiceUtil == null) {
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
          return nState;
-      } else if (!LuancherAppManager.isDebug(this.mContext) && !LuancherAppManager.isLuancherAPP(this.mContext, this.mAppID)) {
-         return UbxErrorCode.API_EEROR_CODE.API_ERROR_APPID_NOT_ACTIVE;
       } else {
          this.mSpeechServiceUtil.setSelfInterrupt(isInterrupt);
          return nState;
@@ -738,7 +708,7 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
-         return !LuancherAppManager.isDebug(this.mContext) && !LuancherAppManager.isLuancherAPP(this.mContext, this.mAppID) ? UbxErrorCode.API_EEROR_CODE.API_ERROR_APPID_NOT_ACTIVE : nState;
+         return  nState;
       }
    }
 
@@ -768,8 +738,6 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       } else if (this.mChestSerialServiceUtil == null) {
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
          return nState;
-      } else if (!LuancherAppManager.isDebug(this.mContext) && !LuancherAppManager.isLuancherAPP(this.mContext, this.mAppID)) {
-         return UbxErrorCode.API_EEROR_CODE.API_ERROR_APPID_NOT_ACTIVE;
       } else {
          this.sendFreeAngle(data, time);
          return nState;
@@ -785,8 +753,6 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       } else if (this.mChestSerialServiceUtil == null) {
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
          return nState;
-      } else if (!LuancherAppManager.isDebug(this.mContext) && !LuancherAppManager.isLuancherAPP(this.mContext, this.mAppID)) {
-         return UbxErrorCode.API_EEROR_CODE.API_ERROR_APPID_NOT_ACTIVE;
       } else {
          this.sendFreeAngle(data, time);
          return nState;
@@ -815,8 +781,6 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       } else if (this.mChestSerialServiceUtil == null) {
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
          return nState;
-      } else if (!LuancherAppManager.isDebug(this.mContext) && !LuancherAppManager.isLuancherAPP(this.mContext, this.mAppID)) {
-         return UbxErrorCode.API_EEROR_CODE.API_ERROR_APPID_NOT_ACTIVE;
       } else {
          if (id >= 1 && id <= 20) {
             if (time < 0) {
@@ -839,8 +803,6 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       } else if (this.mChestSerialServiceUtil == null) {
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
          return nState;
-      } else if (!LuancherAppManager.isDebug(this.mContext) && !LuancherAppManager.isLuancherAPP(this.mContext, this.mAppID)) {
-         return UbxErrorCode.API_EEROR_CODE.API_ERROR_APPID_NOT_ACTIVE;
       } else {
          if (id >= 1 && id <= 20) {
             this.setOneFreeAngle(id, angle, time);
@@ -864,7 +826,7 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
-         return !LuancherAppManager.isDebug(this.mContext) && !LuancherAppManager.isLuancherAPP(this.mContext, this.mAppID) ? UbxErrorCode.API_EEROR_CODE.API_ERROR_APPID_NOT_ACTIVE : nState;
+         return  nState;
       }
    }
 
@@ -990,7 +952,7 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
          nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
-         return !LuancherAppManager.isDebug(this.mContext) && !LuancherAppManager.isLuancherAPP(this.mContext, appID) ? UbxErrorCode.API_EEROR_CODE.API_ERROR_APPID_NOT_ACTIVE : nState;
+         return nState;
       }
    }
 
