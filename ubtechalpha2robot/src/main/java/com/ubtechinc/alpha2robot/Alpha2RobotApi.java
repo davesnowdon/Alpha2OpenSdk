@@ -105,6 +105,7 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
    private Alpha2RobotApi(Context context, String appID) {
       this.mContext = context;
       this.mAppID = appID;
+      this.doProcess(null);
    }
 
    public Alpha2RobotApi(Context context, String appKey, ClientAuthorizeListener listenr) {
@@ -158,7 +159,7 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       }
    }
 
-   public boolean initChestSeiralApi() {
+   public boolean initChestSerialApi() {
       boolean bRet = true;
       if (this.mChestSerialServiceUtil == null) {
          this.mChestSerialServiceUtil = new Alpha2SerialServiceUtil(this.mContext, this);
@@ -176,12 +177,12 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       return bRet;
    }
 
-   public UbxErrorCode.API_EEROR_CODE header_setNoise(boolean isOpen) {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE header_setNoise(boolean isOpen) {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       if (!this.isAuthorize) {
          return nState;
       } else if (this.mHeaderSerivalServiceUtil == null) {
-         nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
+         nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
          byte[] noiseData;
@@ -231,12 +232,12 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       }
    }
 
-   public UbxErrorCode.API_EEROR_CODE action_getActionList(IAlpha2ActionListListener listener) {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE action_getActionList(IAlpha2ActionListListener listener) {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       if (!this.isAuthorize) {
          return nState;
       } else if (this.mActionServiceUtil == null) {
-         nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
+         nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
          this.mActionServiceUtil.getActionList(listener);
@@ -244,12 +245,12 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       }
    }
 
-   public UbxErrorCode.API_EEROR_CODE action_PlayActionName(String actionName) {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE action_PlayActionName(String actionName) {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       if (!this.isAuthorize) {
          return nState;
       } else if (this.mActionServiceUtil == null) {
-         nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
+         nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
          this.mActionServiceUtil.playActionName(actionName, (AlphaEvent)null);
@@ -257,12 +258,12 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       }
    }
 
-   public UbxErrorCode.API_EEROR_CODE action_StopAction() {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE action_StopAction() {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       if (!this.isAuthorize) {
          return nState;
       } else if (this.mActionServiceUtil == null) {
-         nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
+         nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
          this.mActionServiceUtil.stopActionPlay();
@@ -270,12 +271,12 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       }
    }
 
-   public UbxErrorCode.API_EEROR_CODE speech_setVoiceName(String strVoiceName) {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE speech_setVoiceName(String strVoiceName) {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       if (!this.isAuthorize) {
          return nState;
       } else if (this.mSpeechServiceUtil == null) {
-         nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
+         nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
          this.mSpeechServiceUtil.setVoiceName(strVoiceName);
@@ -283,24 +284,24 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       }
    }
 
-   public UbxErrorCode.API_EEROR_CODE speech_startTTS(String text, String strVoicName) {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE speech_startTTS(String text, String strVoicName) {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       nState = this.speech_startTTS((String)null, text, strVoicName);
       return nState;
    }
 
-   public UbxErrorCode.API_EEROR_CODE speech_StartTTS(String text) {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE speech_StartTTS(String text) {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       nState = this.speech_startTTS((String)null, text, (String)null);
       return nState;
    }
 
-   public UbxErrorCode.API_EEROR_CODE speech_startTTS(String language, String text, String strVoicName) {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE speech_startTTS(String language, String text, String strVoicName) {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       if (!this.isAuthorize) {
          return nState;
       } else if (this.mSpeechServiceUtil == null) {
-         nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
+         nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
          this.mSpeechServiceUtil.onPlay(text, strVoicName, language, true);
@@ -308,12 +309,12 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       }
    }
 
-   public UbxErrorCode.API_EEROR_CODE speech_StopTTS() {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE speech_StopTTS() {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       if (!this.isAuthorize) {
          return nState;
       } else if (this.mSpeechServiceUtil == null) {
-         nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
+         nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
          this.mSpeechServiceUtil.onStopPlay();
@@ -321,12 +322,12 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       }
    }
 
-   public UbxErrorCode.API_EEROR_CODE speech_setRecognizedLanguage(String strLanguage) {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE speech_setRecognizedLanguage(String strLanguage) {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       if (!this.isAuthorize) {
          return nState;
       } else if (this.mSpeechServiceUtil == null) {
-         nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
+         nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
          this.mSpeechServiceUtil.setRecognizedLanguage(strLanguage);
@@ -335,12 +336,12 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
    }
 
    /** @deprecated */
-   public UbxErrorCode.API_EEROR_CODE speech_startRecognized(String text) {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE speech_startRecognized(String text) {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       if (!this.isAuthorize) {
          return nState;
       } else if (this.mSpeechServiceUtil == null) {
-         nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
+         nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
          this.mSpeechServiceUtil.onSpeech(text);
@@ -349,12 +350,12 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
    }
 
    /** @deprecated */
-   public UbxErrorCode.API_EEROR_CODE speech_stopRecognized() {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE speech_stopRecognized() {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       if (!this.isAuthorize) {
          return nState;
       } else if (this.mSpeechServiceUtil == null) {
-         nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
+         nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
          this.mSpeechServiceUtil.onStopSpeech();
@@ -363,12 +364,12 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
    }
 
    /** @deprecated */
-   public UbxErrorCode.API_EEROR_CODE speech_understandText(String strText, IAlpha2RobotTextUnderstandListener mRobotTextListener) {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE speech_understandText(String strText, IAlpha2RobotTextUnderstandListener mRobotTextListener) {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       if (!this.isAuthorize) {
          return nState;
       } else if (this.mSpeechServiceUtil == null) {
-         nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
+         nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
          this.mRobotTextListener = mRobotTextListener;
@@ -378,12 +379,12 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       }
    }
 
-   public UbxErrorCode.API_EEROR_CODE speech_initGrammar(String strGramma, IAlpha2SpeechGrammarInitListener listener) {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE speech_initGrammar(String strGramma, IAlpha2SpeechGrammarInitListener listener) {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       if (!this.isAuthorize) {
          return nState;
       } else if (this.mSpeechServiceUtil == null) {
-         nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
+         nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
          this.mSpeechGrammarInitListener = listener;
@@ -399,12 +400,12 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       }
    }
 
-   public UbxErrorCode.API_EEROR_CODE speeh_startGrammar(IAlpha2SpeechGrammarListener listener) {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE speeh_startGrammar(IAlpha2SpeechGrammarListener listener) {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       if (!this.isAuthorize) {
          return nState;
       } else if (this.mSpeechServiceUtil == null) {
-         nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
+         nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
          this.mSpeechGrammarListener = listener;
@@ -413,12 +414,12 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       }
    }
 
-   public UbxErrorCode.API_EEROR_CODE speech_stopGrammaer() {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE speech_stopGrammaer() {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       if (!this.isAuthorize) {
          return nState;
       } else if (this.mSpeechServiceUtil == null) {
-         nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
+         nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
          this.mSpeechServiceUtil.stopSpeechGrammar();
@@ -426,12 +427,12 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       }
    }
 
-   public UbxErrorCode.API_EEROR_CODE speech_setSelfInterrupt(boolean isInterrupt) {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE speech_setSelfInterrupt(boolean isInterrupt) {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       if (!this.isAuthorize) {
          return nState;
       } else if (this.mSpeechServiceUtil == null) {
-         nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
+         nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
          this.mSpeechServiceUtil.setSelfInterrupt(isInterrupt);
@@ -457,7 +458,9 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       Alpha2RobotApi.this.isNuanceOfflineAuthorize = true;
       Alpha2RobotApi.this.editor.putString(Alpha2RobotApi.this.mContext.getPackageName(), info);
       Alpha2RobotApi.this.editor.putBoolean(Alpha2RobotApi.HAVE_NUANCE_OFFLINE_AUTHORITY, true);
-      listener.onResult(2, info);
+      if (listener != null) {
+         listener.onResult(1, info);
+      }
    }
 
    private String readAppFile(String code) {
@@ -700,12 +703,12 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       return index;
    }
 
-   public UbxErrorCode.API_EEROR_CODE isChestAvailable() {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE isChestAvailable() {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       if (!this.isAuthorize) {
-         return UbxErrorCode.API_EEROR_CODE.API_ERROR_AUTHORIZE_ERROR;
+         return UbxErrorCode.API_ERROR_CODE.API_ERROR_AUTHORIZE_ERROR;
       } else if (this.mChestSerialServiceUtil == null) {
-         nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
+         nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
          return  nState;
@@ -729,14 +732,14 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
 
    /** @deprecated */
    @Deprecated
-   public UbxErrorCode.API_EEROR_CODE head_SendFreeAngle(int[] data, short time) {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE head_SendFreeAngle(int[] data, short time) {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       DeveloperAngle angle = new DeveloperAngle();
       angle.checkData(data);
       if (!this.isAuthorize) {
          return nState;
       } else if (this.mChestSerialServiceUtil == null) {
-         nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
+         nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
          this.sendFreeAngle(data, time);
@@ -744,14 +747,14 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       }
    }
 
-   public UbxErrorCode.API_EEROR_CODE chest_SendFreeAngle(int[] data, short time) {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE chest_SendFreeAngle(int[] data, short time) {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       DeveloperAngle angle = new DeveloperAngle();
       angle.checkData(data);
       if (!this.isAuthorize) {
          return nState;
       } else if (this.mChestSerialServiceUtil == null) {
-         nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
+         nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
          this.sendFreeAngle(data, time);
@@ -772,14 +775,14 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
 
    /** @deprecated */
    @Deprecated
-   public UbxErrorCode.API_EEROR_CODE head_SendOneFreeAngle(byte id, int angle, short time) {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE head_SendOneFreeAngle(byte id, int angle, short time) {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       DeveloperAngle mAngle = new DeveloperAngle();
       angle = mAngle.checkAngle(id, angle);
       if (!this.isAuthorize) {
          return nState;
       } else if (this.mChestSerialServiceUtil == null) {
-         nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
+         nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
          if (id >= 1 && id <= 20) {
@@ -794,14 +797,14 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       }
    }
 
-   public UbxErrorCode.API_EEROR_CODE chest_SendOneFreeAngle(byte id, int angle, short time) {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE chest_SendOneFreeAngle(byte id, int angle, short time) {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       DeveloperAngle mAngle = new DeveloperAngle();
       angle = mAngle.checkAngle(id, angle);
       if (!this.isAuthorize) {
          return nState;
       } else if (this.mChestSerialServiceUtil == null) {
-         nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
+         nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
          if (id >= 1 && id <= 20) {
@@ -818,21 +821,21 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       this.editor = this.sharedPreferences.edit();
    }
 
-   public UbxErrorCode.API_EEROR_CODE isHeaderAvailable() {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   public UbxErrorCode.API_ERROR_CODE isHeaderAvailable() {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       if (!this.isAuthorize) {
-         return UbxErrorCode.API_EEROR_CODE.API_ERROR_AUTHORIZE_ERROR;
+         return UbxErrorCode.API_ERROR_CODE.API_ERROR_AUTHORIZE_ERROR;
       } else if (this.mHeaderSerivalServiceUtil == null) {
-         nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
+         nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
          return  nState;
       }
    }
 
-   public UbxErrorCode.API_EEROR_CODE header_startEarLED(short upTime, short downTime, short runTime) {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
-      UbxErrorCode.API_EEROR_CODE available = this.isHeaderAvailable();
+   public UbxErrorCode.API_ERROR_CODE header_startEarLED(short upTime, short downTime, short runTime) {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
+      UbxErrorCode.API_ERROR_CODE available = this.isHeaderAvailable();
       if (available != nState) {
          return available;
       } else {
@@ -853,9 +856,9 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       this.mHeaderSerivalServiceUtil.sendCommand((byte)1, RawData, RawData.length);
    }
 
-   public UbxErrorCode.API_EEROR_CODE header_stopEarLED() {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
-      UbxErrorCode.API_EEROR_CODE available = this.isHeaderAvailable();
+   public UbxErrorCode.API_ERROR_CODE header_stopEarLED() {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
+      UbxErrorCode.API_ERROR_CODE available = this.isHeaderAvailable();
       if (available != nState) {
          return available;
       } else {
@@ -869,9 +872,9 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       this.mHeaderSerivalServiceUtil.sendCommand((byte)8, param, param.length);
    }
 
-   public UbxErrorCode.API_EEROR_CODE header_startEyeLED(int colorType, short upTime, short downTime, short runTime) {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
-      UbxErrorCode.API_EEROR_CODE available = this.isHeaderAvailable();
+   public UbxErrorCode.API_ERROR_CODE header_startEyeLED(int colorType, short upTime, short downTime, short runTime) {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
+      UbxErrorCode.API_ERROR_CODE available = this.isHeaderAvailable();
       if (available != nState) {
          return available;
       } else {
@@ -893,9 +896,9 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       this.mHeaderSerivalServiceUtil.sendCommand((byte)2, RawData, RawData.length);
    }
 
-   public UbxErrorCode.API_EEROR_CODE header_stopEyeLED() {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
-      UbxErrorCode.API_EEROR_CODE available = this.isHeaderAvailable();
+   public UbxErrorCode.API_ERROR_CODE header_stopEyeLED() {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
+      UbxErrorCode.API_ERROR_CODE available = this.isHeaderAvailable();
       if (available != nState) {
          return available;
       } else {
@@ -926,30 +929,30 @@ public class Alpha2RobotApi implements Alpha2SerialPortOnRcvListener, Alpha2Seri
       }
    }
 
-   public UbxErrorCode.API_EEROR_CODE sendCustomMessageRequest(String appID, byte[] message) {
-      UbxErrorCode.API_EEROR_CODE nState = this.checkAuthorize(this.mXmppServiceUtil, this.mAppID);
-      if (nState == UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED) {
+   public UbxErrorCode.API_ERROR_CODE sendCustomMessageRequest(String appID, byte[] message) {
+      UbxErrorCode.API_ERROR_CODE nState = this.checkAuthorize(this.mXmppServiceUtil, this.mAppID);
+      if (nState == UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED) {
          this.mXmppServiceUtil.sendCustomXmppMessage(CUSTOM_CMD, appID, new String(message));
       }
 
       return nState;
    }
 
-   public UbxErrorCode.API_EEROR_CODE sendCustomMessageResp(String appID, byte[] message) {
-      UbxErrorCode.API_EEROR_CODE nState = this.checkAuthorize(this.mXmppServiceUtil, this.mAppID);
-      if (nState == UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED) {
+   public UbxErrorCode.API_ERROR_CODE sendCustomMessageResp(String appID, byte[] message) {
+      UbxErrorCode.API_ERROR_CODE nState = this.checkAuthorize(this.mXmppServiceUtil, this.mAppID);
+      if (nState == UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED) {
          this.mXmppServiceUtil.sendCustomXmppMessage(CUSTOM_RESP, appID, new String(message));
       }
 
       return nState;
    }
 
-   private UbxErrorCode.API_EEROR_CODE checkAuthorize(Object util, String appID) {
-      UbxErrorCode.API_EEROR_CODE nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_SUCCEED;
+   private UbxErrorCode.API_ERROR_CODE checkAuthorize(Object util, String appID) {
+      UbxErrorCode.API_ERROR_CODE nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED;
       if (!this.isAuthorize) {
-         return UbxErrorCode.API_EEROR_CODE.API_ERROR_AUTHORIZE_ERROR;
+         return UbxErrorCode.API_ERROR_CODE.API_ERROR_AUTHORIZE_ERROR;
       } else if (util == null) {
-         nState = UbxErrorCode.API_EEROR_CODE.API_ERROR_NOT_INIT;
+         nState = UbxErrorCode.API_ERROR_CODE.API_ERROR_NOT_INIT;
          return nState;
       } else {
          return nState;
