@@ -101,17 +101,10 @@ You'll want to include (for now) the app ID in your manifest and require at leas
 In your initialisation logic you will need to create an instance of a robot
 
 ```java
-mRobot = new Alpha2RobotApi(this, "Your Appkey",
-        new ClientAuthorizeListener() {
-            @Override
-            public void onResult(int code, String info) { 
-            if(code == 1){
-                    mRobot.initSpeechApi(NewSDKActivity.this, NewSDKActivity.this, null); // Initialize speech service
-                    mRobot.initActionApi(NewSDKActivity.this); // Initialize action service
-                    mRobot.initCustomMessageApi(NewSDKActivity.this); // Initialize third-party channel
-                }
-           }
-        });
+mRobot = new Alpha2RobotApi(this, "Your Appkey");
+mRobot.initSpeechApi(NewSDKActivity.this, NewSDKActivity.this, null); // Initialize speech service
+mRobot.initActionApi(NewSDKActivity.this); // Initialize action service
+mRobot.initCustomMessageApi(NewSDKActivity.this); // Initialize third-party channel
 ```
 
 ### Voice functions
