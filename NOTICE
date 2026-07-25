@@ -1,0 +1,35 @@
+Alpha2OpenSdk — provenance and third-party notices
+===================================================
+
+This repository exists to keep the UBTECH Alpha2 robot usable now that UBTECH's
+cloud services, developer portal, and app store are gone. The MIT license in the
+LICENSE file applies to the original contributions described below.
+
+Original contributions (MIT, (c) 2026 Dave Snowdon):
+  - The SDK under ubtechalpha2robot/. It is an original reimplementation of the
+    Alpha2 SDK interface, written from documented behaviour rather than copied from
+    UBTECH's SDK. It removes the client-side store-authorization gate, adds
+    conveniences such as chest_configureSonar, and uses corrected API names.
+  - The developer documentation under docs/.
+  - The example application(s) under examples/.
+
+Interoperability with UBTECH's robot:
+  - For an app to talk to the robot, certain interface-level facts must match what
+    the robot's on-device software expects: AIDL interface/method names and order,
+    service and broadcast action strings, serial command bytes, Serializable class
+    shapes, and constant values. These facts are reproduced in this SDK because
+    interoperability requires them; they originate from UBTECH's SDK/robot
+    interface, in which UBTECH retains any applicable rights. No UBTECH source
+    code, resources, model data, or grammar source is included here.
+
+Third-party libraries:
+  - None are bundled. The SDK depends only on the Android framework and the Java
+    standard library.
+
+The documentation was written from scratch and describes only factual/interface
+information (API signatures, constant values, protocol behaviour) needed to
+interoperate with the robot. Reverse-engineering and firmware-analysis notes that
+informed this work are kept in a separate private archive, not in this repository.
+
+If you are a rights holder and believe something here should be attributed
+differently or removed, please open an issue.

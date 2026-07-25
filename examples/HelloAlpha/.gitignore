@@ -1,0 +1,9 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+
+# The SDK .aar is copied in locally (see README) and must not be committed:
+# it is a build artifact that would silently drift from the SDK source.
+app/libs/*.aar

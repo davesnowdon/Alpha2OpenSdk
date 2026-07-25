@@ -1,0 +1,20 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    // The SDK is consumed as a local .aar in app/libs (see app/README section
+    // in the top-level examples README), so allow a flatDir repository here.
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        google()
+        mavenCentral()
+        flatDir { dirs "${rootDir}/app/libs" }
+    }
+}
+
+rootProject.name = "HelloAlpha"
+include ':app'

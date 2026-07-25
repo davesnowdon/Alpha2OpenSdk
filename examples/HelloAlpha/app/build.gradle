@@ -1,0 +1,55 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    compileSdkVersion 25
+
+    defaultConfig {
+        applicationId "com.davesnowdon.helloalpha"
+        minSdkVersion 22
+        // The Alpha2 robot runs Android 5.1.1 (API 22). Targeting 22 keeps the
+        // legacy install-time permission model, so no runtime-permission code
+        // is needed on the robot.
+        targetSdkVersion 22
+        versionCode 1
+        versionName "1.0"
+    }
+
+    signingConfigs {
+        // Explicit debug keystore. Without this, AGP auto-creates
+        // ~/.android/debug.keystore via a cross-process-locked path
+        // (JvmWideVariable) whose static initializer throws
+        // ExceptionInInitializerError on some CI runners. Committing the standard
+        // (non-secret) Android debug key and pointing at it here skips that path
+        // entirely and makes debug builds reproducible everywhere.
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+}
+
+dependencies {
+    // The Alpha2 SDK, copied in as a local .aar (see README). The reimplemented SDK
+    // depends only on the Android framework, so no transitive libraries need to be
+    // re-declared here (the flatDir .aar carries no POM).
+    implementation(name: 'ubtechalpha2robot-release', ext: 'aar')
+}

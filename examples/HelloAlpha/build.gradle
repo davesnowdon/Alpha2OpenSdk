@@ -1,0 +1,7 @@
+// Standalone example project. It deliberately mirrors the SDK's own
+// toolchain (Android Gradle Plugin 4.2.2 / Gradle 7.0 / compileSdk 25) so it
+// builds in the same environment as the SDK, e.g. the CI Docker image
+// davesnowdon/alpha2build. See the README in this directory.
+plugins {
+    id 'com.android.application' version '4.2.2' apply false
+}

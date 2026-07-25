@@ -1,0 +1,48 @@
+name: Build Alpha 2 SDK and example
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        container:
+          image: davesnowdon/alpha2build:sha-94523ae
+        steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+
+        - name: Build SDK
+          shell: bash
+          run: ./gradlew assembleRelease
+
+        - name: Archive SDK
+          uses: actions/upload-artifact@v4
+          with:
+              name: alpha2opensdk.aar
+              path: ubtechalpha2robot/build/outputs/aar/ubtechalpha2robot-release.aar
+
+        # The HelloAlpha example consumes the SDK as a local .aar (flatDir in
+        # app/libs). The .aar is git-ignored and app/libs is not tracked, so
+        # stage the freshly built artifact before building the example.
+        - name: Stage SDK into HelloAlpha example
+          shell: bash
+          run: |
+            mkdir -p examples/HelloAlpha/app/libs
+            cp ubtechalpha2robot/build/outputs/aar/ubtechalpha2robot-release.aar \
+               examples/HelloAlpha/app/libs/
+
+        - name: Build HelloAlpha example
+          shell: bash
+          working-directory: examples/HelloAlpha
+          run: ./gradlew assembleDebug
+
+        - name: Archive HelloAlpha APK
+          uses: actions/upload-artifact@v4
+          with:
+              name: helloalpha-debug.apk
+              path: examples/HelloAlpha/app/build/outputs/apk/debug/app-debug.apk
