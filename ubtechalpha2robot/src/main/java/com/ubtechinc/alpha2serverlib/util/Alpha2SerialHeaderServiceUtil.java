@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.util.Log;
@@ -36,15 +37,25 @@ public class Alpha2SerialHeaderServiceUtil implements ServiceConnection {
       this.mRcvListener = new SerialPortRcvClientImpl();
       Intent intent = new Intent(ACTION);
       intent.setPackage(SERVICE_PACKAGE);
+      // Binding is asynchronous and intentionally NOT awaited here (see
+      // Alpha2SerialServiceUtil): blocking the main-thread caller would deadlock the
+      // ServiceConnection callback. Callers check readiness with isInitCompleted().
       this.mBound = this.mContext.bindService(intent, this, Context.BIND_AUTO_CREATE);
-      this.waitForInitComplete();
    }
 
    public boolean isInitCompleted() {
       return this.mService != null;
    }
 
+   /**
+    * Optionally block (up to ~3s) for the async bind to complete. Returns immediately on
+    * the main thread (the {@link ServiceConnection} callback is delivered there, so
+    * spinning would block the bind it waits for).
+    */
    public void waitForInitComplete() {
+      if (Looper.myLooper() == Looper.getMainLooper()) {
+         return;
+      }
       for (int ticks = WAIT_TICKS; ticks > 0 && !this.isInitCompleted(); --ticks) {
          SystemClock.sleep(WAIT_TICK_MS);
       }
