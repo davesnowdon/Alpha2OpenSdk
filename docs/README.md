@@ -29,6 +29,7 @@ than official docs, that is called out.
 | [hardware.md](hardware.md) | Boards, sensor suite, servo layout, serial-frame protocol |
 | [authorization.md](authorization.md) | How the original store-authorization gate worked and what the fork removes |
 | [example-helloalpha.md](example-helloalpha.md) | Walkthrough of the sensor-driven smoke-test app |
+| [releasing.md](releasing.md) | How to cut a release and publish the SDK + example artifacts with `gh` |
 | [gotchas-and-naming.md](gotchas-and-naming.md) | Corrected Java names vs frozen wire values, region lock |
 | [sources.md](sources.md) | Provenance of every claim, and leads for further work |
 

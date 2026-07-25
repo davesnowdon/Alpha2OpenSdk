@@ -10,7 +10,7 @@ daughter-board drives them; the Android side sends angle commands through the SD
 
 ```java
 // one servo
-robot.chest_SendOneFreeAngle((byte) id, angle, (short) timeMs);   // id 0–19
+robot.chest_SendOneFreeAngle((byte) id, angle, (short) timeMs);   // id 1–20
 
 // all servos at once
 int[] data = new int[20];      // index i -> servo, value -> angle

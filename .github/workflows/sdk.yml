@@ -75,7 +75,10 @@ jobs:
           env:
               GH_TOKEN: ${{ github.token }}
           run: |
+            # Publish the example under a clear, per-example name (the gradle output is
+            # the generic app-debug.apk).
+            mv dist/app-debug.apk dist/hello-alpha.apk
             gh release upload "${{ github.event.release.tag_name }}" \
               dist/ubtechalpha2robot-release.aar \
-              dist/app-debug.apk \
+              dist/hello-alpha.apk \
               --clobber --repo "${{ github.repository }}"

@@ -62,6 +62,26 @@ List of devices attached
 
 If you launch Vysor, you should then see an entry for Alpha 2 and be able to launch a window giving you access to the android UI on Alpha 2.
 
+### Installing your app on the robot
+
+The robot is an ordinary Android device over `adb`. Build your APK
+(`./gradlew assembleDebug`) and install it like on any device:
+
+```bash
+adb devices -l                                 # confirm the robot is attached
+# Uninstall any previous copy first: a debug APK signed with a different key
+# otherwise fails to reinstall with INSTALL_FAILED_UPDATE_INCOMPATIBLE.
+adb uninstall com.example.yourapp || true
+adb install app/build/outputs/apk/debug/app-debug.apk
+# The robot has no launcher for side-loaded apps, so start the activity explicitly:
+adb shell am start -n com.example.yourapp/.MainActivity
+adb logcat -s YourLogTag                       # follow your app's logs
+```
+
+`adb` often isn't on `PATH` (it lives under `~/Android/Sdk/platform-tools/`). See
+**[docs/getting-started.md](docs/getting-started.md#deploying-to-the-robot)** for the
+full flow and **[examples/HelloAlpha](examples/HelloAlpha)** for a complete app.
+
 
 ## How to use the SDK
 
@@ -70,8 +90,7 @@ The official SDK gated TTS and actions behind a UBTECH "app id" that had to be a
 ### Add the SDK to your android app
 
 - Create a folder called "libs" under the "app" folder in your android project
-- download the built SDK (alpha2opensdk.aar.zip) from the releases area in the SDK repo
-- unzip alpha2opensdk.aar.zip and copy ubtechalpha2robot-release.aar to the libs folder
+- download `ubtechalpha2robot-release.aar` from the latest [release](https://github.com/davesnowdon/Alpha2OpenSdk/releases)'s assets and copy it into that `libs` folder
 - update the dependencies section of the app build.gradle file to include
 
 ```groovy
@@ -144,7 +163,7 @@ public boolean initSpeechApi(IAlpha2RobotClientListener mRobotClient,ISpeechInit
  * @param  specifyLanguage - Specifies the speaker, if not specified, the default speaker is used
  * @return  
  */
-public API_ERROR_CODE speech_StartTTS (String language, String text, String strVoicName)
+public API_ERROR_CODE speech_startTTS (String language, String text, String strVoicName)
 
 /**
  * Stop broadcasting TTS message 
@@ -152,7 +171,7 @@ public API_ERROR_CODE speech_StartTTS (String language, String text, String strV
  */
 public API_ERROR_CODE speech_StopTTS() 
 
-public API_ERROR_CODE speech_StartTTS (String text, String strVoicName)
+public API_ERROR_CODE speech_startTTS (String text, String strVoicName)
 
 public API_ERROR_CODE speech_StartTTS (String text)
 ```
@@ -257,7 +276,7 @@ public class ExitBroadcast extends BroadcastReceiver {
 
 #### Action files
 
-The robot can be made to move by exeecuting action files (more detail on these needed).
+The robot can be made to move by executing action files (more detail on these needed).
 
 Note: When calling these APIs, you should have called `Alpha2RobotApi(Context ctx,String appkey,ClientAuthorizeListener listener)`
 
@@ -356,7 +375,7 @@ public API_ERROR_CODE chest_SendFreeAngle(int[] data, short time)
 
 /**
  * Send single servo parameter to control the robot
- * @param   id - Servo number (0~19)
+ * @param   id - Servo number (1~20)
  * @param  angle - Angle parameter for the specified servo
  * @param  time - Total execution time
  * @return  API_ERROR_CODE
