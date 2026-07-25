@@ -37,19 +37,16 @@ ubtechalpha2robot/build/outputs/aar/ubtechalpha2robot-release.aar
 
 ## Building an app against the SDK
 
-Apps consume the SDK as a local `.aar` via `flatDir`. Because a flatDir `.aar`
-carries no POM, the SDK's own runtime dependencies must be declared explicitly in
-the app. The example's `app/build.gradle` is the reference set; the non-obvious
-parts are:
+Apps consume the SDK as a local `.aar` via `flatDir`. The reimplemented SDK depends
+only on the Android framework, so — unlike the original decompiled jar — the app does
+**not** need to re-declare any transitive third-party libraries. The example's
+`app/build.gradle` is the reference; the SDK dependency is simply:
 
-- `appcompat-v7:25.0.0` and Apache HttpComponents (`httpclient`/`httpmime` 4.5.2).
-- XStream 1.4.9 **with `xmlpull` and `xpp3_min` excluded** — both define
-  `org.xmlpull.v1`, which the Android framework already provides; without the
-  exclusions you get a duplicate-class dexing error.
-- `json-simple:1.1.1` **with `junit` excluded** — its POM wrongly declares junit
-  at compile scope, dragging junit + hamcrest onto the runtime classpath.
-- A `packagingOptions` block excluding the duplicate `META-INF/DEPENDENCIES`,
-  `NOTICE`, `LICENSE`, and `INDEX.LIST` files the HttpComponents jars each ship.
+```groovy
+dependencies {
+    implementation(name: 'ubtechalpha2robot-release', ext: 'aar')
+}
+```
 
 Copy the freshly built SDK `.aar` into the app before building (the app git-ignores
 it so it can't drift from source):

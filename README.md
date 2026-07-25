@@ -21,7 +21,7 @@ firmware-analysis notes that informed it are kept in a separate private archive.
 The SDK depends only on the Android framework and the Java standard library — it
 vendors no third-party libraries. See the `NOTICE` file.
 
-## Developing with ALpha 2
+## Developing with Alpha 2
 
 You'll probably want to use Vysor in order to interact with android on the robot.
 
@@ -62,6 +62,26 @@ List of devices attached
 
 If you launch Vysor, you should then see an entry for Alpha 2 and be able to launch a window giving you access to the android UI on Alpha 2.
 
+### Installing your app on the robot
+
+The robot is an ordinary Android device over `adb`. Build your APK
+(`./gradlew assembleDebug`) and install it like on any device:
+
+```bash
+adb devices -l                                 # confirm the robot is attached
+# Uninstall any previous copy first: a debug APK signed with a different key
+# otherwise fails to reinstall with INSTALL_FAILED_UPDATE_INCOMPATIBLE.
+adb uninstall com.example.yourapp || true
+adb install app/build/outputs/apk/debug/app-debug.apk
+# The robot has no launcher for side-loaded apps, so start the activity explicitly:
+adb shell am start -n com.example.yourapp/.MainActivity
+adb logcat -s YourLogTag                       # follow your app's logs
+```
+
+`adb` often isn't on `PATH` (it lives under `~/Android/Sdk/platform-tools/`). See
+**[docs/getting-started.md](docs/getting-started.md#deploying-to-the-robot)** for the
+full flow and **[examples/HelloAlpha](examples/HelloAlpha)** for a complete app.
+
 
 ## How to use the SDK
 
@@ -70,8 +90,7 @@ The official SDK gated TTS and actions behind a UBTECH "app id" that had to be a
 ### Add the SDK to your android app
 
 - Create a folder called "libs" under the "app" folder in your android project
-- download the built SDK (alpha2opensdk.aar.zip) from the releases area in the SDK repo
-- unzip alpha2opensdk.aar.zip and copy ubtechalpha2robot-release.aar to the libs folder
+- download `ubtechalpha2robot-release.aar` from the latest [release](https://github.com/davesnowdon/Alpha2OpenSdk/releases)'s assets and copy it into that `libs` folder
 - update the dependencies section of the app build.gradle file to include
 
 ```groovy
@@ -144,7 +163,7 @@ public boolean initSpeechApi(IAlpha2RobotClientListener mRobotClient,ISpeechInit
  * @param  specifyLanguage - Specifies the speaker, if not specified, the default speaker is used
  * @return  
  */
-public API_ERROR_CODE speech_StartTTS (String language, String text, String strVoicName)
+public API_ERROR_CODE speech_startTTS (String language, String text, String strVoicName)
 
 /**
  * Stop broadcasting TTS message 
@@ -152,7 +171,7 @@ public API_ERROR_CODE speech_StartTTS (String language, String text, String strV
  */
 public API_ERROR_CODE speech_StopTTS() 
 
-public API_ERROR_CODE speech_StartTTS (String text, String strVoicName)
+public API_ERROR_CODE speech_startTTS (String text, String strVoicName)
 
 public API_ERROR_CODE speech_StartTTS (String text)
 ```
@@ -185,89 +204,38 @@ mRobot.speech_StartTTS("Hello, my name is Alpha, nice to meet you..");
 mRobot.speech_startTTS("Hello, my name is Alpha", "catherine");
 ```
 
-#### Speech understanding
+#### Speech understanding (voice commands)
+
+> On this robot's firmware
+> the **active** recogniser is **Nuance VoCon** — offline, inside the platform-signed
+> system app, with a **fixed built-in grammar**. Consequences:
+>
+> - `speech_initGrammar` / `speech_startGrammar` drive the **inactive** iFlytek engine, so
+>   they compile and return success but **do not affect recognition** — you cannot add your
+>   own vocabulary without the proprietary Nuance grammar compiler.
+> - `speech_understandText` used UBTECH's **cloud** NLU service, which is gone.
+>
+> What actually works is reacting to the robot's **built-in** commands: recognition is gated
+> behind the wake word **"hello alpha"** and results arrive through
+> `IAlpha2RobotClientListener.onServerCallBack(String)`. See
+> **[docs/speech-recognition.md](docs/speech-recognition.md)** for the full built-in grammar
+> (48 `AP_*` + 13 `QA_*` intents) and **[examples/HelloAlpha](examples/HelloAlpha)**.
+
+Reacting to a built-in voice command (the listener you passed to `initSpeechApi`):
 
 ```java
-/**
- * Initialize semantic understanding
- * @param  strGramma - User-defined offline semantics
- * @param  listener - Callback for semantic understanding
- * @return  API_ERROR_CODE
- */
- public API_ERROR_CODE speech_initGrammar(String strGramma, IAlpha2SpeechGrammarInitListener listener)
-
-/**
- * Register the callback interface for semantic understanding
- * @param  listener - the callback listener which indicates the result of initialization
- * @return  API_ERROR_CODE
- */
- public API_ERROR_CODE speech_startGrammar(IAlpha2SpeechGrammarListener listener) 
-
-/**
- * Specify the language of recognition
- * @param strLanguage - : en_us, zh_cn
- * @return  API_ERROR_CODE
- */
-public API_ERROR_CODE speech_setRecognizedLanguage(String strLanguage) 
-
-/**
- * Semantic understanding
- * @deprecated This API is outdated, not recommended for use, suggest using speech_initGrammar instead
- * @param  strText - the content which will be semantically analyzed
- * @return  API_ERROR_CODE
- */
-public API_ERROR_CODE speech_understandText(String strText,
-      IAlpha2RobotTextUnderstandListener mRobotTextListener)
+@Override
+public void onServerCallBack(String s) {
+    // Recognition results are prefixed "Local_Result", e.g.
+    //   "Local_Result:rule:QA action:QA_KNOWING tag:how tall are you"
+    if (s == null || !s.startsWith("Local_Result")) return;
+    String intent = fieldBetween(s, "action:", " tag:");   // -> "QA_KNOWING"
+    if ("QA_KNOWING".equals(intent)) {
+        mRobot.action_PlayActionName("Wave the left hand");
+    }
+}
 ```
 
-Usage
-
-```java
- mRobot.speech_initGrammar(mLocalGrammar, new IAlpha2SpeechGrammarInitListener() {
-    @Override
-    public void speechGrammarInitCallback(String s, int i) {
-        // Semantic understanding initialization
-        mRobot.speech_startGrammar(new NewSDKActivity());
-    }
-});
-mRobot.speech_startGrammar(new IAlpha2SpeechGrammarListener() {
-    /**
-     * Callback for semantic understanding
-     * @param  SpeechResultType - Return parameter type
-     * @param  strResult - Return data
-     */
-    @Override
-    public void onSpeechGrammarResult(int SpeechResultType, String strResult) {
-        
-    }
-   /**
-     * Error callback
-     * @param  i - Error code
-     */    
-    @Override
-    public void onSpeechGrammarError(int i) {
-    
-    }
-});
-mRobot.speech_setRecognizedLanguage(LanguageType.LAU_CHINESE);
-mRobot.speech_understandText(strTts, new IAlpha2RobotTextUnderstandListener() {
-         /**
-           * Error callback
-           * @param  i - Error code
-           */
-         @Override
-         public void onAlpha2UnderStandError(int nErrorCode) {
-         }
-        /**
-           * Get semantic result
-           * @param  strResult - Recognized data
-           */
-         @Override
-         public void onAlpha2UnderStandTextResult(String strResult) {
-             
-         }
-      });
-```
 
 #### Microphone access
 
@@ -308,7 +276,7 @@ public class ExitBroadcast extends BroadcastReceiver {
 
 #### Action files
 
-The robot can be made to move by exeecuting action files (more detail on these needed).
+The robot can be made to move by executing action files (more detail on these needed).
 
 Note: When calling these APIs, you should have called `Alpha2RobotApi(Context ctx,String appkey,ClientAuthorizeListener listener)`
 
@@ -407,7 +375,7 @@ public API_ERROR_CODE chest_SendFreeAngle(int[] data, short time)
 
 /**
  * Send single servo parameter to control the robot
- * @param   id - Servo number (0~19)
+ * @param   id - Servo number (1~20)
  * @param  angle - Angle parameter for the specified servo
  * @param  time - Total execution time
  * @return  API_ERROR_CODE
