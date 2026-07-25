@@ -21,7 +21,7 @@ firmware-analysis notes that informed it are kept in a separate private archive.
 The SDK depends only on the Android framework and the Java standard library — it
 vendors no third-party libraries. See the `NOTICE` file.
 
-## Developing with ALpha 2
+## Developing with Alpha 2
 
 You'll probably want to use Vysor in order to interact with android on the robot.
 
@@ -187,7 +187,7 @@ mRobot.speech_startTTS("Hello, my name is Alpha", "catherine");
 
 #### Speech understanding (voice commands)
 
-> **Read this before using the grammar / understand APIs below.** On this robot's firmware
+> On this robot's firmware
 > the **active** recogniser is **Nuance VoCon** — offline, inside the platform-signed
 > system app, with a **fixed built-in grammar**. Consequences:
 >
@@ -217,90 +217,6 @@ public void onServerCallBack(String s) {
 }
 ```
 
-The grammar / semantic-understanding methods below still exist for API completeness, but
-are **inert on this firmware** (see the caveat above):
-
-```java
-/**
- * Initialize semantic understanding
- * @param  strGramma - User-defined offline semantics
- * @param  listener - Callback for semantic understanding
- * @return  API_ERROR_CODE
- */
- public API_ERROR_CODE speech_initGrammar(String strGramma, IAlpha2SpeechGrammarInitListener listener)
-
-/**
- * Register the callback interface for semantic understanding
- * @param  listener - the callback listener which indicates the result of initialization
- * @return  API_ERROR_CODE
- */
- public API_ERROR_CODE speech_startGrammar(IAlpha2SpeechGrammarListener listener) 
-
-/**
- * Specify the language of recognition
- * @param strLanguage - : en_us, zh_cn
- * @return  API_ERROR_CODE
- */
-public API_ERROR_CODE speech_setRecognizedLanguage(String strLanguage) 
-
-/**
- * Semantic understanding
- * @deprecated This API is outdated, not recommended for use, suggest using speech_initGrammar instead
- * @param  strText - the content which will be semantically analyzed
- * @return  API_ERROR_CODE
- */
-public API_ERROR_CODE speech_understandText(String strText,
-      IAlpha2RobotTextUnderstandListener mRobotTextListener)
-```
-
-Usage
-
-```java
- mRobot.speech_initGrammar(mLocalGrammar, new IAlpha2SpeechGrammarInitListener() {
-    @Override
-    public void speechGrammarInitCallback(String s, int i) {
-        // Semantic understanding initialization
-        mRobot.speech_startGrammar(new NewSDKActivity());
-    }
-});
-mRobot.speech_startGrammar(new IAlpha2SpeechGrammarListener() {
-    /**
-     * Callback for semantic understanding
-     * @param  SpeechResultType - Return parameter type
-     * @param  strResult - Return data
-     */
-    @Override
-    public void onSpeechGrammarResult(int SpeechResultType, String strResult) {
-        
-    }
-   /**
-     * Error callback
-     * @param  i - Error code
-     */    
-    @Override
-    public void onSpeechGrammarError(int i) {
-    
-    }
-});
-mRobot.speech_setRecognizedLanguage(LanguageType.LAU_CHINESE);
-mRobot.speech_understandText(strTts, new IAlpha2RobotTextUnderstandListener() {
-         /**
-           * Error callback
-           * @param  i - Error code
-           */
-         @Override
-         public void onAlpha2UnderStandError(int nErrorCode) {
-         }
-        /**
-           * Get semantic result
-           * @param  strResult - Recognized data
-           */
-         @Override
-         public void onAlpha2UnderStandTextResult(String strResult) {
-             
-         }
-      });
-```
 
 #### Microphone access
 
