@@ -48,7 +48,10 @@ robot.speech_startTTS(LanguageType.LAU_ENGLISH, "Hello, I am Alpha 2", null);
   `false` reclaims it for the robot. Call `false` on exit.
 - Offline grammar ASR: `speech_initGrammar(grammar, listener)`,
   `speech_startGrammar(listener)`, `speech_stopGrammar()` (corrected from the
-  original `speeh_startGrammar` / `speech_stopGrammaer`).
+  original `speeh_startGrammar` / `speech_stopGrammaer`). **Inert on this firmware:**
+  these target the inactive iFlytek engine and do not affect recognition. React to the
+  built-in Nuance grammar via `onServerCallBack` instead — see
+  [speech-recognition.md](speech-recognition.md).
 - `speech_setRecognizedLanguage("en_us"|"zh_cn")`, `speech_setSelfInterrupt(boolean)` (Chinese only).
 
 TTS completion is reported through `IAlpha2RobotClientListener.onServerPlayEnd(boolean)`.

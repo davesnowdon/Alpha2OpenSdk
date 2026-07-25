@@ -185,7 +185,40 @@ mRobot.speech_StartTTS("Hello, my name is Alpha, nice to meet you..");
 mRobot.speech_startTTS("Hello, my name is Alpha", "catherine");
 ```
 
-#### Speech understanding
+#### Speech understanding (voice commands)
+
+> **Read this before using the grammar / understand APIs below.** On this robot's firmware
+> the **active** recogniser is **Nuance VoCon** — offline, inside the platform-signed
+> system app, with a **fixed built-in grammar**. Consequences:
+>
+> - `speech_initGrammar` / `speech_startGrammar` drive the **inactive** iFlytek engine, so
+>   they compile and return success but **do not affect recognition** — you cannot add your
+>   own vocabulary without the proprietary Nuance grammar compiler.
+> - `speech_understandText` used UBTECH's **cloud** NLU service, which is gone.
+>
+> What actually works is reacting to the robot's **built-in** commands: recognition is gated
+> behind the wake word **"hello alpha"** and results arrive through
+> `IAlpha2RobotClientListener.onServerCallBack(String)`. See
+> **[docs/speech-recognition.md](docs/speech-recognition.md)** for the full built-in grammar
+> (48 `AP_*` + 13 `QA_*` intents) and **[examples/HelloAlpha](examples/HelloAlpha)**.
+
+Reacting to a built-in voice command (the listener you passed to `initSpeechApi`):
+
+```java
+@Override
+public void onServerCallBack(String s) {
+    // Recognition results are prefixed "Local_Result", e.g.
+    //   "Local_Result:rule:QA action:QA_KNOWING tag:how tall are you"
+    if (s == null || !s.startsWith("Local_Result")) return;
+    String intent = fieldBetween(s, "action:", " tag:");   // -> "QA_KNOWING"
+    if ("QA_KNOWING".equals(intent)) {
+        mRobot.action_PlayActionName("Wave the left hand");
+    }
+}
+```
+
+The grammar / semantic-understanding methods below still exist for API completeness, but
+are **inert on this firmware** (see the caveat above):
 
 ```java
 /**
