@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.util.Log;
@@ -37,16 +38,27 @@ public class Alpha2SerialServiceUtil implements ServiceConnection {
       Intent intent = new Intent(ACTION);
       intent.setPackage(SERVICE_PACKAGE);
       // Remember whether the bind took so ReleaseConnection() can unbind safely.
+      // Binding is asynchronous and intentionally NOT awaited here: the
+      // ServiceConnection callback is delivered on the main thread, so blocking the
+      // caller (typically the main thread) would deadlock the very bind we want. Callers
+      // check readiness with isInitCompleted() and treat not-yet-ready as transient.
       this.mBound = this.mContext.bindService(intent, this, Context.BIND_AUTO_CREATE);
-      this.waitForInitComplete();
    }
 
    public boolean isInitCompleted() {
       return this.mService != null;
    }
 
-   /** Blocks briefly (up to ~3s) for the asynchronous bind to complete. */
+   /**
+    * Optionally block (up to ~3s) for the asynchronous bind to complete. Only useful from
+    * a background thread: the {@link ServiceConnection} callback is delivered on the main
+    * thread, so on the main thread this returns immediately rather than spinning (which
+    * would block the very bind it is waiting for).
+    */
    public void waitForInitComplete() {
+      if (Looper.myLooper() == Looper.getMainLooper()) {
+         return;
+      }
       for (int ticks = WAIT_TICKS; ticks > 0 && !this.isInitCompleted(); --ticks) {
          SystemClock.sleep(WAIT_TICK_MS);
       }

@@ -254,9 +254,10 @@ public class MainActivity extends Activity implements SensorEventListener {
         log("initChestSerialApi  -> " + chest);
         log("initHeaderSerialApi -> " + head);
 
-        // Arm the chest sonar (it does not report obstacles until configured).
-        UbxErrorCode.API_ERROR_CODE sonar = mRobot.chest_configureSonar(100);
-        log("chest_configureSonar(100) -> " + sonar);
+        // Arm the chest sonar once the chest serial link has connected. Binding is
+        // asynchronous, so this retries briefly instead of calling synchronously (which
+        // would run before onServiceConnected and return NOT_INIT).
+        armSonarWhenReady(0);
 
         // IMU: register the accelerometer (standard Android sensor framework).
         mSensors = (SensorManager) getSystemService(SENSOR_SERVICE);
@@ -294,6 +295,28 @@ public class MainActivity extends Activity implements SensorEventListener {
             }
         });
         log("action_getActionList (poses) -> " + code);
+    }
+
+    // Chest serial binds asynchronously; retry arming the sonar until it is ready.
+    private static final int SONAR_ARM_MAX_ATTEMPTS = 15;
+    private static final long SONAR_ARM_RETRY_MS = 300L;
+
+    /**
+     * Arm the chest sonar once the chest serial service is connected.
+     * {@code chest_configureSonar} returns {@code NOT_INIT} until the bind completes, so
+     * retry briefly and stop on the first success.
+     */
+    private void armSonarWhenReady(final int attempt) {
+        UbxErrorCode.API_ERROR_CODE sonar = mRobot.chest_configureSonar(100);
+        if (sonar == UbxErrorCode.API_ERROR_CODE.API_ERROR_SUCCEED) {
+            log("chest_configureSonar(100) -> " + sonar);
+        } else if (attempt < SONAR_ARM_MAX_ATTEMPTS) {
+            mLog.postDelayed(new Runnable() {
+                @Override public void run() { armSonarWhenReady(attempt + 1); }
+            }, SONAR_ARM_RETRY_MS);
+        } else {
+            log("chest_configureSonar(100) -> " + sonar + " (chest serial not ready after retries)");
+        }
     }
 
     private void speakGreeting() {
